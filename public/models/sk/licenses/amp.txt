@@ -1,0 +1,11 @@
+Model Information:
+* title:	Marshall Guitar Amp
+* source:	https://sketchfab.com/3d-models/marshall-guitar-amp-cd52e1b5299a40968f44c209899b4597
+* author:	D3 (https://sketchfab.com/dentro)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Marshall Guitar Amp" (https://sketchfab.com/3d-models/marshall-guitar-amp-cd52e1b5299a40968f44c209899b4597) by D3 (https://sketchfab.com/dentro) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

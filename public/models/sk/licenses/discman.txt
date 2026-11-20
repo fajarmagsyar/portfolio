@@ -1,0 +1,11 @@
+Model Information:
+* title:	Sony Discman D-121 Final
+* source:	https://sketchfab.com/3d-models/sony-discman-d-121-final-142cd0af58a2445f9d42c266cffee72f
+* author:	Jacques C. Valentin (https://sketchfab.com/jcvalentinart)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Sony Discman D-121 Final" (https://sketchfab.com/3d-models/sony-discman-d-121-final-142cd0af58a2445f9d42c266cffee72f) by Jacques C. Valentin (https://sketchfab.com/jcvalentinart) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
