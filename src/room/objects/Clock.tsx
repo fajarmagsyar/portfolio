@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useMemo } from "react";
 import { useFrame, type ThreeElements } from "@react-three/fiber";
 import * as THREE from "three";
@@ -7,7 +8,7 @@ import { useClone } from "./Guitar";
 
 // Poly Haven "Wall Clock" (CC0). Its three hands are separate pieces that turn about the
 // middle of the face, so it is made to keep the visitor's own time.
-const CLOCK = "/models/wall_clock/wall_clock.gltf";
+const CLOCK = asset("/models/wall_clock/wall_clock.gltf");
 
 const tip = new THREE.Vector3();
 

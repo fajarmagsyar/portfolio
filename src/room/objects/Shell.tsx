@@ -2,6 +2,7 @@
 
 /* eslint-disable react-hooks/immutability -- three.js geometry and uniforms are mutable by design */
 
+import { asset } from "@/asset";
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
@@ -197,7 +198,7 @@ const rainVert = /* glsl */ `
 // Model: "Window" by adventurer (CC BY 4.0). See CREDITS.md. The outer frame and the two sashes
 // are used, scaled to stand a little proud of the hole in the wall; the leaf over the top is left
 // out. In the file it is 2.37 m wide and 2.27 m tall (the frame), with its middle 1.1355 m up.
-const WINDOW = "/models/window/scene.gltf";
+const WINDOW = asset("/models/window/scene.gltf");
 const WINDOW_SCALE = (WIN.w + 0.08) / 2.37;
 /** the glass: the city behind it is drawn on a plane just inside the frame's depth */
 const GLASS_Z = -0.115;
@@ -573,7 +574,7 @@ function Floor() {
 }
 
 // Model: "Dining table wood with black metal" by Mr.N0b0dy (CC BY 4.0). See CREDITS.md.
-const TABLE = "/models/sk/dining_table.glb";
+const TABLE = asset("/models/sk/dining_table.glb");
 // In the file it is 1.867 m long (along z), 0.801 m deep and 0.777 m high, standing on the floor about its own middle.
 const TABLE_SIZE = { long: 1.867, deep: 0.801, high: 0.777 };
 

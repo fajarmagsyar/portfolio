@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
@@ -16,7 +17,7 @@ import { useRoom } from "../store";
 // The file is in metres and 35 cm tall; on this desk it is a smaller one (SATURN_SCALE).
 // Its chrome ring and tripod are kept. Its globe is a plain glass ball with no picture on it,
 // so it is replaced here by a ball of the same size that carries the surface of a planet.
-const SATURN = "/models/sk/saturn_lamp.glb";
+const SATURN = asset("/models/sk/saturn_lamp.glb");
 
 // Mercury, Venus, Earth, Mars and Jupiter are the surface maps of the planet models by
 // Akshat (CC BY 4.0, see CREDITS.md), reduced to 2048 px. The other three are painted below.

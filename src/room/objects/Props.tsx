@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useMemo, useRef } from "react";
 import { useFrame, type ThreeElements } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
@@ -9,7 +10,7 @@ import { POS } from "../layout";
 import { SaturnLamp } from "./Planets";
 import { TUBE, TvScreen } from "./TvScreen";
 
-const path = (id: string) => `/models/${id}/${id}.gltf`;
+const path = (id: string) => asset(`/models/${id}/${id}.gltf`);
 
 /** A downloaded Poly Haven model (CC0), cloned so it can be placed more than once, with shadows on. */
 export function Model({ asset, ...props }: { asset: string } & ThreeElements["group"]) {

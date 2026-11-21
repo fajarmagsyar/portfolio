@@ -2,6 +2,7 @@
 
 /* eslint-disable react-hooks/refs -- the press handlers read the leaf ref when the pointer goes down, not while rendering */
 
+import { asset } from "@/asset";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
@@ -62,7 +63,7 @@ const BORDER = 0.003;
 // spine are the album's binding. In the file the book lies shut and is one piece; here the
 // front board is cut from the rest so that it can swing open, and the whole is pressed flat
 // to the album's thickness. The lettering on it is left off, and this album's own put on.
-const BOOK = "/models/sk/old_book.glb";
+const BOOK = asset("/models/sk/old_book.glb");
 // The file, in its own units: the book lies on its back, its spine along x at z = 0 or so,
 // its boards running out to z = -7.16; the front board is the top 0.2 or so of its height.
 const FILE = { hinge: -0.74, fore: -7.16, top: 2.45, foot: 0.27, x0: -6.51, x1: 4.16, board: 2.17 };

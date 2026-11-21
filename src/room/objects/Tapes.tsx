@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useMemo, useRef } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
@@ -13,7 +14,7 @@ import { receiptOpen } from "./Pamphlet";
 import { paper, useCanvasTexture, useFonts } from "../textures";
 
 // Model: "Audio Cassettes (Low Poly)" by Mobius1 (CC BY 4.0). See CREDITS.md.
-const CASSETTES = "/models/sk/cassettes.glb";
+const CASSETTES = asset("/models/sk/cassettes.glb");
 
 // Shown a little larger than life (a real cassette is 100 mm wide) so labels read from the desk.
 const W = 0.118;

@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
@@ -16,9 +17,9 @@ import { useRoom } from "../store";
 //  - "Telecaster" by aledororo (CC BY-NC 4.0)
 //  - "Marshall Guitar Amp" by D3 (CC BY 4.0)
 //  - "Wooden guitar stand | Guitar rack asset" by Hineline (CC BY 4.0)
-const TELE = "/models/sk/telecaster.glb";
-const AMP = "/models/sk/amp.glb";
-const STAND = "/models/sk/guitar_stand.glb";
+const TELE = asset("/models/sk/telecaster.glb");
+const AMP = asset("/models/sk/amp.glb");
+const STAND = asset("/models/sk/guitar_stand.glb");
 
 /** Clone of a loaded scene with shadows switched on. */
 export function useClone(url: string) {

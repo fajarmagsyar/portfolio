@@ -2,6 +2,7 @@
 
 /* eslint-disable react-hooks/immutability -- the key meshes are moved every frame; three.js objects are mutable by design */
 
+import { asset } from "@/asset";
 import { useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
@@ -14,7 +15,7 @@ import { useClone } from "./Guitar";
 // Model: "Old Keyboard" by T4iri (CC BY-NC 4.0). See CREDITS.md.
 // Every key is its own piece in the file, so the keyboard on the desk follows the real one:
 // press a key and the same key goes down here, with a click.
-const KEYBOARD = "/models/sk/old_keyboard.glb";
+const KEYBOARD = asset("/models/sk/old_keyboard.glb");
 
 // The file is 341 units wide; on the desk it is 40 cm. Its middle, front to back, is at z = 48.
 const SCALE = 0.4 / 341.2;

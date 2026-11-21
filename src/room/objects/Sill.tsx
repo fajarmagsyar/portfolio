@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useMemo } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
@@ -8,8 +9,8 @@ import { useClone } from "./Guitar";
 
 // Models: "Helmet Redbull - Max Verstappen" by Maubian and "Nintendo DS Lite" by Cianon
 // (both CC BY 4.0). See CREDITS.md.
-const HELMET = "/models/sk/helmet_redbull.glb";
-const DS = "/models/sk/nintendo_ds.glb";
+const HELMET = asset("/models/sk/helmet_redbull.glb");
+const DS = asset("/models/sk/nintendo_ds.glb");
 
 /**
  * A model stood on a surface: scaled so its longest side is `size` metres, centred over

@@ -2,6 +2,7 @@
 
 /* eslint-disable react-hooks/immutability -- three.js uniforms are mutable by design */
 
+import { asset } from "@/asset";
 import { useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Sparkles, useGLTF } from "@react-three/drei";
@@ -67,7 +68,7 @@ const steamFrag = /* glsl */ `
 `;
 
 // Model: "Coffee Cup" by jeffbas (CC BY 4.0). See CREDITS.md.
-const CUP = "/models/sk/coffee_cup.glb";
+const CUP = asset("/models/sk/coffee_cup.glb");
 // The file's mug is 0.9 units tall and 0.8 across, standing off-centre with its handle towards +x.
 const CUP_SCALE = 0.095 / 0.9;
 const CUP_MID: [number, number] = [-0.168, -0.041];

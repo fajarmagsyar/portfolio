@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useMemo, useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
@@ -15,7 +16,7 @@ import { HitBox } from "./Props";
 
 // Model: "Canonet QL17 III" by forpinik (Sketchfab). See CREDITS.md. The file holds a silver
 // camera and a black one; the silver one is kept, with its textures reduced for the web.
-const CANONET = "/models/sk/canonet.glb";
+const CANONET = asset("/models/sk/canonet.glb");
 
 // The body is 21.07 units wide in the file; the real one is 120 mm. These are the file's
 // own numbers for the middle of the camera and the underside of its base plate.

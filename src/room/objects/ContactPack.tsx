@@ -26,7 +26,7 @@ import { canvasTexture, rng, useCanvasTexture, useFonts, type Fonts } from "../t
 // Model: "Trading Card Pack" by goonmize1 (CC BY 4.0). See CREDITS.md. Its shape and the
 // crinkle of its foil are used; what is printed on it is painted here. The cards are made
 // here too; the picture on each is one of the files in public/art/cards/.
-const PACK = "/models/sk/card_pack.glb";
+const PACK = asset("/models/sk/card_pack.glb");
 
 const CARDS = [
   { key: "email", title: "Email", art: "/art/cards/email.jpg", glyph: "@", value: links.email, href: `mailto:${links.email}`, ink: "#b3341f", glow: "#ffb38a", kind: "card_kind_mail", holo: false },

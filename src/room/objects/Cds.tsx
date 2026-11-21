@@ -22,8 +22,8 @@ import { HitBox } from "./Props";
 // Model: "CD with Jewel Case BULLY" by YE YE (CC BY 4.0). See CREDITS.md. Only the case is
 // used: its two halves are taken apart so the lid can swing on its hinge, and shut it stands
 // in a row like a book, spine out. The disc, the leaflet and what is printed on them are made here.
-const DISCMAN = "/models/sk/discman.glb";
-const CASE = "/models/sk/cd_case.glb";
+const DISCMAN = asset("/models/sk/discman.glb");
+const CASE = asset("/models/sk/cd_case.glb");
 
 // a jewel case, life size
 const CW = 0.142;

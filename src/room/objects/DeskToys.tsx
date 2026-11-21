@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useMemo, useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
@@ -15,8 +16,8 @@ import { useClone } from "./Guitar";
 // Models: see CREDITS.md.
 //  - "Simple PC Mouse" by SugarSatea (Sketchfab Standard licence)
 //  - "RPG Dice Set" by ghosted (CC BY 4.0): the file has seven sets, one of each colour; the orange one is kept
-const MOUSE = "/models/sk/mouse.glb";
-const DICE = "/models/sk/dice.glb";
+const MOUSE = asset("/models/sk/mouse.glb");
+const DICE = asset("/models/sk/dice.glb");
 
 /* ---------- the mouse ---------- */
 
