@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
@@ -154,7 +155,7 @@ function useImage(src: string) {
     const el = new Image();
     let alive = true;
     el.onload = () => alive && setImg(el);
-    el.src = src;
+    el.src = asset(src);
     return () => {
       alive = false;
     };

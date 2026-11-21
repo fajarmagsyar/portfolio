@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { certifications, education, skills, type Lang } from "@/content/data";
 import { strings, type StringKey } from "@/content/strings";
 import { useLang } from "@/state/lang";
@@ -22,7 +23,7 @@ function useImage(src: string) {
     const el = new Image();
     let alive = true;
     el.onload = () => alive && setImg(el);
-    el.src = src;
+    el.src = asset(src);
     return () => {
       alive = false;
     };

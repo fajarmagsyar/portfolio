@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { asset } from "@/asset";
 import { hasDisc, next, pause, play, prev, stop, usePlayer } from "@/audio/player";
 import { blip, click, whirr } from "@/audio/sfx";
 import { projects, type Lang, type Project } from "@/content/data";
@@ -77,7 +78,7 @@ function useImage(src: string | undefined) {
     const el = new Image();
     let alive = true;
     el.onload = () => alive && setImg(el);
-    el.src = src;
+    el.src = asset(src);
     return () => {
       alive = false;
     };

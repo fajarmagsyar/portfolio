@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { useState } from "react";
 import {
   certifications,
@@ -59,8 +60,7 @@ export function LiteView({ routed = false }: { routed?: boolean }) {
               {routed ? `${t("routed_note")} ` : ""}
               {t("static_body")}
             </p>
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full load runs the preflight script */}
-            <a href="/?room=1">{t("static_cta")} →</a>
+            <a href={asset("/?room=1")}>{t("static_cta")} →</a>
           </aside>
         )}
 
@@ -191,8 +191,7 @@ export function LiteView({ routed = false }: { routed?: boolean }) {
 
       <footer className={s.footer}>
         <span>{profile.name}</span>
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full load runs the preflight script */}
-        <a href="/?room=1">{t("hifi")} →</a>
+        <a href={asset("/?room=1")}>{t("hifi")} →</a>
       </footer>
     </div>
   );

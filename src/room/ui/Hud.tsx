@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { chordName } from "@/audio/guitar";
@@ -255,7 +256,7 @@ export function Hud() {
       <header className={s.top}>
         <button className={s.brand} onClick={() => setFocus(null)}>
           {/* eslint-disable-next-line @next/next/no-img-element -- a small fixed mark */}
-          <img className={s.mark} src="/logo.png" alt="" />
+          <img className={s.mark} src={asset("/logo.png")} alt="" />
           {profile.name}
         </button>
       </header>

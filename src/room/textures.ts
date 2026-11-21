@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
+import { asset } from "@/asset";
 
 export type Fonts = { hand: string; screen: string; body: string; display: string; script: string; marker: string; black: string; serif: string };
 
@@ -68,7 +69,7 @@ export function useImage(src: string | undefined) {
     const el = new Image();
     let alive = true;
     el.onload = () => alive && setImg(el);
-    el.src = src;
+    el.src = asset(src);
     return () => {
       alive = false;
     };

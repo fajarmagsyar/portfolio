@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import Link from "next/link";
 import { useLangStore, useT } from "@/state/lang";
 import styles from "./Switches.module.css";
@@ -30,8 +31,7 @@ export function FidelityToggle({ current }: { current: "hifi" | "lofi" }) {
         </span>
       ) : (
         // Plain <a>: a full load lets the preflight script in layout.tsx run.
-        // eslint-disable-next-line @next/next/no-html-link-for-pages
-        <a className={styles.btn} href="/?room=1" title={t("hifi_tip")}>
+        <a className={styles.btn} href={asset("/?room=1")} title={t("hifi_tip")}>
           {t("hifi")}
         </a>
       )}

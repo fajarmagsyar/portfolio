@@ -42,3 +42,8 @@ next-env.d.ts
 
 # model zips dropped in by hand
 /downloads/*.zip
+
+# static export for GitHub Pages, a test build of it, and the big source archives
+/out/
+/.next-pages/
+/downloads/*.zip

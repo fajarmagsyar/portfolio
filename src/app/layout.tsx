@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Caveat, Permanent_Marker, Cedarville_Cursive, DotGothic16, EB_Garamond, UnifrakturCook, Zen_Kaku_Gothic_New } from "next/font/google";
+import { BASE_PATH } from "@/asset";
 import "./globals.css";
 
 const body = Zen_Kaku_Gothic_New({
@@ -66,7 +67,7 @@ export const viewport: Viewport = {
 
 // Runs before first paint: if this device will get the 3D room, hide the static
 // markup so it does not flash before the room mounts. Mirrors canRunRoom() in Home.tsx.
-const preflight = `(function(){try{var p=new URLSearchParams(location.search);var f=p.get('room')==='1';var ok=innerWidth>=860&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!!document.createElement('canvas').getContext('webgl2');if(location.pathname==='/'&&(f||ok))document.documentElement.classList.add('will-room');}catch(e){}})();`;
+const preflight = `(function(){try{var p=new URLSearchParams(location.search);var f=p.get('room')==='1';var ok=innerWidth>=860&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!!document.createElement('canvas').getContext('webgl2');if((location.pathname==='/'||location.pathname==='${BASE_PATH}'||location.pathname==='${BASE_PATH}/')&&(f||ok))document.documentElement.classList.add('will-room');}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

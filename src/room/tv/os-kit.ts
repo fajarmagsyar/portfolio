@@ -1,3 +1,4 @@
+import { asset } from "@/asset";
 import type { Lang } from "@/content/data";
 import type { Fonts } from "../textures";
 
@@ -82,7 +83,7 @@ export function drawMark(ctx: CanvasRenderingContext2D, colour: string, x: numbe
   if (typeof Image === "undefined") return false;
   if (!markImg) {
     markImg = new Image();
-    markImg.src = "/logo.png";
+    markImg.src = asset("/logo.png");
   }
   if (!markImg.complete || !markImg.naturalWidth) return false;
   let tint = marks.get(colour);

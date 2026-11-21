@@ -1,5 +1,6 @@
 "use client";
 
+import { asset } from "@/asset";
 import { onSound, soundOn } from "./sound";
 import { create } from "zustand";
 import { tracks } from "@/content/music";
@@ -34,7 +35,7 @@ function el() {
 function start(index: number) {
   const a = el();
   if (cued !== index) {
-    a.src = tracks[index].src;
+    a.src = asset(tracks[index].src);
     cued = index;
   }
   usePlayer.setState({ index, state: "playing" });
@@ -74,7 +75,7 @@ function skipTo(index: number) {
   if (audio && cued === index) audio.currentTime = 0;
   usePlayer.setState({ index, seconds: 0 });
   if (state === "paused" && audio) {
-    audio.src = tracks[index].src;
+    audio.src = asset(tracks[index].src);
     cued = index;
   }
 }

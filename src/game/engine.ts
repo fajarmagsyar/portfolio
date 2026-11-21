@@ -1,3 +1,4 @@
+import { asset } from "@/asset";
 import { blip } from "@/audio/sfx";
 import { jobs, jobYears, profile, type Lang } from "@/content/data";
 import { strings } from "@/content/strings";
@@ -101,7 +102,7 @@ function load(src: string) {
     const im = new Image();
     im.onload = () => resolve(im);
     im.onerror = reject;
-    im.src = src;
+    im.src = asset(src);
   });
 }
 
