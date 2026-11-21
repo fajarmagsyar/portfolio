@@ -4,7 +4,9 @@ import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { WALL_Z } from "../layout";
+import { Interactive } from "../Interactive";
+import { POS, WALL_Z } from "../layout";
+import { Clock } from "./Clock";
 import { Model } from "./Props";
 
 // What stands around the desk, so the room is not bare when the view is turned: a bookshelf
@@ -37,7 +39,7 @@ export function Furniture() {
         <Model asset="book_encyclopedia_set_01" position={[-0.5, 0.38, 0.03]} />
         <Model asset="potted_plant_04" position={[0.4, 0.95, 0.04]} scale={1.1} />
         <Model asset="ceramic_vase_03" position={[-0.4, 1.65, 0.02]} scale={0.85} />
-        <Model asset="wall_clock" position={[0.3, 0.38 + 0.13, 0.08]} rotation={[-0.12, -0.2, 0]} scale={0.8} />
+        <Clock position={[0.3, 0.38 + 0.13, 0.08]} rotation={[-0.12, -0.2, 0]} scale={0.8} />
       </group>
       {/* a chair to read in, turned towards the desk, and a small table beside it */}
       <Model asset="mid_century_lounge_chair" position={[2.3, 0, 1.3]} rotation={[0, -2.35, 0]} />
@@ -50,8 +52,10 @@ export function Furniture() {
       <Model asset="ceramic_vase_03" position={[CHEST[0] - 0.1, 1.09, CHEST[2] + 0.66]} />
       <Model asset="vintage_oil_lamp" position={[FLAME[0], 1.09, FLAME[2]]} scale={0.7} />
       <pointLight ref={flame} position={FLAME} color="#ffb060" distance={3.2} decay={1.8} />
-      {/* and a clock on the back wall above the amp */}
-      <Model asset="wall_clock" position={[-2.3, 1.85, WALL_Z + 0.004]} scale={1.25} />
+      {/* and a clock on the back wall beside the window, where a glance from the desk finds it. Both clocks keep the real time. */}
+      <Interactive target="clock" position={POS.clock}>
+        <Clock scale={0.8} />
+      </Interactive>
     </group>
   );
 }

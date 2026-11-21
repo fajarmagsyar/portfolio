@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Caveat, DotGothic16, Zen_Kaku_Gothic_New } from "next/font/google";
+import { Archivo, Caveat, Permanent_Marker, Cedarville_Cursive, DotGothic16, EB_Garamond, UnifrakturCook, Zen_Kaku_Gothic_New } from "next/font/google";
 import "./globals.css";
 
 const body = Zen_Kaku_Gothic_New({
@@ -27,6 +27,33 @@ const hand = Caveat({
   subsets: ["latin"],
 });
 
+// Joined-up handwriting, as written with a pen: for the line on the cover of the photo album.
+const script = Cedarville_Cursive({
+  variable: "--font-script",
+  weight: "400",
+  subsets: ["latin"],
+});
+
+// Felt-tip on masking tape: for the workplace names on the cassettes.
+const marker = Permanent_Marker({
+  variable: "--font-marker",
+  weight: "400",
+  subsets: ["latin"],
+});
+
+// For the diploma on the desk: an old-style blackletter for the name of the university, and a book serif for the rest.
+const black = UnifrakturCook({
+  variable: "--font-black",
+  weight: "700",
+  subsets: ["latin"],
+});
+
+const serif = EB_Garamond({
+  variable: "--font-serif",
+  weight: ["500", "700"],
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "Fajar Magsyar — Software Engineer",
   description:
@@ -43,7 +70,7 @@ const preflight = `(function(){try{var p=new URLSearchParams(location.search);va
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="id" className={`${body.variable} ${screen.variable} ${hand.variable} ${display.variable}`} suppressHydrationWarning>
+    <html lang="id" className={`${body.variable} ${screen.variable} ${hand.variable} ${display.variable} ${script.variable} ${marker.variable} ${black.variable} ${serif.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: preflight }} />
       </head>

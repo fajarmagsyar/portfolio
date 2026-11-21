@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { click } from "@/audio/sfx";
 import { Interactive } from "../Interactive";
 import { POS } from "../layout";
+import { hint } from "../hint";
 import { orbit } from "../orbit";
 import { useRoom } from "../store";
 import { useClone } from "./Guitar";
@@ -60,6 +62,7 @@ const TAU = Math.PI * 2;
 /** The camera on the desk. Focused, it is picked up: drag turns it over in the hand. */
 export function Canonet() {
   const held = useRoom((s) => s.focus === "canonet");
+  const peeking = useRoom((s) => s.focus === "canonet" && s.finder);
   const ref = useRef<THREE.Group>(null);
   const turn = useRef({ yaw: REST_YAW, pitch: 0 });
 
@@ -70,16 +73,38 @@ export function Canonet() {
     // put down, it goes back the short way round however many times it was spun
     if (!held) t.yaw = REST_YAW + ((((t.yaw - REST_YAW + Math.PI) % TAU) + TAU) % TAU) - Math.PI;
     const k = 1 - Math.exp(-dt * (held ? 12 : 6));
-    t.yaw += ((held ? 0.55 - orbit.yaw : REST_YAW) - t.yaw) * k;
-    t.pitch += ((held ? 0.12 + orbit.pitch : 0) - t.pitch) * k;
+    // (while the eye is at the viewfinder the drag is looking about, and the camera keeps as it was)
+    t.yaw += ((held ? (peeking ? t.yaw : 0.55 - orbit.yaw) : REST_YAW) - t.yaw) * k;
+    t.pitch += ((held ? (peeking ? t.pitch : 0.12 + orbit.pitch) : 0) - t.pitch) * k;
     g.rotation.set(t.pitch, t.yaw, 0);
+    // with the eye at its viewfinder the camera itself is not seen: the eye is inside it
+    g.visible = !peeking;
     const y = POS.canonet[1] + MID + (held ? 0.105 : 0);
     g.position.y += (y - g.position.y) * (1 - Math.exp(-dt * 6));
   });
 
   return (
     <Interactive target="canonet">
-      <group ref={ref} position={[POS.canonet[0], POS.canonet[1] + MID, POS.canonet[2]]} rotation={[0, REST_YAW, 0]}>
+      <group
+        ref={ref}
+        position={[POS.canonet[0], POS.canonet[1] + MID, POS.canonet[2]]}
+        rotation={[0, REST_YAW, 0]}
+        // pointed at, it says what it is and what it means to its owner; held, a click puts the eye to its viewfinder
+        onPointerOver={() => {
+          // only once it has been picked up; from across the room it is just named
+          if (held) hint("canonet_about");
+        }}
+        onPointerOut={() => {
+          if (useRoom.getState().tip === "canonet_about") hint(null);
+        }}
+        onClick={(e: ThreeEvent<MouseEvent>) => {
+          if (!held) return;
+          e.stopPropagation();
+          click(0.7);
+          hint(null);
+          useRoom.getState().setFinder(true);
+        }}
+      >
         <group position={[0, -MID, 0]}>
           <Body />
         </group>

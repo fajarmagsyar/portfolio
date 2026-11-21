@@ -4,9 +4,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { click } from "@/audio/sfx";
-import { profile } from "@/content/data";
 import { photos, type Photo } from "@/content/photos";
 import { strings } from "@/content/strings";
 import { useLang } from "@/state/lang";
@@ -14,11 +14,12 @@ import { drawPlaceholder, LEAVES, MAX_TURNED, PER_PAGE } from "../album";
 import { Interactive } from "../Interactive";
 import { ALBUM_HELD, POS } from "../layout";
 import { orbit } from "../orbit";
+import { hint } from "../hint";
 import { useRoom } from "../store";
 import { canvasTexture, paper, rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
 
-// A photo album, built here. Shut, it lies on the desk: tan leather, a print set into the
-// cover, brass corners. Focused, it is lifted towards the chair and the cover swings open
+// A photo album. Its binding is an old leather-bound book (see "the binding", below); its
+// pages and prints are made here. Shut, it lies on the desk. Focused, it is lifted towards the chair and the cover swings open
 // on thick cream pages; each print is held by four black corners and has its caption
 // written under it. The pages are card that bends as it turns: click a page to turn it, or
 // take hold of it and drag it over. Click a print and the camera moves in on it.
@@ -55,112 +56,83 @@ export function turnAlbum(by: number) {
 const SLOT = { w: 0.156, h: 0.108, y: [0.061, -0.061] };
 const BORDER = 0.003;
 
-/* ---------- painted surfaces ---------- */
+/* ---------- the binding ---------- */
 
-const LEATHER = "#8a4a26";
+// Model: "Old Book" by Mike Rowley (CC BY 4.0). See CREDITS.md. Its covers and its rounded
+// spine are the album's binding. In the file the book lies shut and is one piece; here the
+// front board is cut from the rest so that it can swing open, and the whole is pressed flat
+// to the album's thickness. The lettering on it is left off, and this album's own put on.
+const BOOK = "/models/sk/old_book.glb";
+// The file, in its own units: the book lies on its back, its spine along x at z = 0 or so,
+// its boards running out to z = -7.16; the front board is the top 0.2 or so of its height.
+const FILE = { hinge: -0.74, fore: -7.16, top: 2.45, foot: 0.27, x0: -6.51, x1: 4.16, board: 2.17 };
+const THICK = COVER_T * 2 + LEAVES * STEP;
+/** where the front board lies when the album is shut: the top of the stack */
+const SHUT_Z = COVER_T + LEAVES * STEP + COVER_T / 2;
 
-function leather(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number) {
-  ctx.fillStyle = LEATHER;
-  ctx.fillRect(0, 0, w, h);
-  const r = rng(seed);
-  // pebbled grain, then the wear a handled book picks up towards its edges
-  for (let i = 0; i < 5200; i++) {
-    ctx.fillStyle = `rgba(${r() > 0.55 ? "255,200,150" : "30,10,0"},${0.03 + r() * 0.06})`;
-    ctx.beginPath();
-    ctx.arc(r() * w, r() * h, 0.6 + r() * 1.8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  const wear = ctx.createRadialGradient(w / 2, h / 2, h * 0.25, w / 2, h / 2, h * 0.75);
-  wear.addColorStop(0, "rgba(255,190,130,0.10)");
-  wear.addColorStop(1, "rgba(20,6,0,0.42)");
-  ctx.fillStyle = wear;
-  ctx.fillRect(0, 0, w, h);
+/** The two halves of the binding, in the album's own space: the front board about its hinge, and the spine with the back board. */
+function useBinding() {
+  const { scene } = useGLTF(BOOK);
+  return useMemo(() => {
+    scene.updateMatrixWorld(true);
+    const front: { geometry: THREE.BufferGeometry; material: THREE.Material }[] = [];
+    const rest: { geometry: THREE.BufferGeometry; material: THREE.Material }[] = [];
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || !o.name.toLowerCase().includes("cover") || o.name.includes("Front")) return;
+      const g = m.geometry.clone().applyMatrix4(m.matrixWorld);
+      if (!g.index) return;
+      const at = g.attributes.position;
+      // which faces are the front board: high up, and out past the hinge
+      const board: number[] = [];
+      const other: number[] = [];
+      for (let t = 0; t < g.index.count; t += 3) {
+        const tri = [g.index.getX(t), g.index.getX(t + 1), g.index.getX(t + 2)];
+        const y = tri.reduce((sum, i) => sum + at.getY(i), 0) / 3;
+        const z = tri.reduce((sum, i) => sum + at.getZ(i), 0) / 3;
+        (y > FILE.board && z < FILE.hinge + 0.14 ? board : other).push(...tri);
+      }
+      // into the album's space: across from the hinge, up the page, out of the cover
+      const across = W / (FILE.hinge - FILE.fore);
+      for (let i = 0; i < at.count; i++) {
+        const out = FILE.hinge - at.getZ(i);
+        at.setXYZ(
+          i,
+          // the round of the spine is kept shallow: it is a slim album, not a ledger
+          out >= 0 ? out * across : out * across * 0.42,
+          -(at.getX(i) - (FILE.x0 + FILE.x1) / 2) * (H / (FILE.x1 - FILE.x0)),
+          ((at.getY(i) - FILE.foot) / (FILE.top - FILE.foot)) * THICK,
+        );
+      }
+      // plain leather, with none of the file's mottling: the boards dark, the spine a shade redder
+      const spine = (m.material as THREE.Material).name === "Material.001";
+      const material = new THREE.MeshStandardMaterial({ color: spine ? "#4a2d1f" : "#3a2a22", roughness: spine ? 0.7 : 0.8, envMapIntensity: 0.5, side: THREE.DoubleSide });
+      const a = g.clone();
+      a.setIndex(board);
+      a.translate(0, 0, -SHUT_Z);
+      a.computeVertexNormals();
+      const b = g;
+      b.setIndex(other);
+      b.computeVertexNormals();
+      if (board.length) front.push({ geometry: a, material });
+      if (other.length) rest.push({ geometry: b, material });
+    });
+    return { front, rest };
+  }, [scene]);
 }
 
-/** A line pressed into the leather: dark on one side, catching light on the other. */
-function deboss(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, colour: string, width: number) {
-  ctx.lineWidth = width;
-  ctx.strokeStyle = "rgba(20,6,0,0.55)";
-  ctx.strokeRect(x - 1.5, y - 1.5, w, h);
-  ctx.strokeStyle = colour;
-  ctx.strokeRect(x, y, w, h);
-}
-
-// the window on the cover that a print sits in, in the album's metres from the cover's middle
-const INSET = { w: 0.104, h: 0.07, y: 0.04 };
-
-function drawCover(ctx: CanvasRenderingContext2D, w: number, h: number, fonts: Fonts | null) {
-  leather(ctx, w, h, 5);
-  const px = w / W;
-  // the spine: a darker band, and the stitching beside it
-  const spine = w * 0.105;
-  ctx.fillStyle = "rgba(30,10,2,0.45)";
-  ctx.fillRect(0, 0, spine, h);
-  ctx.strokeStyle = "rgba(245,215,160,0.55)";
-  ctx.lineWidth = 2.2;
-  ctx.setLineDash([9, 7]);
-  ctx.beginPath();
-  ctx.moveTo(spine + 13, 20);
-  ctx.lineTo(spine + 13, h - 20);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  // one blind-stamped line round the board, and the well the cover print is mounted in
-  deboss(ctx, spine + 38, 40, w - spine - 78, h - 80, "rgba(40,16,4,0.5)", 2);
-  const cx = w / 2 + spine / 2;
-  const iw = INSET.w * px + 18;
-  const ih = INSET.h * px + 18;
-  const iy = h / 2 - INSET.y * px;
-  ctx.fillStyle = "rgba(20,6,0,0.6)";
-  ctx.fillRect(cx - iw / 2, iy - ih / 2, iw, ih);
+// All there is on the front board: one line, written small near the top in a joined-up hand.
+function drawTitle(ctx: CanvasRenderingContext2D, w: number, h: number, fonts: Fonts | null) {
+  ctx.clearRect(0, 0, w, h);
   if (!fonts) return;
-  // the title, stamped in dulled gold
-  ctx.fillStyle = "rgba(214,170,98,0.85)";
+  ctx.fillStyle = "#d8b876";
   ctx.textAlign = "center";
-  ctx.font = `700 54px ${fonts.hand}`;
-  ctx.fillText(profile.name, cx, h * 0.74);
-  ctx.font = `19px ${fonts.screen}`;
-  ctx.fillText("P H O T O G R A P H S", cx, h * 0.8);
+  ctx.textBaseline = "middle";
+  ctx.font = `400 27px ${fonts.script}`;
+  ctx.fillText("The world through my lens", w / 2, h * 0.17, w - 120);
 }
 
-/** The cover's surface in grey: the grain of the hide and everything pressed into it. Light is raised and matt, dark is sunk and smooth. */
-function drawCoverRelief(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  ctx.fillStyle = "rgb(168,168,168)";
-  ctx.fillRect(0, 0, w, h);
-  const r = rng(5);
-  for (let i = 0; i < 9000; i++) {
-    const v = r() > 0.5 ? 255 : 60;
-    ctx.fillStyle = `rgba(${v},${v},${v},${0.1 + r() * 0.22})`;
-    ctx.beginPath();
-    ctx.arc(r() * w, r() * h, 0.8 + r() * 2.2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // creases where it has been bent, and the polish of handling towards the middle
-  ctx.strokeStyle = "rgba(40,40,40,0.35)";
-  for (let i = 0; i < 14; i++) {
-    ctx.lineWidth = 0.8 + r() * 1.4;
-    ctx.beginPath();
-    const x = r() * w;
-    const y = r() * h;
-    ctx.moveTo(x, y);
-    ctx.quadraticCurveTo(x + (r() - 0.5) * 160, y + (r() - 0.5) * 160, x + (r() - 0.5) * 240, y + (r() - 0.5) * 240);
-    ctx.stroke();
-  }
-  const worn = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, h * 0.6);
-  worn.addColorStop(0, "rgba(70,70,70,0.3)");
-  worn.addColorStop(1, "rgba(70,70,70,0)");
-  ctx.fillStyle = worn;
-  ctx.fillRect(0, 0, w, h);
-  const px = w / W;
-  const spine = w * 0.105;
-  ctx.fillStyle = "rgba(60,60,60,0.5)";
-  ctx.fillRect(spine - 4, 0, 6, h);
-  ctx.strokeStyle = "rgb(50,50,50)";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(spine + 38, 40, w - spine - 78, h - 80);
-  const cx = w / 2 + spine / 2;
-  ctx.fillStyle = "rgb(40,40,40)";
-  ctx.fillRect(cx - (INSET.w * px + 18) / 2, h / 2 - INSET.y * px - (INSET.h * px + 18) / 2, INSET.w * px + 18, INSET.h * px + 18);
-}
+/* ---------- painted pages ---------- */
 
 const PAPER = "#ebe2ce";
 
@@ -196,57 +168,22 @@ function drawPage(ctx: CanvasRenderingContext2D, w: number, h: number, page: num
   cardStock(ctx, w, h, page * 3 + 11, gutter);
 }
 
-function drawEndpaper(ctx: CanvasRenderingContext2D, w: number, h: number, fonts: Fonts | null) {
-  // patterned endpaper: gilt lozenges on ochre, the way bound albums are lined
-  ctx.fillStyle = "#b9853f";
+// The inside of the front board: the same leather, turned in, with nothing on it.
+function drawEndpaper(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  ctx.fillStyle = "#3a2a22";
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = "rgba(255,226,160,0.5)";
-  ctx.lineWidth = 1.4;
-  const d = 30;
-  for (let y = 0; y < h + d; y += d) {
-    for (let x = (y / d) % 2 ? d / 2 : 0; x < w + d; x += d) {
-      ctx.beginPath();
-      ctx.moveTo(x, y - 9);
-      ctx.lineTo(x + 6, y);
-      ctx.lineTo(x, y + 9);
-      ctx.lineTo(x - 6, y);
-      ctx.closePath();
-      ctx.stroke();
-    }
+  const r = rng(23);
+  for (let i = 0; i < 5200; i++) {
+    ctx.fillStyle = `rgba(${r() > 0.55 ? "255,210,170" : "10,4,0"},${0.03 + r() * 0.06})`;
+    ctx.beginPath();
+    ctx.arc(r() * w, r() * h, 0.6 + r() * 1.8, 0, Math.PI * 2);
+    ctx.fill();
   }
-  const g = ctx.createLinearGradient(w, 0, w * 0.78, 0);
-  g.addColorStop(0, "rgba(0,0,0,0.5)");
-  g.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = g;
+  const wear = ctx.createRadialGradient(w / 2, h / 2, h * 0.2, w / 2, h / 2, h * 0.75);
+  wear.addColorStop(0, "rgba(255,200,150,0.06)");
+  wear.addColorStop(1, "rgba(0,0,0,0.35)");
+  ctx.fillStyle = wear;
   ctx.fillRect(0, 0, w, h);
-  // the bookplate
-  const bw = w * 0.56;
-  const bh = h * 0.27;
-  const bx = (w - bw) / 2 - 8;
-  const by = h * 0.36;
-  ctx.fillStyle = "rgba(0,0,0,0.3)";
-  ctx.fillRect(bx + 4, by + 5, bw, bh);
-  ctx.save();
-  ctx.translate(bx, by);
-  paper(ctx, bw, bh, PAPER, 9);
-  ctx.strokeStyle = "#8a6a2f";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(10, 10, bw - 20, bh - 20);
-  ctx.lineWidth = 0.8;
-  ctx.strokeRect(15, 15, bw - 30, bh - 30);
-  if (fonts) {
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#8a6a2f";
-    ctx.font = `16px ${fonts.screen}`;
-    ctx.fillText("E X   L I B R I S", bw / 2, bh * 0.3);
-    ctx.fillStyle = "#1d1712";
-    ctx.font = `700 46px ${fonts.hand}`;
-    ctx.fillText(profile.name, bw / 2, bh * 0.58);
-    ctx.fillStyle = "#4a3a22";
-    ctx.font = `13px ${fonts.screen}`;
-    ctx.fillText(`${photos.length} PHOTOGRAPHS`, bw / 2, bh * 0.8);
-  }
-  ctx.restore();
 }
 
 /* ---------- prints ---------- */
@@ -256,6 +193,16 @@ function drawEndpaper(ctx: CanvasRenderingContext2D, w: number, h: number, fonts
  * until then. Nothing is fetched until `wanted`, so only the pages near the open one cost
  * anything; once fetched, a photo is kept.
  */
+/** What is in the album: the photographs, and before them the one taken here with the Canonet, if one has been. */
+function useAlbumPhotos(): Photo[] {
+  const shot = useRoom((s) => s.shot);
+  return useMemo(() => {
+    // it goes in only if there is a slot to spare for it
+    const room = (LEAVES * 2 + 1) * PER_PAGE > photos.length;
+    return shot && room ? [{ src: shot, caption: { id: strings.id.shot_caption, en: strings.en.shot_caption } }, ...photos] : photos;
+  }, [shot]);
+}
+
 function usePhoto(photo: Photo, index: number, label: string, wanted: boolean) {
   const empty = photo.src === null;
   // an empty slot gets a painted landscape; a real photo waits as blank photographic paper
@@ -313,7 +260,8 @@ const printMat = new THREE.MeshStandardMaterial({ color: "#f6f1e6", roughness: 0
 /** A print with its white border, sized to fit a box whichever way up the photo is. */
 function Picture({ index, maxW, maxH, corners, wanted, glow = 0.42, onPress }: { index: number; maxW: number; maxH: number; corners?: boolean; wanted: boolean; glow?: number; onPress?: (e: ThreeEvent<PointerEvent>) => void }) {
   const lang = useLang();
-  const { tex, aspect } = usePhoto(photos[index], index, strings[lang].photo_slot, wanted);
+  const list = useAlbumPhotos();
+  const { tex, aspect } = usePhoto(list[index], index, strings[lang].photo_slot, wanted);
   const w = Math.min(maxW - BORDER * 2, (maxH - BORDER * 2) * aspect);
   const h = w / aspect;
   const ow = w + BORDER * 2;
@@ -329,11 +277,14 @@ function Picture({ index, maxW, maxH, corners, wanted, glow = 0.42, onPress }: {
         position={[0, 0, 0.00018]}
         material={printMat}
         onPointerDown={onPress}
-        onPointerOver={() => {
-          if (onPress) document.body.style.cursor = "zoom-in";
+        onPointerOver={(e) => {
+          if (!onPress) return;
+          // the photo is what is under the pointer, not the page it is on
+          e.stopPropagation();
+          hint("tip_photo", "zoom-in");
         }}
         onPointerOut={() => {
-          if (onPress) document.body.style.cursor = "";
+          if (onPress) hint(null);
         }}
       >
         <planeGeometry args={[ow, oh, 14, 1]} />
@@ -361,7 +312,7 @@ function Picture({ index, maxW, maxH, corners, wanted, glow = 0.42, onPress }: {
 
 // What the pointer went down on, until it comes up again. A press that does not move is a
 // click: on a print it moves the camera in, on bare page it turns the page. A press that
-// moves drags the page over by hand; let go past half way and it falls on over.
+// moves drags the page over by hand; let go a third of the way across and it falls on over.
 type Press = { photo: number | null; leaf: number; from: number; x: number; span: number; moved: boolean };
 let press: Press | null = null;
 /** the leaf being dragged, and how far over it is held (0 lying right, 1 lying left) */
@@ -382,8 +333,9 @@ function usePressHandling() {
       if (!press.moved && Math.abs(dx) < 5) return;
       press.moved = true;
       pull.leaf = press.leaf;
-      // the page's edge crosses two page-widths of screen on its way over
-      pull.a = Math.min(1, Math.max(0, press.from - dx / (press.span * 2)));
+      // The page's edge crosses two page-widths of screen on its way over, but the hand that
+      // took it by its middle cannot: a drag of a little over one page-width takes it right across.
+      pull.a = Math.min(1, Math.max(0, press.from - dx / (press.span * 1.25)));
     };
     const up = () => {
       const p = press;
@@ -393,7 +345,8 @@ function usePressHandling() {
       const s = useRoom.getState();
       if (p.moved) {
         if (pull.leaf < 0) return;
-        const over = pull.a > 0.5;
+        // let go a third of the way from where it started, it carries on over; short of that it falls back
+        const over = p.from === 0 ? pull.a > 0.32 : pull.a > 0.68;
         pull.leaf = -1;
         const turned = over ? p.leaf + 1 : p.leaf;
         if (turned !== s.albumTurned) {
@@ -424,10 +377,11 @@ function usePressHandling() {
 /** One side of a page: the prints mounted on it, laid out about the page's middle, facing +z. */
 function Face({ page, near, onPress }: { page: number; near: boolean; onPress?: (e: ThreeEvent<PointerEvent>, photo: number | null) => void }) {
   const first = page * PER_PAGE;
+  const count = useAlbumPhotos().length;
   return (
     <>
       {Array.from({ length: PER_PAGE }, (_, slot) => first + slot)
-        .filter((i) => i < photos.length)
+        .filter((i) => i < count)
         .map((i) => (
           <group key={i} position={[0, SLOT.y[i - first], 0]}>
             <Picture index={i} maxW={SLOT.w} maxH={SLOT.h} corners wanted={near} onPress={onPress && ((e) => onPress(e, i))} />
@@ -455,10 +409,6 @@ export function albumPhotoView(index: number) {
 
 /* ---------- the book ---------- */
 
-const boardMat = new THREE.MeshStandardMaterial({ color: "#5a2f18", roughness: 0.6 });
-const brassMat = new THREE.MeshStandardMaterial({ color: "#a88748", metalness: 1, roughness: 0.55 });
-const BRASS = 0.024;
-const brassGeo = new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(BRASS, 0), new THREE.Vector2(0, BRASS)]), { depth: COVER_T + 0.0008, bevelEnabled: false });
 
 /** A page's painted surface, as a material. */
 function usePageMat(page: number, gutter: "left" | "right") {
@@ -575,10 +525,10 @@ function Leaf({ index, turned, live }: { index: number; turned: number; live: bo
   const pressFront = frontLive ? (e: ThreeEvent<PointerEvent>, photo: number | null = null) => startPress(e, photo, index, 0, span()) : undefined;
   const pressBack = backLive ? (e: ThreeEvent<PointerEvent>, photo: number | null = null) => startPress(e, photo, index, 1, span()) : undefined;
   const hover = (on: boolean) => () => {
-    if (on) document.body.style.cursor = "grab";
+    if (on) hint("tip_page", "grab");
   };
   const leave = (on: boolean) => () => {
-    if (on) document.body.style.cursor = "";
+    if (on) hint(null);
   };
   const e = LEAF_T / 2;
   return (
@@ -603,34 +553,13 @@ function Leaf({ index, turned, live }: { index: number; turned: number; live: bo
   );
 }
 
-function Cover({ turned }: { turned: number }) {
+function Cover({ turned, binding }: { turned: number; binding: ReturnType<typeof useBinding> }) {
   const fonts = useFonts();
   const ref = useRef<THREE.Group>(null);
   const at = useRef(0);
-  const coverTex = useCanvasTexture(512, 670, (c, w, h) => drawCover(c, w, h, fonts), [fonts]);
-  const endTex = useCanvasTexture(512, 670, (c, w, h) => drawEndpaper(c, w, h, fonts), [fonts]);
-  const reliefTex = useMemo(() => {
-    const t = canvasTexture(512, 670, drawCoverRelief);
-    t.colorSpace = THREE.NoColorSpace;
-    return t;
-  }, []);
-  useEffect(() => () => reliefTex.dispose(), [reliefTex]);
-  const mats = useMemo(() => {
-    // the grey sheet does two jobs: its relief catches the light, and it says how dull each spot is
-    const out = new THREE.MeshStandardMaterial({ map: coverTex, roughness: 1, roughnessMap: reliefTex, bumpMap: reliefTex, bumpScale: 1.2 });
-    const inside = new THREE.MeshStandardMaterial({ map: endTex, roughness: 0.9 });
-    // box faces: +x, -x, +y, -y, +z (outside), -z (inside)
-    return [boardMat, boardMat, boardMat, boardMat, out, inside];
-  }, [coverTex, endTex, reliefTex]);
-  useEffect(
-    () => () => {
-      mats[4].dispose();
-      mats[5].dispose();
-    },
-    [mats],
-  );
+  const endTex = useCanvasTexture(512, 670, (c, w, h) => drawEndpaper(c, w, h), []);
+  const titleTex = useCanvasTexture(512, 670, (c, w, h) => drawTitle(c, w, h, fonts), [fonts]);
   // a stiff board on a hinge: shut it is the top of the right-hand stack, open the bottom of the left
-  const shutZ = COVER_T + LEAVES * STEP + COVER_T / 2;
   const openZ = COVER_T / 2;
   const goal = turned > 0 ? 1 : 0;
   useFrame((_, dt) => {
@@ -638,23 +567,23 @@ function Cover({ turned }: { turned: number }) {
     if (!g) return;
     at.current += (goal - at.current) * (1 - Math.exp(-dt * 5.5));
     g.rotation.y = -OPEN * at.current;
-    g.position.z = shutZ + (openZ - shutZ) * at.current;
+    g.position.z = SHUT_Z + (openZ - SHUT_Z) * at.current;
   });
-  const z = -COVER_T / 2 - 0.0004;
   return (
-    <group ref={ref} position={[0, 0, shutZ]}>
-      <mesh position={[W / 2, 0, 0]} material={mats} castShadow receiveShadow>
-        <boxGeometry args={[W, H, COVER_T]} />
+    <group ref={ref} position={[0, 0, SHUT_Z]}>
+      {binding.front.map((part, i) => (
+        <mesh key={i} geometry={part.geometry} material={part.material} castShadow receiveShadow />
+      ))}
+      {/* the one line written on the leather */}
+      <mesh position={[W / 2, 0, COVER_T / 2 + 0.0004]}>
+        <planeGeometry args={[W * 0.9, H * 0.9]} />
+        <meshStandardMaterial map={titleTex} emissiveMap={titleTex} emissive="#ffffff" emissiveIntensity={0.25} transparent metalness={0.85} roughness={0.38} envMapIntensity={2} depthWrite={false} />
       </mesh>
-      {/* the print set into the cover: the first photograph in the album */}
-      {photos.length > 0 && (
-        <group position={[W / 2 + W * 0.0525, INSET.y, COVER_T / 2 + 0.0001]}>
-          <Picture index={0} maxW={INSET.w} maxH={INSET.h} wanted glow={0.1} />
-        </group>
-      )}
-      {/* brass on the two outer corners */}
-      <mesh geometry={brassGeo} material={brassMat} position={[W + 0.0006, -H / 2 - 0.0006, z]} rotation={[0, 0, Math.PI / 2]} castShadow />
-      <mesh geometry={brassGeo} material={brassMat} position={[W + 0.0006, H / 2 + 0.0006, z]} rotation={[0, 0, Math.PI]} castShadow />
+      {/* and the endpaper pasted inside it */}
+      <mesh position={[W / 2, 0, COVER_T / 2 - (THICK / (FILE.top - FILE.foot)) * 0.26]} rotation={[0, Math.PI, 0]}>
+        <planeGeometry args={[PAGE.w, PAGE.h]} />
+        <meshStandardMaterial map={endTex} roughness={0.85} />
+      </mesh>
     </group>
   );
 }
@@ -665,7 +594,9 @@ export function Album() {
   const turned = useRoom((s) => s.albumTurned);
   const ref = useRef<THREE.Group>(null);
   const lamp = useRef<THREE.PointLight>(null);
+  const spine = useRef<THREE.Group>(null);
   const lastPage = usePageMat(LEAVES * 2, "left");
+  const binding = useBinding();
   usePressHandling();
 
   // picked up, the cover opens once the album is on its way; put down, it shuts
@@ -695,6 +626,9 @@ export function Album() {
     const k = 1 - Math.exp(-dt * 4.5);
     g.position.lerp(focused ? HELD_POS : REST_POS, k);
     g.quaternion.slerp(focused ? HELD_ROT : REST_ROT, k);
+    // Shut, the spine stands the height of the book. Opened flat, a spine lies down under the
+    // spread; left standing it would come up through the cover and the pages turned onto it.
+    if (spine.current) spine.current.scale.z += ((turned > 0 ? 0.1 : 1) - spine.current.scale.z) * (1 - Math.exp(-dt * 7));
     // held up, the pages are tipped into the lamplight
     if (lamp.current) lamp.current.intensity += ((focused ? 1.0 : 0) - lamp.current.intensity) * k;
   });
@@ -702,17 +636,15 @@ export function Album() {
   const live = focused && turned >= 1;
   // the last page is pasted down: nothing to turn, but its prints can be looked at
   const pressLast = live && turned === MAX_TURNED ? (e: ThreeEvent<PointerEvent>, photo: number | null = null) => startPress(e, photo, 0, 0, 1) : undefined;
-  const thick = COVER_T * 2 + LEAVES * STEP;
   return (
     <Interactive target="album">
       <group ref={ref} position={REST_POS} quaternion={REST_ROT}>
         {/* spine and back cover; the last page is pasted inside the back cover */}
-        <mesh position={[-0.0015, 0, thick / 2]} material={boardMat} castShadow>
-          <boxGeometry args={[0.003, H, thick]} />
-        </mesh>
-        <mesh position={[W / 2, 0, COVER_T / 2]} material={boardMat} castShadow receiveShadow>
-          <boxGeometry args={[W, H, COVER_T]} />
-        </mesh>
+        <group ref={spine}>
+          {binding.rest.map((part, i) => (
+            <mesh key={i} geometry={part.geometry} material={part.material} castShadow receiveShadow />
+          ))}
+        </group>
         <mesh position={[W / 2, 0, COVER_T + 0.0002]} material={lastPage} onPointerDown={pressLast && ((ev) => pressLast(ev))}>
           <planeGeometry args={[PAGE.w, PAGE.h]} />
         </mesh>
@@ -720,7 +652,7 @@ export function Album() {
           <Face page={LEAVES * 2} near={live && turned >= MAX_TURNED - 2} onPress={pressLast} />
         </group>
 
-        <Cover turned={turned} />
+        <Cover turned={turned} binding={binding} />
         {Array.from({ length: LEAVES }, (_, i) => (
           <Leaf key={i} index={i + 1} turned={turned} live={live} />
         ))}
@@ -731,3 +663,5 @@ export function Album() {
     </Interactive>
   );
 }
+
+useGLTF.preload(BOOK);

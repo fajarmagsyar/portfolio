@@ -1,0 +1,11 @@
+Model Information:
+* title:	Helmet Redbull - Max Verstappen
+* source:	https://sketchfab.com/3d-models/helmet-redbull-max-verstappen-87eee96938ae415281a8aa8233eefba8
+* author:	Maubian (https://sketchfab.com/Fabianmml)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Helmet Redbull - Max Verstappen" (https://sketchfab.com/3d-models/helmet-redbull-max-verstappen-87eee96938ae415281a8aa8233eefba8) by Maubian (https://sketchfab.com/Fabianmml) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

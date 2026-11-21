@@ -3,7 +3,7 @@ import { jobs, jobYears, profile, type Lang } from "@/content/data";
 import { useRoom } from "../store";
 import { wrap, type Fonts } from "../textures";
 import { EXTRA, EXTRA_ICONS, EXTRA_NAMES, host, type ExtraId } from "./os-apps";
-import { arrow, bevel, button, clamp, inside, K, TV_H, TV_W, type Rect } from "./os-kit";
+import { arrow, bevel, button, clamp, drawMark, inside, K, TV_H, TV_W, type Rect } from "./os-kit";
 
 export { TV_H, TV_W };
 
@@ -23,7 +23,7 @@ export { TV_H, TV_W };
 type Built = "about" | "work" | "calc";
 export type App = Built | ExtraId | "game";
 // the order they stand in on the desktop (down the columns) and in the Start menu
-const APPS: App[] = ["about", "work", "term", "notes", "paint", "calc", "clock", "mines", "snake", "ttt", "game"];
+const APPS: App[] = ["about", "work", "term", "notes", "paint", "calc", "clock", "mines", "snake", "ttt", "typing", "game"];
 /** where the Start menu draws a line: after the documents, and after the accessories */
 const GROUP_ENDS: App[] = ["work", "clock"];
 
@@ -547,7 +547,7 @@ function drawBar(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts) {
     ctx,
     START,
     (cx, cy) => {
-      icon(ctx, "logo", START.x + 8 + (os.menu ? 1 : 0), cy - 11, 22);
+      if (!drawMark(ctx, "#000", START.x + 9 + (os.menu ? 1 : 0), cy - 11, 22)) icon(ctx, "logo", START.x + 8 + (os.menu ? 1 : 0), cy - 11, 22);
       ctx.font = `700 18px ${f.body}`;
       ctx.textAlign = "left";
       ctx.fillStyle = K.ink;
@@ -924,3 +924,6 @@ export function osText(lang: Lang): string {
   const programs = APPS.map((a) => NAMES[a].icon[lang]).join(", ");
   return `KAMAR 3.1. ${programs}.${open.length ? ` ${open.join(", ")}.` : ""}`;
 }
+
+/** Whether the typing test is the front window: the camera draws back to show the keyboard. */
+export const typingFront = () => top()?.app === "typing";

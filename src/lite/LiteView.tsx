@@ -115,6 +115,17 @@ export function LiteView({ routed = false }: { routed?: boolean }) {
                   <h3>{p.name ?? `${t("empty_slot")} ${String(i + 1).padStart(2, "0")}`}</h3>
                   <p>{p.body ? p.body[lang] : t("empty_slot_body")}</p>
                   {p.url && <a href={p.url}>{p.url.replace(/^https?:\/\//, "")}</a>}
+                  {p.coverage && (
+                    <p>
+                      {t("covered_by")}:{" "}
+                      {p.coverage.map((c, k) => (
+                        <span key={c.url}>
+                          {k > 0 && " · "}
+                          <a href={c.url}>{c.name}</a>
+                        </span>
+                      ))}
+                    </p>
+                  )}
                 </div>
               </li>
             ))}

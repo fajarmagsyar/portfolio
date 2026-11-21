@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 
-export type Fonts = { hand: string; screen: string; body: string };
+export type Fonts = { hand: string; screen: string; body: string; display: string; script: string; marker: string; black: string; serif: string };
 
 function cssVar(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "sans-serif";
@@ -13,12 +13,18 @@ function cssVar(name: string) {
 export function useFonts(): Fonts | null {
   const [fonts, setFonts] = useState<Fonts | null>(null);
   useEffect(() => {
-    const f: Fonts = { hand: cssVar("--font-hand"), screen: cssVar("--font-screen"), body: cssVar("--font-body") };
+    const f: Fonts = { hand: cssVar("--font-hand"), screen: cssVar("--font-screen"), body: cssVar("--font-body"), display: cssVar("--font-display"), script: cssVar("--font-script"), marker: cssVar("--font-marker"), black: cssVar("--font-black"), serif: cssVar("--font-serif") };
     let alive = true;
     Promise.all([
       document.fonts.load(`700 32px ${f.hand}`),
       document.fonts.load(`32px ${f.screen}`),
       document.fonts.load(`700 32px ${f.body}`),
+      document.fonts.load(`800 32px ${f.display}`),
+      document.fonts.load(`400 32px ${f.script}`),
+      document.fonts.load(`400 32px ${f.marker}`),
+      document.fonts.load(`700 32px ${f.black}`),
+      document.fonts.load(`500 32px ${f.serif}`),
+      document.fonts.load(`700 32px ${f.serif}`),
     ])
       .catch(() => {})
       .then(() => alive && setFonts(f));
@@ -52,6 +58,22 @@ export function useCanvasTexture(
   const tex = useMemo(() => canvasTexture(w, h, draw), deps);
   useEffect(() => () => tex.dispose(), [tex]);
   return tex;
+}
+
+/** Loads an image for painting into a canvas; null until it has arrived (and always null with no src). */
+export function useImage(src: string | undefined) {
+  const [img, setImg] = useState<HTMLImageElement | null>(null);
+  useEffect(() => {
+    if (!src) return;
+    const el = new Image();
+    let alive = true;
+    el.onload = () => alive && setImg(el);
+    el.src = src;
+    return () => {
+      alive = false;
+    };
+  }, [src]);
+  return src ? img : null;
 }
 
 /** Deterministic pseudo-random, so painted wear looks the same on every load. */

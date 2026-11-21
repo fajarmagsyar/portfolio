@@ -6,8 +6,9 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { DESK, POS, WALL_Z, WIN } from "../layout";
-import { rng } from "../textures";
+import { DESK, POS, SILL, WALL_Z, WIN } from "../layout";
+import { canvasTexture, rng } from "../textures";
+import { useClone } from "./Guitar";
 
 function usePbr(id: string, repeatX: number, repeatY: number) {
   const maps = useTexture({
@@ -84,7 +85,14 @@ const rainFrag = /* glsl */ `
     float s = hash(vec2(cid, seed));
     float fx = fract(uv.x * cols) - 0.5;
     float rows = 1.3 + s * 1.2;
-    float y = (uv.y + t * (0.03 + s * 0.085) + s * 7.31) * rows;
+    // a drop sits where it is, creeping a hair, then lets go all at once: a quick hard slide
+    // down the glass that stops dead again
+    float beat = 0.3 + s * 0.4;
+    float ph = t * beat + s * 31.0;
+    float f = fract(ph);
+    float slide = 1.0 - pow(1.0 - clamp(f / 0.08, 0.0, 1.0), 2.5);
+    float tj = floor(ph) + slide * 0.96 + f * 0.04;
+    float y = (uv.y + tj * (0.14 + s * 0.22) + s * 7.31) * rows;
     float rid = floor(y);
     float fy = fract(y);
     float h = hash(vec2(cid * 3.1 + seed, rid));
@@ -123,12 +131,12 @@ const rainFrag = /* glsl */ `
     float k = (uGlassZ - depth - cameraPosition.z) / dir.z;
     vec2 p = (cameraPosition + dir * k).xy;
     p.x += p.y * 0.16; // a little wind
-    vec2 q = vec2(p.x * dens, p.y * dens * 0.08 + uTime * speed + seed);
+    vec2 q = vec2(p.x * dens, p.y * dens * 0.035 + uTime * speed + seed);
     vec2 f = fract(q);
     float h = hash(floor(q) + seed);
     float line = smoothstep(0.5, 0.0, abs(f.x - 0.5 - (h - 0.5) * 0.6) * 8.0);
     float seg = smoothstep(0.0, 0.2, f.y) * smoothstep(1.0, 0.45, f.y);
-    return step(0.66, h) * line * seg;
+    return step(0.5, h) * line * seg;
   }
 
   void main() {
@@ -155,12 +163,15 @@ const rainFrag = /* glsl */ `
 
     // rain in the air outside, lit from behind by the lamps in the square
     float lum = dot(col, vec3(0.3, 0.6, 0.1));
-    float falling = rain(dir, 0.7, 26.0, 2.6, 1.0) * 0.4 + rain(dir, 2.2, 15.0, 1.7, 4.0) * 0.3 + rain(dir, 5.5, 8.0, 1.1, 8.0) * 0.22;
-    col += falling * (0.04 + lum * 0.55) * vec3(0.85, 0.92, 1.0) * (1.0 - water);
+    float falling = rain(dir, 0.7, 26.0, 9.5, 1.0) * 0.4 + rain(dir, 2.2, 15.0, 6.5, 4.0) * 0.3 + rain(dir, 5.5, 8.0, 4.2, 8.0) * 0.22;
 
     // night outside: darker than the room, with the lamps left burning
     col = pow(col, vec3(1.9)) * vec3(0.25, 0.3, 0.44);
     col += pow(max(col - 0.13, 0.0), vec3(2.0)) * 16.0;
+
+    // rain is added after the night grade, or the grade crushes it to dots wherever the view is dark:
+    // long pale streaks all across the pane, a little brighter where the lamps light the air
+    col += falling * (0.1 + lum * 0.3) * vec3(0.5, 0.64, 0.82) * (1.0 - water);
 
     // water catches the light along its upper edge, and the glass mirrors the desk lamp
     col += water * max(dot(normalize(bend + 0.0001), vec2(-0.5, 0.86)), 0.0) * 0.05;
@@ -183,7 +194,120 @@ const rainVert = /* glsl */ `
   }
 `;
 
+// Model: "Window" by adventurer (CC BY 4.0). See CREDITS.md. The outer frame and the two sashes
+// are used, scaled to stand a little proud of the hole in the wall; the leaf over the top is left
+// out. In the file it is 2.37 m wide and 2.27 m tall (the frame), with its middle 1.1355 m up.
+const WINDOW = "/models/window/scene.gltf";
+const WINDOW_SCALE = (WIN.w + 0.08) / 2.37;
+/** the glass: the city behind it is drawn on a plane just inside the frame's depth */
+const GLASS_Z = -0.115;
+
+function WindowFrame() {
+  const scene = useClone(WINDOW);
+  useEffect(() => {
+    scene.traverse((o) => {
+      if (o.name === "UP") o.visible = false;
+      const m = o as THREE.Mesh;
+      if (m.isMesh && !o.name.includes("_g_")) {
+        m.castShadow = true;
+        m.receiveShadow = true;
+      }
+    });
+  }, [scene]);
+  return <primitive object={scene} position={[0, -1.1355 * WINDOW_SCALE, -0.045]} scale={WINDOW_SCALE} />;
+}
+
+/**
+ * Old painted-over pine for the sill, drawn here: long wavering grain with darker and lighter
+ * streaks, knots with their rings, pores, nicks, and a worn, paler edge along the front.
+ * Three pictures of the one board: its colour, its bump and its roughness (the grain holds dirt
+ * and is duller than the smooth wood between).
+ */
+function useSillWood() {
+  return useMemo(() => {
+    const W = 2048;
+    const H = 256;
+    const make = (kind: "colour" | "bump" | "rough") =>
+      canvasTexture(W, H, (ctx, w, h) => {
+        const r = rng(77);
+        const col = kind === "colour";
+        // the board: slow bands of tone running along it
+        ctx.fillStyle = col ? "#b58b5c" : kind === "bump" ? "#808080" : "#9a9a9a";
+        ctx.fillRect(0, 0, w, h);
+        for (let y = 0; y < h; y++) {
+          const t = Math.sin(y * 0.11 + 1.3) * 0.5 + Math.sin(y * 0.037) * 0.8 + Math.sin(y * 0.29 + 4) * 0.25;
+          ctx.fillStyle = col ? `rgba(${t > 0 ? "255,235,200" : "70,40,15"},${Math.abs(t) * 0.07})` : `rgba(${t > 0 ? "255,255,255" : "0,0,0"},${Math.abs(t) * 0.05})`;
+          ctx.fillRect(0, y, w, 1);
+        }
+        // the grain: long thin lines that wander and thin out
+        for (let i = 0; i < 900; i++) {
+          const y0 = r() * h;
+          const amp = 0.6 + r() * 3;
+          const freq = 0.001 + r() * 0.004;
+          const ph = r() * 6.28;
+          const len = 300 + r() * 1700;
+          const x0 = r() * w - 200;
+          const dark = r() < 0.62;
+          const a = 0.05 + r() * 0.2;
+          if (col) ctx.strokeStyle = dark ? `rgba(70,40,18,${a})` : `rgba(255,232,196,${a * 0.8})`;
+          else if (kind === "bump") ctx.strokeStyle = dark ? `rgba(0,0,0,${a * 1.4})` : `rgba(255,255,255,${a})`;
+          else ctx.strokeStyle = dark ? `rgba(255,255,255,${a * 0.9})` : `rgba(0,0,0,${a * 0.5})`;
+          ctx.lineWidth = 0.5 + r() * 1.7;
+          ctx.beginPath();
+          for (let x = 0; x <= len; x += 14) {
+            const yy = y0 + Math.sin((x0 + x) * freq + ph) * amp + (x / len) * (r() - 0.5) * 0.4;
+            if (x === 0) ctx.moveTo(x0, yy);
+            else ctx.lineTo(x0 + x, yy);
+          }
+          ctx.stroke();
+        }
+        // knots: rings that the grain bends round
+        for (let k = 0; k < 3; k++) {
+          const kx = 250 + r() * (w - 500);
+          const ky = 50 + r() * (h - 100);
+          for (let ring = 34; ring > 2; ring -= 3) {
+            const a = 0.18 + (34 - ring) * 0.012;
+            ctx.strokeStyle = col ? `rgba(60,32,12,${a})` : kind === "bump" ? `rgba(0,0,0,${a})` : "rgba(255,255,255,0.12)";
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.ellipse(kx, ky, ring * 2.6, ring * 0.8, 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.fillStyle = col ? "rgba(48,26,10,0.7)" : kind === "bump" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.4)";
+          ctx.beginPath();
+          ctx.ellipse(kx, ky, 7, 2.6, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // pores and tiny flecks
+        for (let i = 0; i < 5000; i++) {
+          ctx.fillStyle = col ? "rgba(60,36,16,0.28)" : kind === "bump" ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.25)";
+          ctx.fillRect(r() * w, r() * h, 1 + r() * 5, 1);
+        }
+        // a few nicks and dents where things have been set down
+        for (let i = 0; i < 14; i++) {
+          ctx.fillStyle = col ? "rgba(235,215,180,0.5)" : kind === "bump" ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.3)";
+          ctx.fillRect(r() * w, r() * h, 3 + r() * 14, 1 + r() * 2);
+        }
+        // worn along the front edge (the bottom of the picture): paler, where hands and sleeves pass
+        if (col) {
+          const g = ctx.createLinearGradient(0, h * 0.8, 0, h);
+          g.addColorStop(0, "rgba(255,240,210,0)");
+          g.addColorStop(1, "rgba(255,240,210,0.22)");
+          ctx.fillStyle = g;
+          ctx.fillRect(0, h * 0.8, w, h * 0.2);
+        }
+      });
+    const maps = { map: make("colour"), bumpMap: make("bump"), roughnessMap: make("rough") };
+    for (const t of Object.values(maps)) {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = 8;
+    }
+    return maps;
+  }, []);
+}
+
 function CityWindow() {
+  const sillWood = useSillWood();
   const mat = useRef<THREE.ShaderMaterial>(null);
   const photo = useTexture(VIEW_URL);
   const uniforms = useMemo(() => {
@@ -193,7 +317,7 @@ function CityWindow() {
     view.needsUpdate = true;
     const rad = Math.PI / 180;
     // where the desk lamp appears to be, seen in the glass
-    const glassZ = POS.window[2] - 0.07;
+    const glassZ = POS.window[2] + GLASS_Z;
     const lamp = new THREE.Vector3(POS.lamp[0] + 0.34, POS.lamp[1] + 0.6, 2 * glassZ - (POS.lamp[2] + 0.14));
     return {
       uTime: { value: 0 },
@@ -207,40 +331,94 @@ function CityWindow() {
   useFrame((_, dt) => {
     if (mat.current) mat.current.uniforms.uTime.value += dt;
   });
-  const frame = "#8a6a4a";
-  const t = 0.06; // frame bar thickness
-  const bars: [number, number, number, number][] = [
-    [0, WIN.h / 2, WIN.w + t * 2, t],
-    [0, -WIN.h / 2, WIN.w + t * 2, t],
-    [-WIN.w / 2, 0, t, WIN.h],
-    [WIN.w / 2, 0, t, WIN.h],
-    [0, 0, 0.05, WIN.h], // centre post
-    [0, WIN.h * 0.22, WIN.w, 0.04], // transom
-  ];
   return (
     <group position={POS.window}>
-      <mesh position={[0, 0, -0.07]}>
+      <mesh position={[0, 0, GLASS_Z]}>
         <planeGeometry args={[WIN.w, WIN.h]} />
         <shaderMaterial ref={mat} vertexShader={rainVert} fragmentShader={rainFrag} uniforms={uniforms} toneMapped={false} />
       </mesh>
-      {bars.map(([x, y, w, h], i) => (
-        <mesh key={i} position={[x, y, -0.025]} castShadow>
-          <boxGeometry args={[w, h, 0.07]} />
-          <meshStandardMaterial color={frame} roughness={0.6} />
-        </mesh>
-      ))}
-      {/* window handle */}
-      <mesh position={[0.045, 0.02, 0.02]}>
-        <boxGeometry args={[0.014, 0.1, 0.02]} />
-        <meshStandardMaterial color="#b9843f" metalness={0.8} roughness={0.35} />
-      </mesh>
+      <WindowFrame />
       {/* sill */}
       <mesh position={[0, -WIN.h / 2 - 0.035, 0.06]} castShadow receiveShadow>
         <boxGeometry args={[WIN.w + 0.3, 0.035, 0.2]} />
-        <meshStandardMaterial color="#b89b78" roughness={0.6} />
+        <meshStandardMaterial {...sillWood} bumpScale={1.6} roughness={1} />
       </mesh>
     </group>
   );
+}
+
+/**
+ * Plain woven cloth, tiled: threads over and under, a few thick slubs, fibre fuzz and speckle.
+ * It serves both as the colour and as the bump, so every thread catches the light.
+ */
+function useCloth(base: string, tile: number, repeatX: number, repeatY: number) {
+  return useMemo(() => {
+    const make = (grey: boolean) => {
+      const t = canvasTexture(tile, tile, (ctx, w, h) => {
+        const r = rng(41);
+        ctx.fillStyle = grey ? "#808080" : base;
+        ctx.fillRect(0, 0, w, h);
+        // slow mottling in the cloth: dye and wear, patches a few centimetres across
+        for (let i = 0; i < 90; i++) {
+          const x = r() * w;
+          const y = r() * h;
+          const rad = 30 + r() * 110;
+          const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+          const dark = r() < 0.5;
+          g.addColorStop(0, grey ? `rgba(${dark ? "0,0,0" : "255,255,255"},0.05)` : `rgba(${dark ? "120,86,50" : "255,244,222"},0.1)`);
+          g.addColorStop(1, "rgba(128,128,128,0)");
+          ctx.fillStyle = g;
+          ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+        }
+        // a coarse linen weave, threads about 3 mm across so they still show from across the room
+        const n = 40;
+        const step = w / n;
+        for (let i = 0; i < n; i++) {
+          const slubV = r() < 0.16 ? 1 : 0;
+          const slubH = r() < 0.16 ? 1 : 0;
+          const toneV = (r() - 0.5) * 0.12;
+          const toneH = (r() - 0.5) * 0.12;
+          // warp, running down
+          ctx.fillStyle = grey ? `rgba(255,255,255,${0.2 + slubV * 0.25})` : `rgba(${toneV > 0 ? "255,246,226" : "95,68,38"},${0.1 + Math.abs(toneV) + slubV * 0.14})`;
+          ctx.fillRect(i * step, 0, step * (0.62 + slubV * 0.25), h);
+          // weft, running across
+          ctx.fillStyle = grey ? `rgba(0,0,0,${0.2 + slubH * 0.25})` : `rgba(${toneH > 0 ? "255,246,226" : "95,68,38"},${0.1 + Math.abs(toneH) + slubH * 0.14})`;
+          ctx.fillRect(0, i * step, w, step * (0.55 + slubH * 0.3));
+        }
+        // each crossing: a small dome, so the weave reads as threads going over and under
+        for (let y = 0; y < n; y++) {
+          for (let x = 0; x < n; x++) {
+            const over = (x + y) % 2 === 0;
+            const cx = (x + 0.5) * step;
+            const cy = (y + 0.5) * step;
+            const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, step * 0.7);
+            g.addColorStop(0, grey ? (over ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.2)") : over ? "rgba(255,248,232,0.12)" : "rgba(80,56,30,0.1)");
+            g.addColorStop(1, "rgba(128,128,128,0)");
+            ctx.fillStyle = g;
+            ctx.fillRect(x * step - step * 0.3, y * step - step * 0.3, step * 1.6, step * 1.6);
+          }
+        }
+        // loose fibres lying across the surface
+        for (let i = 0; i < 700; i++) {
+          ctx.strokeStyle = grey ? (r() > 0.5 ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.14)") : r() > 0.5 ? "rgba(255,250,238,0.22)" : "rgba(100,72,42,0.14)";
+          ctx.lineWidth = 0.7;
+          const x = r() * w;
+          const y = r() * h;
+          const a = r() * 6.28;
+          const len = 5 + r() * 16;
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+          ctx.stroke();
+        }
+      });
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = 8;
+      t.repeat.set(repeatX, repeatY);
+      return t;
+    };
+    return { map: make(false), bump: make(true) };
+  }, [base, tile, repeatX, repeatY]);
 }
 
 /**
@@ -249,7 +427,17 @@ function CityWindow() {
  */
 function Curtain({ x, width, seed, side }: { x: number; width: number; seed: number; side: 1 | -1 }) {
   const top = WIN.y + WIN.h / 2 + 0.16;
-  const bottom = DESK.y + 0.03;
+  // it hangs from the rail to just above the sill, so it clears what stands there and what hangs on the wall below
+  const bottom = SILL.y + 0.06;
+  // a tile of linen is about 12 cm across
+  const cloth = useCloth("#d8c2a0", 1024, width / 0.12, (top - bottom) / 0.12);
+  useEffect(
+    () => () => {
+      cloth.map.dispose();
+      cloth.bump.dispose();
+    },
+    [cloth],
+  );
   const { geo, rest, phase } = useMemo(() => {
     const r = rng(seed);
     const g = new THREE.PlaneGeometry(width, top - bottom, 40, 14);
@@ -291,11 +479,14 @@ function Curtain({ x, width, seed, side }: { x: number; width: number; seed: num
   });
 
   return (
-    <mesh geometry={geo} position={[x, (top + bottom) / 2, WALL_Z + 0.07]} castShadow receiveShadow frustumCulled={false}>
-      <meshStandardMaterial color="#d8c2a0" roughness={1} side={THREE.DoubleSide} />
+    <mesh geometry={geo} position={[x, (top + bottom) / 2, CURTAIN_Z]} castShadow receiveShadow frustumCulled={false}>
+      <meshPhysicalMaterial map={cloth.map} bumpMap={cloth.bump} bumpScale={2.2} roughness={1} sheen={0.7} sheenRoughness={0.85} sheenColor="#f1e2c4" side={THREE.DoubleSide} />
     </mesh>
   );
 }
+
+/** The cloth hangs close to the wall: it ends above the sill, so it has no need to clear it. */
+const CURTAIN_Z = WALL_Z + 0.09;
 
 function Curtains() {
   const edge = WIN.w / 2;
@@ -304,10 +495,17 @@ function Curtains() {
     <group>
       <Curtain x={-edge - 0.1} width={0.36} seed={3} side={-1} />
       <Curtain x={edge + 0.1} width={0.36} seed={8} side={1} />
-      <mesh position={[0, railY, WALL_Z + 0.07]} rotation={[0, 0, Math.PI / 2]}>
+      <mesh position={[0, railY, CURTAIN_Z]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.012, 0.012, WIN.w + 0.72, 12]} />
         <meshStandardMaterial color="#6a4a30" roughness={0.5} />
       </mesh>
+      {/* the rail stands out from the wall on a bracket at each end */}
+      {[-1, 1].map((side) => (
+        <mesh key={side} position={[side * (WIN.w / 2 + 0.34), railY, (WALL_Z + CURTAIN_Z) / 2]}>
+          <boxGeometry args={[0.02, 0.02, CURTAIN_Z - WALL_Z]} />
+          <meshStandardMaterial color="#6a4a30" roughness={0.5} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -374,9 +572,14 @@ function Floor() {
   );
 }
 
-/** Poly Haven "Painted Wooden Table" (CC0), stretched to the desk's footprint and tinted warm. */
+// Model: "Dining table wood with black metal" by Mr.N0b0dy (CC BY 4.0). See CREDITS.md.
+const TABLE = "/models/sk/dining_table.glb";
+// In the file it is 1.867 m long (along z), 0.801 m deep and 0.777 m high, standing on the floor about its own middle.
+const TABLE_SIZE = { long: 1.867, deep: 0.801, high: 0.777 };
+
+/** The desk: a wooden table top on black metal legs, turned to run along the wall and brought to the desk's footprint. */
 function Desk() {
-  const { scene } = useGLTF("/models/painted_wooden_table/painted_wooden_table.gltf");
+  const { scene } = useGLTF(TABLE);
   const table = useMemo(() => {
     const c = scene.clone(true);
     c.traverse((o) => {
@@ -384,19 +587,14 @@ function Desk() {
       if (!m.isMesh) return;
       m.castShadow = true;
       m.receiveShadow = true;
-      const mat = (m.material as THREE.MeshStandardMaterial).clone();
-      // the model is painted a cold blue-grey; shift it towards worn brown wood
-      mat.color = new THREE.Color("#ffd2a0").multiplyScalar(2.2);
-      m.material = mat;
     });
     return c;
   }, [scene]);
-  // the model is 2.405 x 0.958 x 1.137 m
-  const sx = (DESK.x1 - DESK.x0) / 2.405;
-  const sy = DESK.y / 0.958;
-  const sz = (DESK.z1 - DESK.z0) / 1.137;
-  return <primitive object={table} position={[(DESK.x0 + DESK.x1) / 2, 0, (DESK.z0 + DESK.z1) / 2]} scale={[sx, sy, sz]} />;
+  // its own axes: x is its depth, z its length. It is a few per cent off the desk's size each way.
+  const scale: [number, number, number] = [(DESK.z1 - DESK.z0) / TABLE_SIZE.deep, DESK.y / TABLE_SIZE.high, (DESK.x1 - DESK.x0) / TABLE_SIZE.long];
+  return <primitive object={table} position={[(DESK.x0 + DESK.x1) / 2, 0, (DESK.z0 + DESK.z1) / 2]} rotation={[0, Math.PI / 2, 0]} scale={scale} />;
 }
+useGLTF.preload(TABLE);
 
 export function Shell() {
   return (

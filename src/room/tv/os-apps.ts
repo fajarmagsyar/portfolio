@@ -11,7 +11,7 @@ import { bevel, button, clamp, inside, K, type Program, type Rect } from "./os-k
 // a paintbrush, a clock) and three games (mines, a snake, noughts and crosses). Each keeps
 // its own state here and paints itself into the window it is given.
 
-export type ExtraId = "term" | "notes" | "paint" | "clock" | "mines" | "snake" | "ttt";
+export type ExtraId = "term" | "notes" | "paint" | "clock" | "mines" | "snake" | "ttt" | "typing";
 
 type Names = { icon: Record<Lang, string>; title: Record<Lang, string>; menus: Record<Lang, string[]> };
 export const EXTRA_NAMES: Record<ExtraId, Names> = {
@@ -49,6 +49,11 @@ export const EXTRA_NAMES: Record<ExtraId, Names> = {
     icon: { id: "Tiga Sejajar", en: "Noughts" },
     title: { id: "Tiga Sejajar", en: "Noughts & Crosses" },
     menus: { id: ["Permainan", "Bantuan"], en: ["Game", "Help"] },
+  },
+  typing: {
+    icon: { id: "Ketik", en: "Typing" },
+    title: { id: "Kecepatan Mengetik", en: "Typing Speed" },
+    menus: { id: [], en: [] },
   },
 };
 
@@ -131,6 +136,15 @@ export const EXTRA_ICONS: Record<ExtraId, (p: Brush) => void> = {
     p(11, 14, 4, 1, "#000a7b");
     p(11, 11, 1, 4, "#000a7b");
     p(14, 11, 1, 4, "#000a7b");
+  },
+  // a dark screen of text with a yellow caret
+  typing: (p) => {
+    p(1, 3, 14, 10, "#000");
+    p(2, 4, 12, 8, "#2c2e31");
+    p(3, 6, 3, 1, "#d1d0c5");
+    p(7, 6, 4, 1, "#646669");
+    p(3, 9, 5, 1, "#646669");
+    p(9, 8, 1, 3, "#e2b714");
   },
 };
 
@@ -888,4 +902,220 @@ const term: Program = {
   },
 };
 
-export const EXTRA: Record<ExtraId, Program> = { term, notes, paint, clock, mines, snake, ttt };
+/* ---------- Typing speed: a small cousin of Monkeytype ---------- */
+
+const WORDS: Record<Lang, string[]> = {
+  en: "the be of and a to in he have it that for they with as not on she at by this we you do but from or which one would all will there say who make when can more if no man out other so what time up go about than into could state only new year some take come these know see use get like then first any work now may such give over think most even find day also after way many must look before great back through long where much should well people down own just because good each those feel seem how high too place little world very still nation hand old life tell write become here show house both between need mean call develop under last right move thing general school never same another begin while number part turn real leave might want point form off child few small since against ask late home interest large person end open public follow during present without again hold govern around possible head consider word program problem however lead system set order eye plan run keep face fact group play stand increase early course change help line".split(" "),
+  id: "yang dan di ini itu dengan untuk tidak dari dalam akan pada juga saya ke karena ada mereka lebih bisa sudah atau oleh kita itu seperti sebagai kami dia hanya satu saat banyak waktu orang hari tahun baru kerja rumah buat kata lagi bukan masih antara belum hidup kamar gitar kaset musik malam pagi kopi mulai besar kecil sangat semua tetap dunia tangan mata jalan cerita bawah atas depan belakang pergi datang pulang main belajar tulis baca dengar lihat ingin harus boleh mungkin sekarang nanti kemarin selalu jarang kadang sendiri bersama bagus indah lama cepat pelan terang gelap dingin panas".split(" "),
+};
+
+const TYPE = {
+  limit: 30,
+  state: "idle" as "idle" | "run" | "done",
+  words: [] as string[],
+  typed: [] as string[],
+  input: "",
+  startAt: 0,
+  hits: 0,
+  misses: 0,
+  /** characters of correct words (and the spaces after them), plus the right letters of the word in progress */
+  good: 0,
+  result: { wpm: 0, acc: 100, hits: 0, misses: 0 },
+  best: 0,
+  lang: "" as Lang | "",
+};
+const TYPE_LIMITS = [15, 30, 60];
+
+function typeReset(lang: Lang) {
+  const pool = WORDS[lang];
+  TYPE.words = Array.from({ length: 120 }, () => pool[Math.floor(Math.random() * pool.length)]);
+  TYPE.typed = [];
+  TYPE.input = "";
+  TYPE.state = "idle";
+  TYPE.hits = 0;
+  TYPE.misses = 0;
+  TYPE.good = 0;
+  TYPE.lang = lang;
+}
+function typeWpm(secs: number) {
+  const cur = TYPE.words[TYPE.typed.length] ?? "";
+  let live = TYPE.good;
+  for (let i = 0; i < TYPE.input.length && i < cur.length && TYPE.input[i] === cur[i]; i++) live++;
+  return secs > 0 ? Math.round(live / 5 / (secs / 60)) : 0;
+}
+function typeFinish() {
+  const secs = TYPE.limit;
+  const total = TYPE.hits + TYPE.misses;
+  TYPE.result = { wpm: typeWpm(secs), acc: total ? Math.round((TYPE.hits / total) * 100) : 100, hits: TYPE.hits, misses: TYPE.misses };
+  TYPE.best = Math.max(TYPE.best, TYPE.result.wpm);
+  TYPE.state = "done";
+  blip(880, 0.12);
+}
+const typeLimitRects = (b: Rect) => TYPE_LIMITS.map((_, i): Rect => ({ x: b.x + b.w - 20 - (TYPE_LIMITS.length - i) * 52, y: b.y + 14, w: 46, h: 26 }));
+
+const T = { bg: "#2c2e31", dim: "#646669", ink: "#d1d0c5", accent: "#e2b714", bad: "#ca4754" };
+
+const typing: Program = {
+  size: [640, 340],
+  draw(ctx, f, b, lang, front) {
+    if (TYPE.lang !== lang) typeReset(lang);
+    ctx.fillStyle = T.bg;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.textAlign = "left";
+    const id = lang === "id";
+    if (TYPE.state === "run") {
+      const secs = (performance.now() - TYPE.startAt) / 1000;
+      if (secs >= TYPE.limit) typeFinish();
+    }
+    // the time to run for, and the clock
+    ctx.font = `18px ${f.screen}`;
+    typeLimitRects(b).forEach((r, i) => {
+      const on = TYPE_LIMITS[i] === TYPE.limit;
+      ctx.fillStyle = on ? T.accent : T.dim;
+      ctx.textAlign = "center";
+      ctx.fillText(String(TYPE_LIMITS[i]), r.x + r.w / 2, r.y + 19);
+      if (on) ctx.fillRect(r.x + 10, r.y + r.h - 1, r.w - 20, 2);
+    });
+    ctx.textAlign = "left";
+    ctx.fillStyle = T.dim;
+    ctx.fillText(id ? "detik" : "seconds", b.x + 24, b.y + 33);
+
+    if (TYPE.state === "done") {
+      const r = TYPE.result;
+      ctx.fillStyle = T.dim;
+      ctx.font = `20px ${f.screen}`;
+      ctx.fillText("wpm", b.x + 40, b.y + 100);
+      ctx.fillText(id ? "akurasi" : "acc", b.x + 40, b.y + 200);
+      ctx.fillStyle = T.accent;
+      ctx.font = `700 72px ${f.screen}`;
+      ctx.fillText(String(r.wpm), b.x + 40, b.y + 168);
+      ctx.font = `700 48px ${f.screen}`;
+      ctx.fillText(`${r.acc}%`, b.x + 40, b.y + 246);
+      ctx.font = `20px ${f.screen}`;
+      ctx.fillStyle = T.dim;
+      ctx.fillText(id ? "huruf benar / salah" : "characters right / wrong", b.x + 280, b.y + 100);
+      ctx.fillStyle = T.ink;
+      ctx.fillText(`${r.hits} / ${r.misses}`, b.x + 280, b.y + 130);
+      ctx.fillStyle = T.dim;
+      ctx.fillText(id ? "terbaik sesi ini" : "best this session", b.x + 280, b.y + 180);
+      ctx.fillStyle = T.ink;
+      ctx.fillText(`${TYPE.best} wpm`, b.x + 280, b.y + 210);
+      ctx.fillStyle = T.dim;
+      ctx.fillText(id ? "Tab atau Enter: ulangi" : "Tab or Enter: again", b.x + 24, b.y + b.h - 20);
+      return;
+    }
+
+    // the clock, or the speed so far
+    const secs = TYPE.state === "run" ? (performance.now() - TYPE.startAt) / 1000 : 0;
+    ctx.fillStyle = T.accent;
+    ctx.font = `700 34px ${f.screen}`;
+    ctx.fillText(TYPE.state === "run" ? String(Math.max(0, Math.ceil(TYPE.limit - secs))) : String(TYPE.limit), b.x + 24, b.y + 88);
+    if (TYPE.state === "run" && secs > 3) {
+      ctx.font = `20px ${f.screen}`;
+      ctx.fillStyle = T.dim;
+      ctx.fillText(`${typeWpm(secs)} wpm`, b.x + 110, b.y + 86);
+    }
+
+    // the words, set in lines as wide as the window
+    const fs = 26;
+    const lh = 44;
+    ctx.font = `${fs}px ${f.screen}`;
+    const width = b.w - 56;
+    const at = TYPE.typed.length;
+    const shown = (i: number) => (i < at ? TYPE.typed[i] : i === at ? TYPE.input : "");
+    const lines: { i: number; x: number }[][] = [[]];
+    let x = 0;
+    TYPE.words.forEach((w, i) => {
+      const len = Math.max(w.length, shown(i).length);
+      const adv = ctx.measureText(w.padEnd(len, "m") + " ").width;
+      if (x + adv > width && lines[lines.length - 1].length) {
+        lines.push([]);
+        x = 0;
+      }
+      lines[lines.length - 1].push({ i, x });
+      x += adv;
+    });
+    const row = lines.findIndex((l) => l.some((p) => p.i === at));
+    const first = Math.max(0, row - 1);
+    for (let r = 0; r < 3; r++) {
+      const line = lines[first + r];
+      if (!line) break;
+      const y = b.y + 150 + r * lh;
+      for (const { i, x: wx } of line) {
+        const w = TYPE.words[i];
+        const t = shown(i);
+        let cx = b.x + 28 + wx;
+        const text = t.length > w.length ? w + t.slice(w.length) : w;
+        for (let c = 0; c < text.length; c++) {
+          const ch = text[c];
+          const typed = t[c];
+          if (i === at && c === t.length) {
+            ctx.fillStyle = T.accent;
+            ctx.fillRect(cx - 1, y - fs + 2, 2, fs + 4);
+          }
+          ctx.fillStyle = typed === undefined ? T.dim : typed === ch && c < w.length ? T.ink : T.bad;
+          ctx.fillText(ch, cx, y);
+          cx += ctx.measureText(ch).width;
+        }
+        if (i === at && t.length >= text.length) {
+          ctx.fillStyle = T.accent;
+          ctx.fillRect(cx - 1, y - fs + 2, 2, fs + 4);
+        }
+        // a word that was left wrong is underlined
+        if (i < at && t !== w) {
+          ctx.fillStyle = T.bad;
+          ctx.fillRect(b.x + 28 + wx, y + 5, cx - (b.x + 28 + wx), 2);
+        }
+      }
+    }
+    if (TYPE.state === "idle" && front) {
+      ctx.font = `18px ${f.screen}`;
+      ctx.fillStyle = T.dim;
+      ctx.textAlign = "center";
+      ctx.fillText(id ? "mulai mengetik untuk memulai" : "start typing to begin", b.x + b.w / 2, b.y + b.h - 22);
+    }
+  },
+  down(x, y, b) {
+    typeLimitRects(b).forEach((r, i) => {
+      if (!inside(r, x, y)) return;
+      TYPE.limit = TYPE_LIMITS[i];
+      typeReset(useLangStore.getState().lang);
+      blip(660, 0.04);
+    });
+  },
+  key(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return false;
+    const lang = useLangStore.getState().lang;
+    if (e.key === "Tab" || (e.key === "Enter" && TYPE.state === "done")) {
+      typeReset(lang);
+      return true;
+    }
+    if (TYPE.state === "done") return false;
+    if (e.key === "Backspace") {
+      TYPE.input = TYPE.input.slice(0, -1);
+      return true;
+    }
+    if (e.key === " ") {
+      if (!TYPE.input) return true;
+      const w = TYPE.words[TYPE.typed.length];
+      if (TYPE.input === w) TYPE.good += w.length + 1;
+      TYPE.typed.push(TYPE.input);
+      TYPE.input = "";
+      if (TYPE.typed.length > TYPE.words.length - 30) TYPE.words.push(...Array.from({ length: 60 }, () => WORDS[lang][Math.floor(Math.random() * WORDS[lang].length)]));
+      return true;
+    }
+    if (e.key.length !== 1) return false;
+    const w = TYPE.words[TYPE.typed.length];
+    if (TYPE.input.length >= w.length + 4) return true;
+    if (TYPE.state === "idle") {
+      TYPE.state = "run";
+      TYPE.startAt = performance.now();
+    }
+    if (e.key === w[TYPE.input.length]) TYPE.hits++;
+    else TYPE.misses++;
+    TYPE.input += e.key;
+    return true;
+  },
+};
+
+export const EXTRA: Record<ExtraId, Program> = { term, notes, paint, clock, mines, snake, ttt, typing };

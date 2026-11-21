@@ -6,6 +6,7 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { Interactive } from "../Interactive";
 import { POS } from "../layout";
+import { SaturnLamp } from "./Planets";
 import { TUBE, TvScreen } from "./TvScreen";
 
 const path = (id: string) => `/models/${id}/${id}.gltf`;
@@ -54,54 +55,6 @@ function Television() {
   );
 }
 
-// Model: "Saturn Desk Lamp" by MooseMannequin (Sketchfab Standard licence). See CREDITS.md.
-const SATURN = "/models/sk/saturn_lamp.glb";
-// The file is in metres and 35 cm tall; on this desk it is a smaller one.
-const SATURN_SCALE = 0.44;
-/** the middle of the globe, above the lamp's feet, in the file's own units */
-const SATURN_GLOBE = 0.215;
-
-/** The Saturn lamp at the right-hand end of the desk: a warm ember of a globe, for the side the desk lamp does not reach. */
-function SaturnLamp() {
-  const { scene } = useGLTF(SATURN);
-  const light = useRef<THREE.PointLight>(null);
-  const lamp = useMemo(() => {
-    const c = scene.clone(true);
-    c.traverse((o) => {
-      const m = o as THREE.Mesh;
-      if (!m.isMesh) return;
-      const mat = (m.material as THREE.MeshPhysicalMaterial).clone();
-      if (mat.name.startsWith("saturn_")) {
-        // the globe: lit from inside, a deep warm amber a shade redder than the desk lamp.
-        // It is the light, so it casts no shadow of its own.
-        mat.transmission = 0;
-        mat.transparent = false;
-        mat.depthWrite = true;
-        mat.color.set("#2a0d04");
-        mat.emissive.set("#ff5a1c");
-        mat.emissiveIntensity = 1.6;
-        mat.toneMapped = false;
-      } else {
-        m.castShadow = true;
-        m.receiveShadow = true;
-        mat.envMapIntensity = 1.6;
-      }
-      m.material = mat;
-    });
-    return c;
-  }, [scene]);
-  useFrame(({ clock }) => {
-    // a slow breath, barely there
-    if (light.current) light.current.intensity = 0.85 + Math.sin(clock.elapsedTime * 0.7) * 0.04;
-  });
-  return (
-    <group position={POS.saturn} rotation={[0, 0.9, 0]}>
-      <primitive object={lamp} scale={SATURN_SCALE} />
-      <pointLight ref={light} position={[0, SATURN_GLOBE * SATURN_SCALE, 0]} color="#ff6a2c" distance={4} decay={1.7} />
-    </group>
-  );
-}
-
 export function Props() {
   return (
     <group>
@@ -128,8 +81,6 @@ for (const id of [
   "potted_plant_02",
   "hanging_picture_frame_01",
   "hanging_picture_frame_02",
-  "painted_wooden_table",
 ]) {
   useGLTF.preload(path(id));
 }
-useGLTF.preload(SATURN);

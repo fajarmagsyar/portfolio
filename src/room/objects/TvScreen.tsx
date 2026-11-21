@@ -2,14 +2,17 @@
 
 /* eslint-disable react-hooks/immutability -- three.js textures and uniforms are mutable by design */
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { blip } from "@/audio/sfx";
+import { hint } from "../hint";
+import { enterAnswer, enterPoint } from "../tv/program";
 import { useLang, useLangStore } from "@/state/lang";
 import { useRoom } from "../store";
 import { useFonts } from "../textures";
-import { drawTv, tvKey, tvPointer, tvPointerOut, tvShow, tvWheel, TV_H, TV_W, type TvMode } from "../tv/program";
+import { BOOT_TIME, drawTv, tvKey, tvPointer, tvPointerOut, tvShow, tvWheel, TV_H, TV_W, type TvMode } from "../tv/program";
 
 // The picture area of Television_01, in the model's own space: the opening in the bezel.
 // The glass behind it is a bulged 10 x 10 grid; the picture is drawn on those very faces.
@@ -142,7 +145,12 @@ export function TvScreen({ url }: { url: string }) {
   const focus = useRoom((s) => s.focus);
   const tvScreen = useRoom((s) => s.tvScreen);
   const booted = useRoom((s) => s.booted);
-  const mode: TvMode = !booted ? "enter" : focus === "tv" ? tvScreen : "idle";
+  // The machine starts the first time it is clicked into. After that it stays on: leaving
+  // the TV leaves the desktop as it was, and coming back does not start it again.
+  const [phase, setPhase] = useState<"off" | "boot" | "on">("off");
+  const bootAt = useRef(0);
+  if (phase === "off" && focus === "tv") setPhase("boot");
+  const mode: TvMode = !booted ? "enter" : phase === "boot" ? "boot" : phase === "on" ? tvScreen : "idle";
 
   const { canvas, game, uniforms } = useMemo(() => {
     const make = (w: number, h: number) => {
@@ -210,21 +218,44 @@ export function TvScreen({ url }: { url: string }) {
     const t = clock.elapsedTime;
     uniforms.uTime.value = t;
     uniforms.uSince.value += dt;
-    // the idle card only needs a few frames a second; a screen in use is redrawn every frame
-    if ((mode === "idle" || mode === "enter") && t - last.current < 1 / 12) return;
+    if (mode === "boot" && bootAt.current === 0) bootAt.current = t;
+    if (mode === "boot" && t - bootAt.current > BOOT_TIME) setPhase("on");
+    // the idle card, and a desktop nobody is at, only need a few frames a second; a screen in use is redrawn every frame
+    if ((mode === "idle" || mode === "enter" || (mode !== "boot" && focus !== "tv")) && t - last.current < 1 / 12) return;
     last.current = t;
-    drawTv(canvas.getContext("2d")!, mode, lang, fonts, t, game);
+    drawTv(canvas.getContext("2d")!, mode, lang, fonts, mode === "boot" ? t - bootAt.current : t, game);
     uniforms.uMap.value.needsUpdate = true;
   });
 
-  const live = focus === "tv";
+  const live = focus === "tv" && phase === "on";
   return (
     <mesh
       geometry={geometry}
+      // Before the visitor is in, the glass carries the two ways in: with sound, or without.
+      // The click stops here, so it does not go on to pick up whatever is behind it.
+      onClick={(e: ThreeEvent<MouseEvent>) => {
+        if (booted || !e.uv) return;
+        e.stopPropagation();
+        const answer = enterAnswer(e.uv.x, e.uv.y);
+        if (!answer) return;
+        enterPoint(null);
+        hint(null);
+        useRoom.getState().setSound(answer === "on");
+        blip(880, 0.12);
+        useRoom.getState().setBooted();
+      }}
       onPointerMove={(e: ThreeEvent<PointerEvent>) => {
+        if (!booted && e.uv) {
+          const answer = enterAnswer(e.uv.x, e.uv.y);
+          enterPoint(answer);
+          hint(answer ? (answer === "on" ? "sound_on_tip" : "sound_off_tip") : null);
+          return;
+        }
         if (!live || !e.uv) return;
         e.stopPropagation();
-        document.body.style.cursor = tvPointer(e.uv.x, e.uv.y, "move", lang) ? "pointer" : "";
+        tvPointer(e.uv.x, e.uv.y, "move", lang);
+        // the desktop draws its own pointer on the glass, so the real one is hidden over it
+        document.body.style.cursor = useRoom.getState().tvScreen === "game" ? "" : "none";
       }}
       onPointerDown={(e: ThreeEvent<PointerEvent>) => {
         if (!live || !e.uv) return;
@@ -244,6 +275,10 @@ export function TvScreen({ url }: { url: string }) {
         tvWheel(e.deltaY);
       }}
       onPointerOut={() => {
+        if (!booted) {
+          enterPoint(null);
+          hint(null);
+        }
         tvPointerOut();
         if (live) document.body.style.cursor = "";
       }}

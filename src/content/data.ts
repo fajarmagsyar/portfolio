@@ -44,6 +44,8 @@ export type Job = {
   title: string;
   body: L10n;
   tech: string[];
+  /** this workplace's logo, shown on the pamphlet that unfolds from its cassette: a path under /public, e.g. "/logos/prahu-hub.png". Without one the pamphlet shows the company's initials. */
+  logo?: string;
   /** cassette shell + label colours */
   tape: { shell: string; label: string; ink: string };
 };
@@ -52,6 +54,7 @@ export const jobs: Job[] = [
   {
     id: "prahu-hub",
     company: "Prahu-Hub",
+    logo: "/logos/prahu-hub.png",
     place: { id: "Surabaya", en: "Surabaya" },
     from: 2025,
     to: null,
@@ -66,6 +69,7 @@ export const jobs: Job[] = [
   {
     id: "morning-glory",
     company: "Morning Glory Enterprise",
+    logo: "/logos/mge.png",
     place: { id: "Surabaya", en: "Surabaya" },
     from: 2023,
     to: 2025,
@@ -80,6 +84,7 @@ export const jobs: Job[] = [
   {
     id: "kominfo",
     company: "Dinas KOMINFO",
+    logo: "/logos/diskominfo.png",
     place: { id: "Kota Kupang", en: "Kupang City" },
     from: 2021,
     to: 2023,
@@ -94,6 +99,7 @@ export const jobs: Job[] = [
   {
     id: "amimaru",
     company: "Amimaru, Ltd.",
+    logo: "/logos/amimaru.png",
     place: { id: "Remote, freelance", en: "Remote, freelance" },
     from: 2018,
     to: 2021,
@@ -108,6 +114,7 @@ export const jobs: Job[] = [
   {
     id: "solite",
     company: "Solite Kids Studio",
+    logo: "/logos/solite-kids.png",
     place: { id: "Bangkalan", en: "Bangkalan" },
     from: 2016,
     to: 2016,
@@ -138,19 +145,50 @@ export type Project = {
   disc: string; // disc / sleeve colour
   /** screenshots for the leaflet inside the CD case: paths under /public, e.g. "/projects/toko-1.jpg". Up to two are shown. */
   shots?: string[];
+  /** press that covered it, shown as "Diliput oleh" / "Covered by" */
+  coverage?: { name: string; url: string }[];
 };
 
 // PROTOTYPE: these four slots are intentionally empty. Replace with real projects.
 export const projects: Project[] = [
-  { id: "slot-1", name: null, year: null, body: null, tech: [], url: null, disc: "#c7532f" },
-  { id: "slot-2", name: null, year: null, body: null, tech: [], url: null, disc: "#2f6f73" },
+  {
+    id: "karyadan",
+    name: "Portofolio",
+    year: "2026",
+    body: {
+      id: "Portofolio ini sendiri: sebuah kamar 3D interaktif di malam hari, lengkap dengan TV, gitar, kaset, CD, dan kamera yang bisa dijelajahi.",
+      en: "This portfolio itself: an interactive 3D room at night, with a TV, guitar, cassettes, CDs and a camera you can explore.",
+    },
+    tech: ["Next.js", "React Three Fiber", "Three.js", "TypeScript"],
+    url: "https://github.com/fajarmagsyar/karyadan",
+    disc: "#c7532f",
+    shots: ["/projects/portofolio-1.jpg"],
+  },
+  {
+    id: "sihebat",
+    name: "SIHEBAT",
+    year: "2022",
+    body: {
+      id: "Sistem Hemat Bahan Bakar untuk kendaraan dinas Pemerintah Kota Kupang, dibuat bersama Dinas KOMINFO. Kupon BBM manual diganti barcode yang dipindai di SPBU dengan batas isi bulanan, supaya BBM tepat sasaran dan anggaran lebih efisien.",
+      en: "Sistem Hemat Bahan Bakar (fuel-saving system) for Kupang City Government's official vehicles, built with Dinas KOMINFO. Manual fuel coupons were replaced by a barcode scanned at the fuel station, with a monthly fill limit, so fuel reaches its intended use and the budget is spent more efficiently.",
+    },
+    tech: ["Full-stack", "Barcode", "Dinas KOMINFO Kota Kupang"],
+    url: null,
+    disc: "#2f6f73",
+    shots: ["/projects/portofolio-2.jpg"],
+    coverage: [
+      { name: "FKK News", url: "https://www.fkknews.com/sihebat-aplikasi-yang-mudahkan-kegiatan-operasional-dan-digunakan-untuk-efisiensi-anggaran-bagi-pemerintah-kota-kupang/" },
+      { name: "Liputan6", url: "https://www.liputan6.com/news/read/5048109/evaluasi-smart-city-kupang-dari-sihebat-hingga-dapat-banyak-penghargaan" },
+      { name: "ANTARA Kupang", url: "https://kupang.antaranews.com/berita/94289/wali-kota-kupang-program-smart-city-berdampak-positif" },
+    ],
+  },
   { id: "slot-3", name: null, year: null, body: null, tech: [], url: null, disc: "#d2a23c" },
   { id: "slot-4", name: null, year: null, body: null, tech: [], url: null, disc: "#5b4a7a" },
 ];
 
 export const education = {
   degree: { id: "Sarjana Komputer (S.Kom)", en: "Bachelor's Degree (S.Kom)" } satisfies L10n,
-  school: "STIKOM Uyelindo Kupang",
+  school: "Universitas Uyelindo",
   years: "2017 – 2021",
   gpa: "3.78",
 };

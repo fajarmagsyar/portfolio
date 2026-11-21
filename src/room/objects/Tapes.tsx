@@ -1,13 +1,15 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { jobs, type Job } from "@/content/data";
 import { Interactive } from "../Interactive";
-import { POS, SHELF } from "../layout";
+import { POS, SHELF, tapeHeld } from "../layout";
+import { hint } from "../hint";
 import { useRoom } from "../store";
+import { receiptOpen } from "./Pamphlet";
 import { paper, useCanvasTexture, useFonts } from "../textures";
 
 // Model: "Audio Cassettes (Low Poly)" by Mobius1 (CC BY 4.0). See CREDITS.md.
@@ -65,6 +67,7 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
   const selected = useRoom((s) => s.selectedTape === job.id);
   const selectTape = useRoom((s) => s.selectTape);
   const hovered = useRef(false);
+  const size = useThree((st) => st.size);
   /** 0 on the shelf, 1 held up to be read */
   const out = useRef(0);
 
@@ -75,10 +78,10 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
     ctx.fillStyle = "#1d1712";
     ctx.textAlign = "center";
     let size = size0;
-    ctx.font = `700 ${size}px ${fonts.hand}`;
+    ctx.font = `400 ${size}px ${fonts.marker}`;
     while (ctx.measureText(job.company).width > w - 36 && size > 24) {
       size -= 2;
-      ctx.font = `700 ${size}px ${fonts.hand}`;
+      ctx.font = `400 ${size}px ${fonts.marker}`;
     }
     ctx.fillText(job.company, w / 2, h / 2 + size * 0.3);
   };
@@ -92,7 +95,9 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
   useFrame((_, dt) => {
     const g = ref.current;
     if (!g) return;
-    out.current = Math.min(1, Math.max(0, out.current + (selected ? dt : -dt) / 0.75));
+    // put back only once its receipt has folded up and slid away behind it
+    const hold = selected || (receiptOpen[job.id] ?? 0) > 0.001;
+    out.current = Math.min(1, Math.max(0, out.current + (hold ? dt : -dt) / 0.5));
     {
       // first it is drawn straight out of the row, then it turns to face the chair as it comes up
       const draw = ease(Math.min(1, out.current / 0.42));
@@ -102,7 +107,7 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
       target.pos.z += nudge + draw * (shell.h + 0.03);
       tmp.copy(SHELVED);
       if (turn > 0) {
-        target.pos.lerp(v.set(POS.tapeRack[0], POS.tapeRack[1] + 0.18, POS.tapeRack[2] + 0.15), turn);
+        target.pos.lerp(v.set(...tapeHeld(size.width / size.height)), turn);
         tmp.slerp(SHOWN, turn);
       }
       target.quat.copy(tmp);
@@ -119,19 +124,31 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
       position={rest}
       quaternion={SHELVED}
       onClick={(e: ThreeEvent<MouseEvent>) => {
+        // looking at the other half of the rack, a click here comes over to this half
+        if (focus === "cds") {
+          e.stopPropagation();
+          hint(null);
+          useRoom.getState().setFocus("tapes");
+          return;
+        }
         if (!live) return;
         e.stopPropagation();
         selectTape(selected ? null : job.id);
       }}
       onPointerOver={(e) => {
+        if (focus === "cds") {
+          e.stopPropagation();
+          hint("rack_tapes_tip");
+          return;
+        }
         if (!live) return;
         e.stopPropagation();
         hovered.current = true;
-        document.body.style.cursor = "pointer";
+        hint(selected ? "tip_put_back" : "card_take_tip");
       }}
       onPointerOut={() => {
         hovered.current = false;
-        if (live) document.body.style.cursor = "";
+        if (live || focus === "cds") hint(null);
       }}
     >
       <mesh geometry={shell.geometry} material={shell.material} matrix={shell.matrix} matrixAutoUpdate={false} castShadow receiveShadow />

@@ -4,14 +4,15 @@
 
 import { useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Sparkles } from "@react-three/drei";
+import { Sparkles, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { POS } from "../layout";
 import { useRoom } from "../store";
+import { useClone } from "./Guitar";
 
 // Small things that make the room feel lived in and the air feel thick: a hot coffee,
 // the glow of the lamp, and haze and dust hanging in its light.
-// Everything here is built in code; nothing is downloaded.
+// Apart from the mug itself, everything here is built in code.
 
 const noise = /* glsl */ `
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -65,53 +66,23 @@ const steamFrag = /* glsl */ `
   }
 `;
 
+// Model: "Coffee Cup" by jeffbas (CC BY 4.0). See CREDITS.md.
+const CUP = "/models/sk/coffee_cup.glb";
+// The file's mug is 0.9 units tall and 0.8 across, standing off-centre with its handle towards +x.
+const CUP_SCALE = 0.095 / 0.9;
+const CUP_MID: [number, number] = [-0.168, -0.041];
+
 /** A mug of coffee on a cork coaster, still steaming. */
 export function Coffee() {
   const uniforms = useClock();
-  const mug = useMemo(() => {
-    // the wall of the mug in profile, spun around its axis: outside up, over the lip, inside down
-    const pts: [number, number][] = [
-      [0, 0],
-      [0.034, 0],
-      [0.038, 0.004],
-      [0.04, 0.012],
-      [0.041, 0.088],
-      [0.0395, 0.092],
-      [0.037, 0.088],
-      [0.036, 0.014],
-      [0, 0.012],
-    ];
-    return new THREE.LatheGeometry(
-      pts.map(([x, y]) => new THREE.Vector2(x, y)),
-      40,
-    );
-  }, []);
+  const mug = useClone(CUP);
   return (
     <group position={POS.coffee} rotation={[0, -0.7, 0]}>
       <mesh position={[0, 0.002, 0]} receiveShadow castShadow>
         <cylinderGeometry args={[0.056, 0.056, 0.004, 32]} />
         <meshStandardMaterial color="#a67c52" roughness={0.95} />
       </mesh>
-      <group position={[0, 0.004, 0]}>
-        <mesh geometry={mug} castShadow receiveShadow>
-          <meshStandardMaterial color="#e6dccb" roughness={0.3} side={THREE.DoubleSide} />
-        </mesh>
-        {/* handle */}
-        <mesh position={[0.04, 0.05, 0]} rotation={[0, 0, -Math.PI / 2]} castShadow>
-          <torusGeometry args={[0.023, 0.0055, 10, 24, Math.PI]} />
-          <meshStandardMaterial color="#e6dccb" roughness={0.3} />
-        </mesh>
-        {/* a band of glaze around the middle */}
-        <mesh position={[0, 0.05, 0]}>
-          <cylinderGeometry args={[0.0412, 0.0408, 0.016, 40, 1, true]} />
-          <meshStandardMaterial color="#b3341f" roughness={0.35} />
-        </mesh>
-        {/* the coffee */}
-        <mesh position={[0, 0.079, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.0368, 32]} />
-          <meshStandardMaterial color="#2b1408" roughness={0.12} />
-        </mesh>
-      </group>
+      <primitive object={mug} scale={CUP_SCALE} position={[-CUP_MID[0] * CUP_SCALE, 0.004, -CUP_MID[1] * CUP_SCALE]} />
       {/* steam: turned back to face the room whatever way the mug sits */}
       <mesh position={[0, 0.2, 0]} rotation={[0, 0.7, 0]}>
         <planeGeometry args={[0.13, 0.26]} />
@@ -120,6 +91,7 @@ export function Coffee() {
     </group>
   );
 }
+useGLTF.preload(CUP);
 
 const coneFrag = /* glsl */ `
   varying vec3 vPos;
@@ -170,43 +142,49 @@ export function LampGlow() {
   );
 }
 
-const hazeFrag = /* glsl */ `
+const screenVert = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = vec4(position.xy, 0.0, 1.0);
+  }
+`;
+
+// Laid over the whole picture, so it is there from every seat and every close-up. It is the same
+// even veil of cyan with a little lamp amber everywhere, drifting slowly.
+const screenHazeFrag = /* glsl */ `
   uniform float uTime;
   varying vec2 vUv;
   ${noise}
   void main() {
     float n = fbm(vUv * vec2(3.2, 2.0) + vec2(uTime * 0.012, uTime * 0.005));
-    // warm where the lamp lights it, cyan in front of the tube and where the night comes in
-    float lamp = smoothstep(0.42, 0.0, distance(vUv, vec2(0.425, 0.48)));
-    float tube = smoothstep(0.34, 0.0, distance(vUv * vec2(1.0, 0.7), vec2(0.49, 0.245)));
-    float night = smoothstep(0.42, 0.0, distance(vUv * vec2(1.0, 0.8), vec2(0.5, 0.5)));
-    float saturn = smoothstep(0.2, 0.0, distance(vUv * vec2(1.0, 0.6), vec2(0.65, 0.18)));
-    vec3 col = vec3(1.0, 0.66, 0.36) * (0.04 + lamp * 0.6) + vec3(0.2, 0.85, 1.0) * (tube * 0.42 + night * 0.12) + vec3(1.0, 0.42, 0.16) * saturn * 0.28;
-    float fade = smoothstep(0.0, 0.25, vUv.y) * smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x);
-    gl_FragColor = vec4(col * (0.3 + 0.7 * n) * fade * 0.08, 1.0);
+    vec3 col = vec3(0.2, 0.85, 1.0) * 0.5 + vec3(1.0, 0.66, 0.36) * 0.25;
+    gl_FragColor = vec4(col * (0.4 + 0.6 * n) * 0.07, 1.0);
   }
 `;
 
-/** Smoke-like haze drifting between the chair and the desk, and dust turning in the lamplight. */
+/** Haze over the whole screen, and dust turning in the lamplight. */
 export function Haze() {
-  const uniforms = useClock();
+  const time = useClock();
+  const uniforms = useMemo(() => ({ uTime: time.uTime }), [time]);
   // up close to the tube, motes drifting across the picture are only a distraction
   const atTv = useRoom((s) => s.focus === "tv");
   return (
     <group>
-      <mesh position={[0, 1.45, 0.78]}>
-        <planeGeometry args={[6, 2.9]} />
+      <mesh frustumCulled={false} renderOrder={10}>
+        <planeGeometry args={[2, 2]} />
         <shaderMaterial
-          vertexShader={plainVert}
-          fragmentShader={hazeFrag}
+          vertexShader={screenVert}
+          fragmentShader={screenHazeFrag}
           uniforms={uniforms}
           transparent
           depthWrite={false}
+          depthTest={false}
           blending={THREE.AdditiveBlending}
           toneMapped={false}
         />
       </mesh>
-      <Sparkles visible={!atTv} count={70} position={[-0.2, 1.35, 0.15]} scale={[2.8, 1.3, 1.3]} size={1.1} speed={0.12} opacity={0.28} noise={0.5} color="#ffd9a6" />
+      <Sparkles visible={!atTv} count={140} position={[-0.2, 1.35, 0.15]} scale={[2.8, 1.3, 1.3]} size={0.4} speed={0.1} opacity={0.4} noise={0.5} color="#c9a67a" />
     </group>
   );
 }

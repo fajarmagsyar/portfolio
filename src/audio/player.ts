@@ -1,5 +1,6 @@
 "use client";
 
+import { onSound, soundOn } from "./sound";
 import { create } from "zustand";
 import { tracks } from "@/content/music";
 
@@ -17,6 +18,7 @@ function el() {
   if (!audio) {
     audio = new Audio();
     audio.preload = "auto";
+    audio.muted = !soundOn();
     audio.addEventListener("timeupdate", () => usePlayer.setState({ seconds: audio!.currentTime }));
     // at the end of a track the disc runs on; after the last one it stops
     audio.addEventListener("ended", () => {
@@ -89,3 +91,7 @@ export function prev() {
   if (seconds > 3) return skipTo(index);
   skipTo((index - 1 + tracks.length) % tracks.length);
 }
+
+onSound((on) => {
+  if (audio) audio.muted = !on;
+});

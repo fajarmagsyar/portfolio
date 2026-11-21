@@ -73,3 +73,30 @@ export type Program = {
   /** a key, while this is the front window. True if it was used. */
   key?: (e: KeyboardEvent) => boolean;
 };
+
+// The owner's own mark, the logo of the system: /logo.png, black on clear, painted in whatever colour is asked for.
+let markImg: HTMLImageElement | null = null;
+const marks = new Map<string, HTMLCanvasElement>();
+/** Draws the mark `h` tall with its top left at `x`, `y` in `colour`. False while the file has not loaded, so the caller can draw something else. */
+export function drawMark(ctx: CanvasRenderingContext2D, colour: string, x: number, y: number, h: number): boolean {
+  if (typeof Image === "undefined") return false;
+  if (!markImg) {
+    markImg = new Image();
+    markImg.src = "/logo.png";
+  }
+  if (!markImg.complete || !markImg.naturalWidth) return false;
+  let tint = marks.get(colour);
+  if (!tint) {
+    tint = document.createElement("canvas");
+    tint.width = markImg.naturalWidth;
+    tint.height = markImg.naturalHeight;
+    const t = tint.getContext("2d")!;
+    t.drawImage(markImg, 0, 0);
+    t.globalCompositeOperation = "source-in";
+    t.fillStyle = colour;
+    t.fillRect(0, 0, tint.width, tint.height);
+    marks.set(colour, tint);
+  }
+  ctx.drawImage(tint, x, y, (h * tint.width) / tint.height, h);
+  return true;
+}

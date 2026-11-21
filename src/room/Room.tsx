@@ -3,10 +3,10 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
-import { Bloom, EffectComposer, Noise, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
-import { Effect, SMAAPreset, ToneMappingMode } from "postprocessing";
+import { Bloom, DepthOfField, EffectComposer, Noise, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
+import { type DepthOfFieldEffect, Effect, SMAAPreset, ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
-import { CD_OPEN_VIEW, ENTER_VIEW, FOCUS_FOV, HOME_FOV, HOME_VIEW, POS, VIEWS, WALL_Z } from "./layout";
+import { CD_OPEN_VIEW, ENTER_VIEW, TYPING_VIEW, FINDER_FOV, FOCUS_FOV, HOME_FOV, HOME_VIEW, POS, VIEWS, WALL_Z } from "./layout";
 import { orbit, resetOrbit } from "./orbit";
 import { useRoom, type FocusId } from "./store";
 import { Shell } from "./objects/Shell";
@@ -14,26 +14,44 @@ import { Props } from "./objects/Props";
 import { TapeRack } from "./objects/Tapes";
 import { CdPlayer, CdStack } from "./objects/Cds";
 import { Guitar } from "./objects/Guitar";
-import { Cards, Frames, Notes } from "./objects/Paper";
+import { finderCam, stepFinderCam } from "./finderCam";
+import { guitarView } from "./guitarView";
+import { Frames, Notes } from "./objects/Paper";
+import { ContactPack } from "./objects/ContactPack";
+import { Receipt } from "./objects/Receipt";
+import { receiptRange } from "./receipt";
 import { Posters } from "./objects/Posters";
 import { Coffee, Haze, LampGlow } from "./objects/Cozy";
+import { typingFront } from "./tv/os";
+import { Pamphlet } from "./objects/Pamphlet";
+import { SillDecor } from "./objects/Sill";
 import { Canonet } from "./objects/Canonet";
 import { Shelf } from "./objects/Shelf";
 import { Keyboard } from "./objects/Keyboard";
+import { Dice, Mouse } from "./objects/DeskToys";
 import { Furniture } from "./objects/Furniture";
 import { Album, albumPhotoView } from "./objects/Album";
 
 const tmpPos = new THREE.Vector3();
 const tmpLook = new THREE.Vector3();
+const tmpUp = new THREE.Vector3();
+/** the point the camera is looking at this frame: what is kept sharp when the background is blurred */
+const focusPoint = new THREE.Vector3(0, 1, 0);
+const LEVEL: [number, number, number] = [0, 1, 0];
 const sph = new THREE.Spherical();
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+/** Close-ups where a drag turns the thing itself and the camera stays put. */
+const turnsObject = (focus: FocusId | null) => focus === "canonet" || focus === "saturn" || focus === "cards" || focus === "receipt";
+
 /** How far the view may be turned and zoomed by hand, depending on what is being looked at. */
 function reach(focus: FocusId | null) {
-  // the tube fills the frame and takes the pointer itself
-  if (focus === "tv") return null;
-  // the Canonet is turned in the hand, all the way round
-  if (focus === "canonet") return { yaw: Infinity, pitch: [-1.1, 1.1], zoom: [0.55, 1.5] };
+  // the tube fills the frame and takes the pointer itself; on the guitar every drag is playing
+  if (focus === "tv" || focus === "guitar") return null;
+  // the receipt is slid up and down in the hand to read it, as far as its foot
+  if (focus === "receipt") return { yaw: 0, pitch: [-receiptRange.max, 0], zoom: [0.7, 1.3] };
+  // the Canonet is turned in the hand, all the way round, and so is the lamp's planet
+  if (turnsObject(focus)) return { yaw: Infinity, pitch: [-1.1, 1.1], zoom: [0.55, 1.5] };
   if (focus) return { yaw: 0.8, pitch: [-0.2, 0.5], zoom: [0.6, 1.5] };
   return { yaw: 0.8, pitch: [-0.12, 0.45], zoom: [0.45, 1.5] };
 }
@@ -48,7 +66,10 @@ function useOrbitInput() {
     let swallow = false;
     const limits = () => {
       const s = useRoom.getState();
-      return s.booted ? reach(s.focus) : null;
+      // with the eye at the viewfinder the view is fixed: there is nothing behind the chair to turn and look at
+      // and while a cassette is open the view is held still, so its receipt can be read and dragged
+      if (s.focus === "tapes" && s.selectedTape) return null;
+      return s.booted && !s.finder ? reach(s.focus) : null;
     };
     const down = (e: PointerEvent) => {
       swallow = false;
@@ -62,7 +83,8 @@ function useOrbitInput() {
       if (!moved && Math.hypot(e.clientX - from.x, e.clientY - from.y) < 5) return;
       moved = true;
       orbit.dragging = true;
-      const turn = useRoom.getState().focus === "canonet" ? 0.009 : 0.005;
+      document.body.classList.add("orbiting");
+      const turn = turnsObject(useRoom.getState().focus) ? 0.009 : 0.005;
       orbit.yaw = clamp(orbit.yaw - (e.clientX - from.x) * turn, -l.yaw, l.yaw);
       orbit.pitch = clamp(orbit.pitch + (e.clientY - from.y) * turn * 0.8, l.pitch[0], l.pitch[1]);
       from = { x: e.clientX, y: e.clientY };
@@ -71,6 +93,7 @@ function useOrbitInput() {
       if (from && moved) swallow = true;
       from = null;
       orbit.dragging = false;
+      document.body.classList.remove("orbiting");
     };
     const click = (e: MouseEvent) => {
       if (!swallow) return;
@@ -79,10 +102,26 @@ function useOrbitInput() {
     };
     const wheel = (e: WheelEvent) => {
       const l = limits();
-      if (!l) return;
+      if (!l) {
+        // the wheel belongs to the receipt, not to the page or the camera
+        if (useRoom.getState().selectedTape) e.preventDefault();
+        return;
+      }
       e.preventDefault();
+      // the receipt is a long strip: the wheel runs along it, as it would down a page
+      if (useRoom.getState().focus === "receipt") {
+        orbit.pitch = clamp(orbit.pitch - e.deltaY * 0.006, l.pitch[0], l.pitch[1]);
+        return;
+      }
       orbit.zoom = clamp(orbit.zoom * Math.exp(e.deltaY * 0.0012), l.zoom[0], l.zoom[1]);
     };
+    // Wherever a drag would turn the view (or the thing in the hand), the pointer is an open
+    // hand, and a closed one while it does. Controls put their own pointer over this.
+    const hand = () => document.body.classList.toggle("can-orbit", !!limits());
+    hand();
+    const unwatch = useRoom.subscribe((s, was) => {
+      if (s.focus !== was.focus || s.booted !== was.booted || s.finder !== was.finder || s.selectedTape !== was.selectedTape) hand();
+    });
     el.addEventListener("pointerdown", down);
     el.addEventListener("wheel", wheel, { passive: false });
     window.addEventListener("pointermove", move);
@@ -90,6 +129,8 @@ function useOrbitInput() {
     window.addEventListener("pointercancel", up);
     window.addEventListener("click", click, true);
     return () => {
+      unwatch();
+      document.body.classList.remove("can-orbit", "orbiting");
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("wheel", wheel);
       window.removeEventListener("pointermove", move);
@@ -105,7 +146,10 @@ function CameraRig() {
   const focus = useRoom((s) => s.focus);
   const booted = useRoom((s) => s.booted);
   const zoomed = useRoom((s) => s.zoomed);
-  const cdOut = useRoom((s) => s.selectedCd !== null);
+  // the view stays on a CD that has been put back until its case has shut
+  const cdOut = useRoom((s) => s.selectedCd !== null || s.cdOpen !== null);
+  const finder = useRoom((s) => s.finder);
+  const tapeOpen = useRoom((s) => s.selectedTape !== null);
   const look = useRef(new THREE.Vector3(...HOME_VIEW.look));
   const first = useRef(true);
   const shift = useRef(0);
@@ -113,23 +157,28 @@ function CameraRig() {
   const hand = useRef({ yaw: 0, pitch: 0, zoom: 1 });
   useOrbitInput();
   // every view starts square on; what was dialled in for the last one is dropped
-  useEffect(() => resetOrbit(), [focus, booted, zoomed]);
+  useEffect(() => resetOrbit(), [focus, booted, zoomed, finder, tapeOpen]);
 
   useFrame((state, dt) => {
     const pointer = state.pointer;
     const camera = state.camera as THREE.PerspectiveCamera;
     // in the album, a photo that was clicked is looked at from close to
-    const view = !booted ? ENTER_VIEW : focus === "album" && zoomed !== null ? albumPhotoView(zoomed) : focus === "cds" && cdOut ? CD_OPEN_VIEW : focus ? VIEWS[focus] : HOME_VIEW;
+    const aspect = size.width / size.height;
+    // the guitar is played from square in front of it, turned to lie across a wide screen
+    const playing = booted && focus === "guitar" ? guitarView(aspect) : null;
+    // through the Canonet's viewfinder: the room as it is seen from the chair
+    const peeking = booted && focus === "canonet" && finder;
+    const view = !booted ? ENTER_VIEW : peeking ? HOME_VIEW : playing ? playing : focus === "album" && zoomed !== null ? albumPhotoView(zoomed) : focus === "cds" && cdOut ? CD_OPEN_VIEW : focus === "tv" && typingFront() ? TYPING_VIEW : focus ? VIEWS[focus] : HOME_VIEW;
     tmpLook.set(...view.look);
     tmpPos.set(...view.pos);
-    // on narrow windows step back so the whole desk stays in frame
-    const aspect = size.width / size.height;
-    const pull = Math.max(1, 1.75 / aspect);
+    tmpUp.set(...(playing ? playing.up : LEVEL));
+    // on narrow windows step back so the whole desk stays in frame (the guitar's view has already allowed for it)
+    const pull = playing ? 1 : Math.max(1, 1.75 / aspect);
     tmpPos.sub(tmpLook).multiplyScalar(pull);
     // the visitor's own turn and zoom, about the point being looked at
     const h = hand.current;
     const kh = 1 - Math.exp(-dt * 14);
-    const held = focus === "canonet"; // there the drag turns the object, not the view
+    const held = turnsObject(focus); // there the drag turns the object, not the view
     h.yaw += ((held ? 0 : orbit.yaw) - h.yaw) * kh;
     h.pitch += ((held ? 0 : orbit.pitch) - h.pitch) * kh;
     h.zoom += (orbit.zoom - h.zoom) * kh;
@@ -138,10 +187,20 @@ function CameraRig() {
     sph.phi = clamp(sph.phi - h.pitch, 0.3, 1.72);
     sph.radius *= h.zoom;
     tmpPos.setFromSpherical(sph).add(tmpLook);
+    if (peeking) {
+      // the eye walks and looks about by itself (see finderCam.ts), within the furnished part of the room
+      stepFinderCam(dt);
+      tmpPos.set(finderCam.x, finderCam.y, finderCam.z);
+      tmpLook.set(
+        finderCam.x + Math.sin(finderCam.yaw) * Math.cos(finderCam.tip),
+        finderCam.y + Math.sin(finderCam.tip),
+        finderCam.z - Math.cos(finderCam.yaw) * Math.cos(finderCam.tip),
+      );
+    }
     // stay inside the room
     tmpPos.set(clamp(tmpPos.x, -2.9, 2.9), clamp(tmpPos.y, 0.25, 2.6), Math.max(tmpPos.z, WALL_Z + 0.2));
-    const manual = orbit.dragging || Math.abs(orbit.yaw) + Math.abs(orbit.pitch) + Math.abs(orbit.zoom - 1) > 0.002;
-    const drift = focus ? 0.025 : 0.1;
+    const manual = peeking || orbit.dragging || Math.abs(orbit.yaw) + Math.abs(orbit.pitch) + Math.abs(orbit.zoom - 1) > 0.002;
+    const drift = playing || peeking ? 0 : focus ? 0.025 : 0.1;
     tmpPos.x += pointer.x * drift;
     tmpPos.y += pointer.y * drift * 0.4;
     // seated at the desk, the mouse turns the head a little: enough to find the guitar and the wall
@@ -150,10 +209,11 @@ function CameraRig() {
       tmpLook.y += pointer.y * 0.12;
     }
 
-    const fov = focus ? FOCUS_FOV : HOME_FOV;
+    const fov = peeking ? FINDER_FOV : focus ? FOCUS_FOV : HOME_FOV;
     if (first.current) {
       first.current = false;
       camera.position.copy(tmpPos);
+      camera.up.copy(tmpUp);
       look.current.copy(tmpLook);
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -161,6 +221,7 @@ function CameraRig() {
       // the pull back from the TV on entering is slower than a hop between objects
       const k = 1 - Math.exp(-dt * (manual ? 9 : booted && !focus ? 2.2 : 3.2));
       camera.position.lerp(tmpPos, k);
+      camera.up.lerp(tmpUp, k).normalize();
       look.current.lerp(tmpLook, k);
       if (Math.abs(camera.fov - fov) > 0.01) {
         camera.fov += (fov - camera.fov) * k;
@@ -168,15 +229,79 @@ function CameraRig() {
       }
     }
     camera.lookAt(look.current);
+    focusPoint.copy(look.current);
 
+    // with a cassette's inlay open on the right of a wide screen, the picture slides left so the cassette and
+    // the inlay stand side by side, clear of each other (the cassette cannot go further left itself: the TV is there)
+    const inlay = focus === "tapes" && tapeOpen && aspect > 1.05;
     // slide the picture left while a side panel is open (the TV takes the whole screen instead)
-    // nor for the Discman, which has no panel: its own keys are the controls
-    const goal = focus && focus !== "tv" && focus !== "cd" && focus !== "cds" && zoomed === null ? 0.19 : 0;
+    // nor for the Discman, the planet lamp, the guitar or the card pack, which have no panel: their controls are in the room
+    const goal = inlay ? 0.14 : focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && zoomed === null ? 0.19 : 0;
     shift.current += (goal - shift.current) * (1 - Math.exp(-dt * 3.2));
     if (Math.abs(shift.current) > 0.0005) camera.setViewOffset(size.width, size.height, shift.current * size.width, 0, size.width, size.height);
     else camera.clearViewOffset();
   });
   return null;
+}
+
+/**
+ * The Canonet's shutter. When it is pressed, the frame that has just been drawn is kept: the
+ * part of it inside the viewfinder's window, as a picture. This runs after everything else
+ * in the frame, so what it copies is the finished picture, grade and grain and all.
+ */
+function Shutter() {
+  const taken = useRef(0);
+  useFrame(({ gl }) => {
+    const s = useRoom.getState();
+    if (s.shutter === taken.current) return;
+    taken.current = s.shutter;
+    if (!s.finder) return;
+    const canvas = gl.domElement;
+    const box = canvas.getBoundingClientRect();
+    // the window, as ui.module.css lays it out: 3 by 2, in the middle of the screen
+    const w = Math.min(window.innerWidth * 0.88, window.innerHeight * 1.24);
+    const h = w / 1.5;
+    const k = canvas.width / box.width;
+    const print = document.createElement("canvas");
+    print.width = 960;
+    print.height = 640;
+    const ctx = print.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(canvas, (window.innerWidth / 2 - w / 2 - box.left) * k, (window.innerHeight / 2 - h / 2 - box.top) * k, w * k, h * k, 0, 0, print.width, print.height);
+    s.setShot(print.toDataURL("image/jpeg", 0.86));
+  }, 1000);
+  return null;
+}
+
+/**
+ * Close up on something, what is behind it goes a little soft, as it would through a lens.
+ * Not from the chair, where the whole room is the picture, nor through the viewfinder.
+ */
+function FocusBlur() {
+  const ref = useRef<DepthOfFieldEffect>(null);
+  useFrame((_, dt) => {
+    const effect = ref.current;
+    if (!effect) return;
+    const s = useRoom.getState();
+    // nor with a cassette's inlay open: it is held right in front of the lens, nearer than the focus point, and would go soft
+    const close = s.booted && s.focus !== null && !s.finder && !s.selectedTape;
+    effect.target = focusPoint;
+    effect.bokehScale += ((close ? 2.4 : 0) - effect.bokehScale) * (1 - Math.exp(-dt * 3));
+  });
+  return <DepthOfField ref={ref} worldFocusRange={0.7} bokehScale={0} resolutionScale={0.5} />;
+}
+
+/** A spotlight that looks at a point, with its target in the scene so the aim is honoured. */
+function Aimed({ at, children, ...rest }: { at: [number, number, number]; children?: React.ReactNode } & React.ComponentProps<"spotLight">) {
+  const target = useMemo(() => new THREE.Object3D(), []);
+  return (
+    <>
+      <primitive object={target} position={at} />
+      <spotLight target={target} {...rest}>
+        {children}
+      </spotLight>
+    </>
+  );
 }
 
 function Lights() {
@@ -190,7 +315,7 @@ function Lights() {
       {/* Night, and two sources that matter: the warm desk lamp and the cyan of the tube (its light
           is in objects/Props.tsx). Everything else only keeps the shadows from going to black, and
           leans teal so the lamplight has something to stand against. */}
-      <hemisphereLight args={["#2c7488", "#2a1a10", 0.14]} />
+      <hemisphereLight args={["#2c7488", "#2a1a10", 0.07]} />
       {/* desk lamp: the warm key light, low on the left */}
       <pointLight
         ref={lamp}
@@ -204,12 +329,32 @@ function Lights() {
         shadow-radius={6}
       />
       {/* the lamp's light coming back off the room behind the chair */}
-      <pointLight position={[1.6, 1.8, 2.4]} color="#ff9a58" intensity={2.1} distance={9} decay={1.5} />
+      <pointLight position={[1.6, 1.8, 2.4]} color="#ff9a58" intensity={0.9} distance={9} decay={1.5} />
       {/* night through the glass, pulled towards the TV's cyan */}
       <pointLight position={[POS.window[0], POS.window[1] + 0.2, POS.window[2] + 0.45]} color="#4fb6dc" intensity={2.2} distance={4.5} decay={1.8} />
       {/* a cyan edge from the far side, so shapes separate from the dark */}
-      <pointLight position={[1.9, 1.5, 0.6]} color="#35c4e4" intensity={1.2} distance={5} decay={1.6} />
-      <pointLight position={[-2.4, 1.2, 1.0]} color="#2aa6c8" intensity={0.45} distance={5} decay={1.6} />
+      <pointLight position={[1.9, 1.5, 0.6]} color="#35c4e4" intensity={0.55} distance={5} decay={1.6} />
+      <pointLight position={[-2.4, 1.2, 1.0]} color="#2aa6c8" intensity={0.2} distance={5} decay={1.6} />
+      {/* the right of the desk: a soft, warm pool from up and in front, falling off into the dark
+          at its rim. The gradient is what gives the things on it a lit side and a shadowed one, and
+          its shadows ground them on the wood. */}
+      <Aimed
+        at={[0.68, 0.78, -0.02]}
+        position={[1.45, 1.75, 0.95]}
+        color="#ffb07a"
+        intensity={2.4}
+        angle={0.3}
+        penumbra={1}
+        distance={6}
+        decay={1.5}
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.002}
+        shadow-radius={8}
+      />
+      {/* cold backlight through the window: a thin cyan rim on the tops and far edges, so shapes
+          come off the dark instead of sinking into it */}
+      <Aimed at={[0.5, 0.85, 0.0]} position={[0.9, 2.1, -1.5]} color="#5fd4ee" intensity={2.2} angle={0.5} penumbra={1} distance={7} decay={1.4} />
     </>
   );
 }
@@ -221,7 +366,8 @@ const gradeFrag = /* glsl */ `
     float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
     c += vec3(-0.004, 0.022, 0.034) * smoothstep(0.0, 0.06, l) * (1.0 - smoothstep(0.08, 0.5, l));
     c *= mix(vec3(1.0), vec3(1.06, 1.0, 0.9), smoothstep(0.35, 0.95, l));
-    c = mix(c, c * c * (3.0 - 2.0 * c), 0.22);
+    c = mix(c, c * c * (3.0 - 2.0 * c), 0.45);
+    c *= 0.88;
     outputColor = vec4(max(c, 0.0), inputColor.a);
   }
 `;
@@ -235,8 +381,10 @@ function Grade() {
 export default function Room({ onReady }: { onReady?: () => void }) {
   useEffect(() => {
     document.body.style.cursor = "";
-    return useRoom.subscribe((s) => {
-      document.body.style.cursor = s.hover ? "pointer" : "";
+    // anything with a name or a hint under the pointer gets the hand. Only when one of those
+    // changes: a control may have set a cursor of its own (a grab, say) in between.
+    return useRoom.subscribe((s, was) => {
+      if (s.hover !== was.hover || s.tip !== was.tip) document.body.style.cursor = s.hover || s.tip ? "pointer" : "";
     });
   }, []);
 
@@ -244,7 +392,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
     <Canvas
       flat
       shadows="soft"
-      dpr={[1, 1.75]}
+      dpr={[1.5, 2]}
       camera={{ fov: HOME_FOV, near: 0.05, far: 40, position: HOME_VIEW.pos }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
       onCreated={({ scene }) => {
@@ -268,18 +416,23 @@ export default function Room({ onReady }: { onReady?: () => void }) {
         <Props />
         <Shelf />
         <TapeRack />
+        <Pamphlet />
         <CdStack />
         <CdPlayer />
         <Guitar />
         <Frames />
         <Notes />
-        <Cards />
+        <ContactPack />
+        <Receipt />
+        <Mouse />
+        <Dice />
         <Posters />
         <Furniture />
         <Keyboard />
         <Canonet />
         <Album />
         <Coffee />
+        <SillDecor />
         <LampGlow />
         <Haze />
         <Ready onReady={onReady} />
@@ -288,13 +441,15 @@ export default function Room({ onReady }: { onReady?: () => void }) {
           antialiasing never reaches it. Multisampling that buffer is the obvious fix, but on
           Intel/Mesa it renders the frame black, so edges are smoothed by SMAA after tone mapping. */}
       <EffectComposer multisampling={0}>
+        <FocusBlur />
         <Bloom intensity={1.2} luminanceThreshold={0.86} luminanceSmoothing={0.2} radius={0.8} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         <Grade />
         <SMAA preset={SMAAPreset.ULTRA} />
-        <Vignette offset={0.24} darkness={0.88} />
+        <Vignette offset={0.2} darkness={0.95} />
         <Noise opacity={0.035} />
       </EffectComposer>
+      <Shutter />
     </Canvas>
   );
 }

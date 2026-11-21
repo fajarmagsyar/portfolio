@@ -2,10 +2,12 @@
 
 // Tiny synthesised interface sounds: no files. Silent until the first user gesture.
 
+import { soundOn } from "./sound";
+
 let ctx: AudioContext | null = null;
 
 function ac(): AudioContext | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || !soundOn()) return null;
   try {
     ctx ??= new AudioContext();
     if (ctx.state === "suspended") void ctx.resume();

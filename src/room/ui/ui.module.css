@@ -103,13 +103,35 @@
   opacity: 0;
   pointer-events: none !important;
   white-space: nowrap;
-  z-index: 20;
+  z-index: 40;
+  font-family: var(--font-body), system-ui, sans-serif;
   font-size: 14px;
-  letter-spacing: 0.14em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #fff;
-  text-shadow: var(--shade);
+  /* no plate behind it: the words carry their own dark edge, close and then wide */
+  text-shadow:
+    0 1px 0 #000,
+    0 0 3px #000,
+    0 0 8px rgba(0, 0, 0, 0.95),
+    0 2px 16px rgba(0, 0, 0, 0.9);
   transition: opacity 0.12s;
+}
+/* the lines under the name: plain sentences, smaller, and wrapped to a readable width */
+.hoverMore {
+  display: block;
+  max-width: 340px;
+  margin-top: 3px;
+  white-space: normal;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.hoverMore:last-child {
+  color: #ffd9a0;
 }
 .hover::before {
   content: "+ ";
@@ -640,4 +662,184 @@ a.pill:hover,
   opacity: 0.35;
   cursor: default;
   pointer-events: none;
+}
+
+/* ---------- the guitar's chord wheel ---------- */
+
+.wheelBox {
+  position: absolute;
+  left: 28px;
+  bottom: 70px;
+  width: clamp(150px, 17vw, 210px);
+  z-index: 30;
+  user-select: none;
+}
+.wheel {
+  display: block;
+  width: 100%;
+  pointer-events: auto;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5));
+}
+.wheelHint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.06em;
+  color: var(--ui-dim);
+  text-shadow: var(--shade);
+}
+.wedge text[data-long="true"] {
+  font-size: 12px;
+}
+.wheelNow[data-long="true"] {
+  font-size: 18px;
+}
+.wedge {
+  cursor: pointer;
+}
+.wedge path {
+  fill: rgba(16, 12, 9, 0.62);
+  stroke: var(--hair);
+  stroke-width: 1;
+  transition: fill 0.12s;
+}
+.wedge:hover path {
+  fill: rgba(40, 30, 22, 0.8);
+}
+.wedge[data-on="true"] path {
+  fill: rgba(240, 164, 65, 0.3);
+  stroke: var(--accent);
+}
+.wedge text {
+  fill: var(--ui);
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+.wedge[data-on="true"] text {
+  fill: #fff;
+}
+.wedge .wedgeKey {
+  fill: var(--ui-dim);
+  font-size: 9px;
+}
+.wheelNow {
+  fill: var(--accent);
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+@media (max-width: 720px) {
+  .wheelBox {
+    left: 12px;
+    bottom: 60px;
+  }
+}
+
+/* ---------- the Canonet's viewfinder ---------- */
+
+.finder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  cursor: crosshair;
+  z-index: 12;
+  /* the finder's glass is a little cool, and falls off towards its edges */
+  background: radial-gradient(ellipse at center, rgba(120, 170, 200, 0.05) 0%, rgba(0, 0, 0, 0.18) 100%);
+}
+.finderWindow {
+  position: relative;
+  overflow: hidden;
+  width: min(88vw, 124vh);
+  aspect-ratio: 3 / 2;
+  border-radius: 18px;
+  /* everything outside the window is the inside of the camera */
+  box-shadow:
+    0 0 0 200vmax #050505,
+    inset 0 0 90px 24px rgba(0, 0, 0, 0.75);
+}
+.finderWindow svg {
+  width: 100%;
+  height: 100%;
+}
+.finderWindow path {
+  fill: none;
+  stroke: rgba(255, 236, 170, 0.85);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 3px rgba(255, 220, 130, 0.6));
+}
+.finderWindow .finderFaint {
+  stroke: rgba(255, 236, 170, 0.4);
+}
+.finderPatch {
+  fill: rgba(255, 214, 110, 0.2);
+  stroke: rgba(255, 226, 150, 0.35);
+  vector-effect: non-scaling-stroke;
+}
+.finderBlink {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  animation: shutter 0.22s linear;
+}
+@keyframes shutter {
+  0% {
+    opacity: 0;
+  }
+  20%,
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.finderSaved {
+  position: absolute;
+  left: 50%;
+  bottom: 13%;
+  margin: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 6px rgba(0, 0, 0, 0.95),
+    0 2px 14px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  pointer-events: none;
+  animation: saved 2.2s ease-out;
+}
+@keyframes saved {
+  0%,
+  12% {
+    opacity: 0;
+  }
+  22%,
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* the owner's mark before the name: black artwork, turned white for the dark room */
+.hud .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.mark {
+  height: 22px;
+  width: auto;
+  filter: invert(1) drop-shadow(0 1px 6px rgba(0, 0, 0, 0.6));
 }

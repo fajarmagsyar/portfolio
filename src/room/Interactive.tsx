@@ -1,6 +1,7 @@
 "use client";
 
 import type { ThreeElements, ThreeEvent } from "@react-three/fiber";
+import type * as THREE from "three";
 import { useRoom, type FocusId } from "./store";
 
 /**
@@ -24,7 +25,11 @@ export function Interactive({ target, children, ...props }: { target: FocusId } 
       // swallowing the pointer before the object's own controls saw it.)
       onPointerMove={(e: ThreeEvent<PointerEvent>) => {
         if (!live) return;
-        const nearest = e.intersections[0]?.eventObject === e.eventObject;
+        // (the nearest hit may be reported for a part of this thing that has handlers of its
+        // own, such as a CD in the rack or the strings of the guitar: that still counts as this thing)
+        let part: THREE.Object3D | null = e.intersections[0]?.eventObject ?? null;
+        while (part && part !== e.eventObject) part = part.parent;
+        const nearest = part === e.eventObject;
         if (nearest) setHover(target);
         else if (useRoom.getState().hover === target) setHover(null);
       }}

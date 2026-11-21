@@ -24,12 +24,105 @@ const placed: L10n = { id: "Tekstur diperkecil; diskalakan dan ditempatkan.", en
 
 export const credits: Credit[] = [
   {
-    title: "Fender Telecaster 1952",
-    author: "Kanade_Tatibana",
-    licence: "CC BY 4.0",
-    url: "https://sketchfab.com/3d-models/fender-telecaster-1952-d13911e0fcd54e14b65834b9145ccdb3",
+    title: "Telecaster",
+    author: "aledororo",
+    licence: "CC BY-NC 4.0",
+    url: "https://sketchfab.com/3d-models/telecaster-88e1bcf87b4f4acea088644216bf4130",
     changes: placed,
   },
+  {
+    title: "CD with Jewel Case BULLY",
+    author: "YE YE",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/cd-with-jewel-case-bully-185a15c745b4447d90998a67c2a9dd59",
+    changes: {
+      id: "Hanya wadahnya yang dipakai, tanpa cakram dan sampulnya; kedua bagiannya dipisah agar tutupnya bisa dibuka; dibuat bening; diskalakan.",
+      en: "Only the case is used, without its disc and cover; its two halves separated so the lid can open; made clear; scaled.",
+    },
+  },
+  {
+    title: "Trading Card Pack",
+    author: "goonmize1",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/trading-card-pack-26d1a87e47814d0ea3a710d169e3a671",
+    changes: {
+      id: "Hanya bentuk dan kerut foilnya yang dipakai; gambar cetaknya diganti dengan yang dibuat untuk situs ini; dibelah di garis potong.",
+      en: "Only its shape and the crinkle of its foil are used; its printed artwork is replaced by one made for this site; split along the cut line.",
+    },
+  },
+  {
+    title: "Dining table wood with black metal",
+    author: "Mr.N0b0dy",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/dining-table-wood-with-black-metal-5b09e402ce8b4fd1a22e2b8672f1b2ff",
+    changes: { id: "Tekstur diperkecil; diputar dan sedikit direntangkan seukuran meja.", en: "Textures downscaled; turned and stretched slightly to the size of the desk." },
+  },
+  {
+    title: "Old Book",
+    author: "Mike Rowley",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/old-book-84145cf4a3984ff59867f8abfe9138ad",
+    changes: { id: "Sampulnya dipakai sebagai jilid album foto: papan depan dipisah agar bisa dibuka, dipipihkan, tulisannya diganti.", en: "Its covers are used as the binding of the photo album: the front board separated so it can open, pressed flatter, its lettering replaced." },
+  },
+  {
+    title: "RPG Dice Set",
+    author: "ghosted",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/rpg-dice-set-2498c370c56842f89fa3d7096c72ed56",
+    changes: { id: "Hanya satu set (oranye) dari tujuh yang dipakai; tekstur diperkecil; diskalakan dan ditempatkan.", en: "Only one set (the orange one) of the seven is used; textures downscaled; scaled and placed." },
+  },
+  {
+    title: "Window",
+    author: "adventurer",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/window-e7a957f3585a4ced8aeb23e9525f0b87",
+    changes: { id: "Bingkai luar dan dua daun jendela dipakai, daun di bagian atas dibuang; tekstur diperkecil; diskalakan sesuai lubang dinding.", en: "The outer frame and the two sashes are used, the leaf over the top left out; textures downscaled; scaled to the wall opening." },
+  },
+  {
+    title: "Simple PC Mouse",
+    author: "SugarSatea",
+    licence: "Sketchfab Standard",
+    url: "https://sketchfab.com/3d-models/simple-pc-mouse-4a8fcd93c882402cab7d2d6458855ac5",
+    changes: { id: "Diperkecil dan ditempatkan; bergerak mengikuti mouse pengunjung.", en: "Scaled down and placed; it moves with the visitor's mouse." },
+  },
+  {
+    title: "Coffee Cup",
+    author: "jeffbas",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/coffee-cup-ce14e184dce0440ebf21246ae876fca6",
+    changes: { id: "Dibuat menerima cahaya ruangan; diskalakan dan ditempatkan.", en: "Made to take the room's light; scaled and placed." },
+  },
+  {
+    title: "Helmet Redbull - Max Verstappen",
+    author: "Maubian",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/helmet-redbull-max-verstappen-87eee96938ae415281a8aa8233eefba8",
+    changes: { id: "Tekstur diperkecil ke 1024 px (WebP), dikompres; diskalakan dan ditempatkan di ambang jendela.", en: "Textures downscaled to 1024 px (WebP), compressed; scaled and placed on the window sill." },
+  },
+  {
+    title: "Nintendo DS Lite",
+    author: "Cianon",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/nintendo-ds-lite-ca529eb7208746e89b7a28fd2246659d",
+    changes: { id: "Tekstur diperkecil ke 1024 px (WebP), dikompres; diskalakan dan ditempatkan di ambang jendela.", en: "Textures downscaled to 1024 px (WebP), compressed; scaled and placed on the window sill." },
+  },
+  ...(
+    [
+      ["Mercury", "mercury-32347fa4ec1a4987b71f461a401d91c4"],
+      ["Venus", "venus-d497ce25553447f3b7b679110c85cfa1"],
+      ["Earth", "earth-41fc80d85dfd480281f21b74b2de2faa"],
+      ["Mars", "mars-9c7bbc64d8c74acfa9ec344c0fc10e1a"],
+      ["Jupiter", "jupiter-d252c96ae3de48d7968b1206522ba9f5"],
+    ] as const
+  ).map(
+    ([title, slug]): Credit => ({
+      title,
+      author: "Akshat",
+      licence: "CC BY 4.0",
+      url: `https://sketchfab.com/3d-models/${slug}`,
+      changes: { id: "Hanya tekstur permukaannya yang dipakai, diperkecil, pada bola lampu.", en: "Only its surface texture is used, downscaled, on the globe of the lamp." },
+    }),
+  ),
   {
     title: "Marshall Guitar Amp",
     author: "D3",
@@ -87,12 +180,12 @@ export const credits: Credit[] = [
     licence: "Sketchfab Standard",
     url: "https://sketchfab.com/3d-models/saturn-desk-lamp-861fc2fffbb84622ad5127a806b975ae",
     changes: {
-      id: "Diperkecil; bola lampu dibuat menyala hangat; ditempatkan.",
-      en: "Scaled down; the globe made to glow a warm amber; placed.",
+      id: "Diperkecil; bola lampu diganti bola planet yang menyala; ditempatkan.",
+      en: "Scaled down; the globe replaced by a glowing planet; placed.",
     },
   },
   {
-    title: "Television 01, Gaming Console, Gamepad, Desk Lamp Arm 01, Painted Wooden Table, Potted Plant 02, Hanging Picture Frame 01 & 02, Wooden Bookshelf Worn, Book Encyclopedia Set 01, Boombox, Mid Century Lounge Chair, Side Table 01, Vintage Wooden Drawer 01, Wall Clock, Potted Plant 04, Ceramic Vase 03, Vintage Oil Lamp, Wood Floor, White Plaster 02",
+    title: "Television 01, Gaming Console, Gamepad, Desk Lamp Arm 01, Potted Plant 02, Hanging Picture Frame 01 & 02, Wooden Bookshelf Worn, Book Encyclopedia Set 01, Boombox, Mid Century Lounge Chair, Side Table 01, Vintage Wooden Drawer 01, Wall Clock, Potted Plant 04, Ceramic Vase 03, Vintage Oil Lamp, Wood Floor, White Plaster 02",
     author: "Poly Haven",
     licence: "CC0 1.0",
     url: "https://polyhaven.com",
@@ -104,7 +197,7 @@ export const credits: Credit[] = [
     url: "https://kenney.nl",
   },
   {
-    title: "Zen Kaku Gothic New, DotGothic16, Caveat",
+    title: "Zen Kaku Gothic New, DotGothic16, Caveat, Permanent Marker, UnifrakturCook, EB Garamond",
     author: "Google Fonts",
     licence: "OFL 1.1",
     url: "https://fonts.google.com",

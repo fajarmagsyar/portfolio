@@ -36,6 +36,16 @@ const SHELF_LEFT = SHELF.x - SHELF.inner / 2;
 const TAPES_X = SHELF_LEFT + SHELF.tape.start + SHELF.tape.pitch * 2;
 const CDS_X = SHELF_LEFT + SHELF.cd.start + SHELF.cd.pitch * 1.5;
 
+/**
+ * Where a cassette is held up to be read, and the pamphlet unfolds from behind it. On a wide
+ * screen the pamphlet takes the right-hand side, so the cassette steps to the left; on an
+ * upright one the pamphlet takes the bottom, so it steps up.
+ */
+export function tapeHeld(aspect: number): V3 {
+  const wide = aspect > 1.05;
+  return [TAPES_X + (wide ? 0.045 : 0), POS.tapeRack[1] + 0.18 + (wide ? 0 : 0.03), POS.tapeRack[2] + 0.15];
+}
+
 export const POS = {
   tv: [-0.05, DESK.y, -0.2] as V3,
   console: [-0.5, DESK.y, -0.07] as V3,
@@ -49,7 +59,15 @@ export const POS = {
   tapeRack: [TAPES_X, DESK.y + SHELF.wall, SHELF.spine] as V3,
   cdStack: [CDS_X, DESK.y + SHELF.wall, SHELF.spine] as V3,
   cdPlayer: [0.45, DESK.y, -0.07] as V3,
-  coffee: [0.235, DESK.y, 0.11] as V3,
+  // the mug is on the left of the keyboard, clear of the mouse and of the view of the shelf
+  coffee: [-0.335, DESK.y, 0.095] as V3,
+  // the mouse to the right of the keyboard, with room to move; the dice in front of the Discman
+  mouse: [0.27, DESK.y, 0.085] as V3,
+  dice: [0.5, DESK.y, 0.115] as V3,
+  // the receipt, folded small, near the planet lamp: far enough towards the middle that the camera in front does not hide it
+  receipt: [0.62, DESK.y, -0.13] as V3,
+  // the clock on the wall to the right of the window, above the notes: in sight from the chair
+  clock: [1.2, 1.6, WALL_Z + 0.004] as V3,
   notes: [1.17, 1.22, WALL_Z + 0.006] as V3,
   // the two frames stand at the back of the desk, right of the shelf
   frames: [0.74, DESK.y, -0.4] as V3,
@@ -65,12 +83,27 @@ export const POS = {
   wallPoster: [-1.2, 1.5] as [number, number],
   guitar: [-1.22, 0, -0.22] as V3,
   amp: [-1.62, 0, -0.4] as V3,
-  plant: [1.3, 0, -0.05] as V3,
+  // far enough along that its leaves do not hang in front of the album when it is held up
+  plant: [1.5, 0, -0.2] as V3,
   window: [WIN.x, WIN.y, WALL_Z] as V3,
 };
 
+/** The lamp model is scaled to this; its globe then sits this high and is this big. */
+export const SATURN_SCALE = 0.44;
+export const SATURN_GLOBE_Y = DESK.y + 0.2129 * SATURN_SCALE;
+export const SATURN_GLOBE_R = 0.1343 * SATURN_SCALE;
+
 /** The view when a CD is out of the shelf, open, with its leaflet unfolded above it. */
 export const CD_OPEN_VIEW = { pos: [CDS_X, 1.12, 0.4] as V3, look: [CDS_X, 1.075, -0.2] as V3 };
+
+/** Where the pack of contact cards is held up, and its cards after it. */
+export const CARDS_HELD: V3 = [-0.76, 0.99, 0.22];
+
+/** Through the Canonet's viewfinder the room is seen from the chair, as it always is, with a 40 mm lens's narrower field. */
+export const FINDER_FOV = 40;
+
+/** Where the receipt is held up to be read. */
+export const RECEIPT_HELD: V3 = [POS.receipt[0], 0.97, 0.24];
 
 /** Where the album is held when it is picked up, and so where the camera looks. */
 export const ALBUM_HELD: V3 = [0.76, 1.0, 0.27];
@@ -80,6 +113,8 @@ export const ALBUM_HELD: V3 = [0.76, 1.0, 0.27];
 export const HOME_VIEW = { pos: [0.0, 1.17, 1.2] as V3, look: [0, 1.05, -0.3] as V3 };
 /** Before the visitor has clicked to enter: leaning in towards the TV, which carries the prompt. */
 export const ENTER_VIEW = { pos: [0.0, 1.1, 0.98] as V3, look: [-0.08, 1.03, -0.2] as V3 };
+/** At the typing test the view draws back a little from the TV so the keyboard is in the picture too. */
+export const TYPING_VIEW = { pos: [-0.056, 1.1, 0.86] as V3, look: [-0.08, 0.92, -0.03] as V3 };
 export const HOME_FOV = 47;
 export const FOCUS_FOV = 36;
 
@@ -95,8 +130,19 @@ export const VIEWS: Record<FocusId, { pos: V3; look: V3 }> = {
   guitar: { pos: [-0.57, 0.72, 1.58], look: [-1.22, 0.58, -0.17] },
   frames: { pos: [0.56, 1.0, 0.36], look: [0.74, 0.91, -0.4] },
   notes: { pos: [1.17, 1.22, 0.3], look: [1.17, 1.22, WALL_Z] },
-  cards: { pos: [-0.76, 1.14, 0.53], look: [-0.76, 0.77, 0.1] },
+  // the pack and its cards are held up in front of the eye
+  cards: { pos: [CARDS_HELD[0], 1.05, 0.52], look: CARDS_HELD },
   // both of these are picked up off the desk when focused: the view looks at where they are held
-  canonet: { pos: [0.67, 1.0, 0.61], look: [0.67, 0.9, 0.08] },
-  album: { pos: [ALBUM_HELD[0], 1.27, 0.9], look: ALBUM_HELD },
+  canonet: { pos: [0.67, 0.965, 0.43], look: [0.67, 0.9, 0.08] },
+  // the open album fills the view, its spine down the middle
+  album: { pos: [ALBUM_HELD[0], 1.22, 0.78], look: ALBUM_HELD },
+  // close enough on the receipt to read it; it is slid up and down, not seen whole
+  receipt: { pos: [RECEIPT_HELD[0], 1.02, 0.5], look: RECEIPT_HELD },
+  clock: { pos: [POS.clock[0], POS.clock[1], 0.28], look: [POS.clock[0], POS.clock[1], WALL_Z] },
+  // square on to the framed photo where it stands, from the way it faces, close enough to see the faces
+  portrait: { pos: [-0.54, 1.03, 0.53], look: [-0.83, 0.93, 0.0] },
+  // down on the dice from in front, with room for them to fly
+  dice: { pos: [POS.dice[0], 1.04, 0.52], look: [POS.dice[0], DESK.y + 0.03, POS.dice[2] - 0.01] },
+  // the lamp with room above it, where the planets line up to be picked
+  saturn: { pos: [POS.saturn[0], 1.0, 0.31], look: [POS.saturn[0], SATURN_GLOBE_Y + 0.045, POS.saturn[2]] },
 };

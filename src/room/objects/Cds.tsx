@@ -11,14 +11,18 @@ import { strings } from "@/content/strings";
 import { useLang } from "@/state/lang";
 import { Interactive } from "../Interactive";
 import { POS, SHELF } from "../layout";
+import { hint } from "../hint";
 import { useRoom } from "../store";
 import { canvasTexture, paper, rng, useCanvasTexture, useFonts, wrap, type Fonts } from "../textures";
 import { useClone } from "./Guitar";
 import { HitBox } from "./Props";
 
 // Model: "Sony Discman D-121 Final" by Jacques C. Valentin (CC BY 4.0). See CREDITS.md.
-// The jewel cases are built here: a closed case can stand in a row like a book, spine out.
+// Model: "CD with Jewel Case BULLY" by YE YE (CC BY 4.0). See CREDITS.md. Only the case is
+// used: its two halves are taken apart so the lid can swing on its hinge, and shut it stands
+// in a row like a book, spine out. The disc, the leaflet and what is printed on them are made here.
 const DISCMAN = "/models/sk/discman.glb";
+const CASE = "/models/sk/cd_case.glb";
 
 // a jewel case, life size
 const CW = 0.142;
@@ -130,6 +134,12 @@ function drawLeafLeft(ctx: CanvasRenderingContext2D, w: number, h: number, p: Pr
     ctx.fillStyle = "#4a3a22";
     ctx.fillText(tech, x + 10, y);
     x += tw + 8;
+  }
+  // the press that covered it, along the foot of the page (above the link when there is one)
+  if (p.coverage?.length) {
+    ctx.fillStyle = "#4a3a22";
+    ctx.font = `19px ${fonts.screen}`;
+    ctx.fillText(`${t.covered_by.toUpperCase()}:  ${p.coverage.map((c) => c.name).join("  /  ")}`, m, p.url ? h - 66 : h - 34, w - m * 2);
   }
   if (p.url) {
     ctx.fillStyle = p.disc;
@@ -343,8 +353,57 @@ const v = new THREE.Vector3();
 const SHELVED = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
 const SHOWN = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2, 0, 0));
 const ease = (t: number) => t * t * (3 - 2 * t);
-const LID_T = 0.003;
-const BASE_T = CT - LID_T;
+
+// The case in the file, in its own units: it stands on edge, 2.2 wide (along z, with the hinge
+// at the +z end), 2 tall, and 0.103 thick (along x, the lid towards +x). Both halves fill the
+// same thickness: the lid is a shell that closes over the tray. It is rather thinner than a
+// real case, so it is scaled up through its thickness to the 10.4 mm the shelf is spaced for.
+const FILE = { wide: 2.2, tall: 2, thick: 0.1029, midZ: 0.0053 };
+const CASE_SCALE: [number, number, number] = [CT / FILE.thick, CH / FILE.tall, CW / FILE.wide];
+/** turns the file's case to lie as the code expects: width across, cover to the front, hinge on the left */
+const CASE_TURN: [number, number, number] = [0, -Math.PI / 2, 0];
+/** how far in front of the middle of the case the top of the tray is, where the disc lies */
+const DISC_Z = 0.0105 * CASE_SCALE[0] + 0.0005;
+/** and the folded leaflet, just behind the front of the lid */
+const LEAF_Z = 0.0031;
+
+/** The two halves of the case, each a copy of the file's, the lid shut and hinged at its own origin. */
+function useCase(clear: THREE.Material) {
+  const { scene } = useGLTF(CASE);
+  return useMemo(() => {
+    const all: THREE.Object3D[] = [];
+    scene.clone(true).traverse((o) => all.push(o));
+    const tray = all.find((o) => /case.?back/i.test(o.name));
+    const lid = all.find((o) => /case.?front/i.test(o.name));
+    if (!tray || !lid) return null;
+    lid.removeFromParent();
+    for (const part of [tray, lid])
+      part.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh) return;
+        const name = (m.material as THREE.Material).name;
+        if (name === "Cover") {
+          // the file's own printed cover: here the leaflet behind the lid is the cover
+          m.visible = false;
+        } else if (name === "Translucent") {
+          // the file has the clear plastic as a solid pale blue
+          m.material = clear;
+          m.renderOrder = 2;
+        } else {
+          m.castShadow = true;
+          m.receiveShadow = true;
+        }
+      });
+    tray.position.set(0, 0, -FILE.midZ);
+    tray.rotation.set(0, 0, 0);
+    tray.scale.setScalar(1);
+    // in the file the lid stands part open; shut, it lies in the same plane as the tray
+    lid.position.set(0, 0, 0);
+    lid.rotation.set(0, 0, -Math.PI / 2);
+    lid.scale.setScalar(1);
+    return { tray, lid };
+  }, [scene, clear]);
+}
 
 // A page of the leaflet is a sheet cut into a grid so it can bend both ways. Folded, the
 // left-hand page lies over the right-hand one with the cover on its back; that is how it
@@ -441,6 +500,7 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
   const hovered = useRef(false);
   /** each 0 to 1: out of the shelf and facing the chair; lid open; leaflet up and unfolded */
   const at = useRef({ out: 0, lid: 0, leaf: 0 });
+  const wasStanding = useRef(false);
 
   const cover = useCanvasTexture(512, 512, (ctx, w, h) => drawCover(ctx, w, h, project, index, lang, fonts), [project, index, lang, fonts]);
   // folded, the back of the left-hand page faces out with the cover on it; laid that way round it would read backwards
@@ -463,14 +523,12 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
     const fibre = paperTooth();
     // the lid is clear plastic: what shows is the booklet behind it, and the light off its scratches
     const clear = new THREE.MeshPhysicalMaterial({ color: "#f4f8ff", transparent: true, opacity: 0.2, depthWrite: false, roughness: 0.9, roughnessMap: rough, clearcoat: 1, clearcoatRoughness: 0.5, clearcoatRoughnessMap: rough, envMapIntensity: 2.2 });
-    const tray = new THREE.MeshPhysicalMaterial({ color: "#101013", roughness: 1, roughnessMap: rough, bumpMap: rough, bumpScale: 0.2, clearcoat: 0.5, clearcoatRoughness: 0.4 });
-    const back = new THREE.MeshStandardMaterial({ color: project.disc, roughness: 0.85, roughnessMap: fibre });
     const coverBack = new THREE.MeshStandardMaterial({ map: coverOut, roughness: 1, roughnessMap: fibre, bumpMap: fibre, bumpScale: 0.25, side: THREE.BackSide });
     const sheet = new THREE.MeshStandardMaterial({ color: "#6f6a60", roughness: 1, roughnessMap: fibre, bumpMap: fibre, bumpScale: 0.3, side: THREE.BackSide });
-    // box faces: +x, -x, +y, -y, +z, -z
-    return { clear, tray, base: [tray, tray, tray, tray, tray, back], coverBack, sheet, all: [clear, tray, back, coverBack, sheet] };
-  }, [coverOut, project.disc]);
+    return { clear, coverBack, sheet, all: [clear, coverBack, sheet] };
+  }, [coverOut]);
   useEffect(() => () => mats.all.forEach((m) => m.dispose()), [mats]);
+  const parts = useCase(mats.clear);
 
   const x = SHELF.x - SHELF.inner / 2 + SHELF.cd.start + index * SHELF.cd.pitch;
   const rest = useMemo(() => new THREE.Vector3(x, POS.cdStack[1] + CH / 2 + 0.0005, POS.cdStack[2] - CW / 2), [x]);
@@ -480,10 +538,20 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
     if (!g) return;
     const a = at.current;
     // out, then open, then the leaflet; and back in the opposite order
-    const step = (v: number, on: boolean, seconds: number) => Math.min(1, Math.max(0, v + (on ? dt : -dt) / seconds));
-    a.out = step(a.out, selected || a.lid > 0, 0.8);
-    a.lid = step(a.lid, (selected && a.out >= 1) || a.leaf > 0, 0.55);
-    a.leaf = step(a.leaf, selected && a.lid >= 1, 2.4);
+    // Each step begins a little before the one ahead of it has quite finished, so the whole
+    // runs together as one movement; going back is quicker than coming out.
+    const step = (v: number, on: boolean, seconds: number, back = seconds) => Math.min(1, Math.max(0, v + (on ? dt / seconds : -dt / back)));
+    a.out = step(a.out, selected || a.lid > 0, 0.62);
+    a.lid = step(a.lid, (selected && a.out >= 0.86) || a.leaf > 0, 0.42);
+    a.leaf = step(a.leaf, selected && a.lid >= 0.9, 1.15, 0.7);
+    // tell the room while the case stands open, so the view waits for it to shut
+    const standing = a.lid > 0 || a.leaf > 0;
+    if (standing !== wasStanding.current) {
+      wasStanding.current = standing;
+      const s = useRoom.getState();
+      if (standing) s.setCdOpen(project.id);
+      else if (s.cdOpen === project.id) s.setCdOpen(null);
+    }
 
     // first it is drawn straight out of the row, then it turns its cover to the chair as it comes up
     const draw = ease(Math.min(1, a.out / 0.45));
@@ -507,17 +575,18 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
       // open it is slid straight up out of it, along the lid, until it is clear of the case;
       // only then is it turned over towards the chair and brought forward; and only once it
       // is there is it opened. Nothing passes through anything else on the way.
-      const p = Math.min(1, a.leaf / 0.6);
-      const up = ease(Math.min(1, p / 0.45));
-      const turn = ease(Math.max(0, (p - 0.45) / 0.55));
-      const unfold = Math.max(0, (a.leaf - 0.6) / 0.4);
+      // It is flicked up out of the lid and turned over in one go, the turn starting while it
+      // is still coming up; and it is already falling open as it arrives.
+      const p = Math.min(1, a.leaf / 0.58);
+      const up = 1 - Math.pow(1 - Math.min(1, p / 0.42), 3);
+      const turn = ease(Math.max(0, (p - 0.3) / 0.7));
+      const unfold = Math.max(0, (a.leaf - 0.5) / 0.5);
       const swing = -open * Math.PI * 0.955;
       // where it sits in the lid: its fold down the spine side, just behind the plastic
-      // (the lid's plastic is the outer 1.2 mm of its depth; the booklet lies in the space under it, above the disc)
-      inLid.set(CW / 2 + 0.003 - LEAF.w / 2, 0, -0.0006).applyAxisAngle(UP, swing);
+      // (the booklet lies in the space under the front of the lid, above the disc)
+      inLid.set(CW / 2 + 0.003 - LEAF.w / 2, 0, LEAF_Z).applyAxisAngle(UP, swing);
       inLid.x += -CW / 2;
       inLid.y += up * (CH + 0.02);
-      inLid.z += CT / 2 - LID_T / 2;
       held.set(-CW / 2, CH / 2 + 0.014 + (LEAF.h * HELD) / 2, 0.014);
       leaf.current.position.lerpVectors(inLid, held, turn);
       // turning over, it swings out towards the eye and back
@@ -539,40 +608,52 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
       position={rest}
       quaternion={SHELVED}
       onClick={(e: ThreeEvent<MouseEvent>) => {
+        // looking at the other half of the rack, a click here comes over to this half
+        if (focus === "tapes") {
+          e.stopPropagation();
+          hint(null);
+          useRoom.getState().setFocus("cds");
+          return;
+        }
         if (!live) return;
         e.stopPropagation();
         click(selected ? 0.8 : 1.2);
         selectCd(selected ? null : project.id);
       }}
       onPointerOver={(e) => {
+        if (focus === "tapes") {
+          e.stopPropagation();
+          hint("rack_cds_tip");
+          return;
+        }
         if (!live) return;
         e.stopPropagation();
         hovered.current = true;
-        document.body.style.cursor = "pointer";
+        hint(selected ? "tip_put_back" : "card_take_tip");
       }}
       onPointerOut={() => {
         hovered.current = false;
-        if (live) document.body.style.cursor = "";
+        if (live || focus === "tapes") hint(null);
       }}
     >
-      {/* the tray half */}
-      <mesh position={[0, 0, -LID_T / 2]} material={mats.base} castShadow receiveShadow>
-        <boxGeometry args={[CW, CH, BASE_T]} />
-      </mesh>
-      {/* the hub the disc clips on to */}
-      <mesh position={[0.006, 0, CT / 2 - LID_T + 0.0008]} rotation={[Math.PI / 2, 0, 0]} material={mats.tray}>
-        <cylinderGeometry args={[0.0072, 0.0076, 0.0016, 20]} />
-      </mesh>
+      {/* the tray half, with the hub the disc clips on to */}
+      {parts && (
+        <group rotation={CASE_TURN} scale={CASE_SCALE}>
+          <primitive object={parts.tray} />
+        </group>
+      )}
       {/* the disc, playing side up */}
-      <mesh position={[0.006, 0, CT / 2 - LID_T + 0.0006]}>
+      <mesh position={[0.006, 0, DISC_Z]}>
         <circleGeometry args={[0.06, 72]} />
         <shaderMaterial vertexShader={discVert} fragmentShader={discFrag} uniforms={discUniforms} transparent toneMapped={false} />
       </mesh>
       {/* the lid, hinged down the spine edge: clear plastic. The booklet behind it is the leaflet, below. */}
-      <group ref={lid} position={[-CW / 2, 0, CT / 2 - LID_T / 2]}>
-        <mesh position={[CW / 2, 0, LID_T / 2 - 0.0006]} material={mats.clear} renderOrder={2}>
-          <boxGeometry args={[CW, CH, 0.0012]} />
-        </mesh>
+      <group ref={lid} position={[-CW / 2, 0, 0]}>
+        {parts && (
+          <group rotation={CASE_TURN} scale={CASE_SCALE}>
+            <primitive object={parts.lid} />
+          </group>
+        )}
       </group>
       {/* the printed spine, on the hinge edge */}
       <mesh position={[-CW / 2 - 0.0003, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
@@ -889,3 +970,4 @@ export function CdPlayer() {
 }
 
 useGLTF.preload(DISCMAN);
+useGLTF.preload(CASE);

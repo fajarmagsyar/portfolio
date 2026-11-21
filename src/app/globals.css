@@ -67,3 +67,11 @@ html.will-room body {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* The 3D room: an open hand wherever a drag turns the view, closed while it is turning. */
+body.can-orbit {
+  cursor: grab;
+}
+body.can-orbit.orbiting {
+  cursor: grabbing !important;
+}

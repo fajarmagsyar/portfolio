@@ -21,6 +21,12 @@ const SCALE = 0.4 / 341.2;
 const MID_Z = 48.2;
 const BASE = -1.88;
 const TRAVEL = 2.6; // how far a key goes down, in the file's units
+// The case in the file is a flat slab, and laid straight on the desk it looked sunk into the
+// wood. It stands on its feet here instead: the front edge a few millimetres up on its pads,
+// the back raised, so the whole case shows and throws a shadow under itself.
+const FRONT = (117.9 - MID_Z) * SCALE; // from the middle to the front edge, in metres
+const PADS = 0.004;
+const TILT = 0.085;
 
 // Where each key's middle is in the file (x across, z towards the front), by the browser's
 // name for the physical key. Rows, back to front.
@@ -125,8 +131,10 @@ export function Keyboard() {
   });
 
   return (
-    <group position={POS.keyboard} scale={SCALE}>
-      <primitive object={scene} position={[0, -BASE, -MID_Z]} />
+    <group position={[POS.keyboard[0], POS.keyboard[1] + PADS, POS.keyboard[2] + FRONT]} rotation={[TILT, 0, 0]}>
+      <group position={[0, 0, -FRONT]} scale={SCALE}>
+        <primitive object={scene} position={[0, -BASE, -MID_Z]} />
+      </group>
     </group>
   );
 }

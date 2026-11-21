@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
+import * as THREE from "three";
+import { Interactive } from "../Interactive";
+import { useRoom } from "../store";
 import { POS, WALL_Z } from "../layout";
 import { rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
 
-// Three favourite albums as posters: the cover at the top, and under it the title, the
+// Two favourite albums as posters (and a framed family photo, below): the cover at the top, and under it the title, the
 // artist, the year and the track list. The covers are the files in public/art/; the
 // artwork belongs to the artists and their labels (see CREDITS.md).
 
@@ -53,17 +57,6 @@ const DAMN: Album = {
   ink: "#f3ead8",
   accent: "#e0241b",
   art: "/art/damn.jpg",
-};
-
-const DARK_SIDE: Album = {
-  title: "THE DARK SIDE OF THE MOON",
-  artist: "PINK FLOYD",
-  year: 1973,
-  tracks: ["Speak to Me", "Breathe", "On the Run", "Time", "The Great Gig in the Sky", "Money", "Us and Them", "Any Colour You Like", "Brain Damage", "Eclipse"],
-  paper: "#0c0c0d",
-  ink: "#e9dfc6",
-  accent: "#d9a441",
-  art: "/art/dark-side.jpg",
 };
 
 function fit(ctx: CanvasRenderingContext2D, text: string, weight: number, family: string, max: number, start: number) {
@@ -245,40 +238,66 @@ function Poster({
   );
 }
 
+// the standing frame: the print, its mount and the wooden bars round them
+const FRAME = (() => {
+  const w = 0.19;
+  const h = w * (PH / PW);
+  const bar = 0.014;
+  const mat = 0.012;
+  return { w, h, bar, ow: w + (mat + bar) * 2, oh: h + (mat + bar) * 2 };
+})();
+
 /**
  * A poster kept behind glass in a small standing frame, for the ones there is no wall
  * left for now that the view is close in. No tape, creases or torn edges on these.
  */
 function FramedPoster({
   album,
+  photo,
   position,
   rotation,
   fonts,
   wood = "#3a2a1c",
+  lit = false,
 }: {
-  album: Album;
+  album?: Album;
+  /** a photograph under /public to show instead of an album's poster */
+  photo?: string;
   position: [number, number, number];
   rotation: [number, number, number];
   fonts: Fonts | null;
   wood?: string;
+  /** a photograph is lit up while it is looked at */
+  lit?: boolean;
 }) {
-  const art = useImage(album.art);
+  const glow = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame((_, dt) => {
+    const m = glow.current;
+    if (m) m.emissiveIntensity += ((lit ? 0.85 : 0.1) - m.emissiveIntensity) * (1 - Math.exp(-dt * 5));
+  });
+  const art = useImage(photo ?? album?.art ?? "");
   const tex = useCanvasTexture(
     620,
     874,
     (ctx, w, h) => {
+      if (photo) {
+        // the photograph fills the print, cropped to its shape
+        ctx.fillStyle = "#1a1512";
+        ctx.fillRect(0, 0, w, h);
+        if (art) {
+          const k = Math.max(w / art.width, h / art.height);
+          ctx.drawImage(art, (w - art.width * k) / 2, (h - art.height * k) / 2, art.width * k, art.height * k);
+        }
+        return;
+      }
+      if (!album) return;
       ctx.fillStyle = album.paper;
       ctx.fillRect(0, 0, w, h);
       if (fonts) drawAlbum(ctx, w, h, fonts, album, art);
     },
-    [fonts, album, art],
+    [fonts, album, photo, art],
   );
-  const w = 0.19; // the print
-  const h = w * (PH / PW);
-  const bar = 0.014;
-  const mat = 0.012;
-  const ow = w + (mat + bar) * 2;
-  const oh = h + (mat + bar) * 2;
+  const { w, h, bar, ow, oh } = FRAME;
   // origin at the bottom edge, so the frame stands on whatever it is placed on
   return (
     // turned to face where it is looked at from, then tipped back about its own bottom edge:
@@ -306,15 +325,33 @@ function FramedPoster({
         </mesh>
         <mesh position={[0, 0, -0.0025]}>
           <planeGeometry args={[w, h]} />
-          <meshStandardMaterial map={tex} color="#b8b2a8" roughness={0.55} />
+          {photo ? (
+            <meshStandardMaterial ref={glow} map={tex} color="#d6d0c6" emissive="#ffffff" emissiveMap={tex} emissiveIntensity={0.1} roughness={0.55} />
+          ) : (
+            <meshStandardMaterial map={tex} color="#b8b2a8" roughness={0.55} />
+          )}
         </mesh>
         {/* the strut it leans on */}
-        <mesh position={[0, -oh * 0.1, -0.046]} rotation={[0.42, 0, 0]} castShadow>
+        <mesh position={[0, -oh * 0.1, -0.06]} rotation={[0.42, 0, 0]} castShadow>
           <boxGeometry args={[0.03, oh * 0.66, 0.004]} />
           <meshStandardMaterial color="#2a1f15" roughness={0.8} />
         </mesh>
       </group>
     </group>
+  );
+}
+
+/**
+ * The photo of me and my family, in a standing frame at the left end of the desk. Focused, the
+ * eye comes to it (see the camera rig) and the photograph is lit up a little, as the corner it
+ * stands in is dark.
+ */
+function Portrait({ fonts }: { fonts: Fonts | null }) {
+  const lit = useRoom((s) => s.focus === "portrait");
+  return (
+    <Interactive target="portrait">
+      <FramedPoster photo="/photos/portrait.jpg" position={POS.deskPoster} rotation={[-0.2, 0.5, 0]} fonts={fonts} lit={lit} />
+    </Interactive>
   );
 }
 
@@ -327,7 +364,7 @@ export function Posters() {
       {/* on the sill, leaning against the window, left of the TV */}
       <FramedPoster album={DAMN} position={POS.sillPoster} rotation={[-0.16, 0.2, 0]} fonts={fonts} wood="#1c1613" />
       {/* at the left-hand end of the desk, turned towards the chair */}
-      <FramedPoster album={DARK_SIDE} position={POS.deskPoster} rotation={[-0.2, 0.5, 0]} fonts={fonts} />
+      <Portrait fonts={fonts} />
     </group>
   );
 }

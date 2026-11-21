@@ -32,7 +32,7 @@ function paintWood(seed: number) {
   const rough = cr.getContext("2d")!;
   const bump = cb.getContext("2d")!;
   colour.fillStyle = "#8f5c33";
-  rough.fillStyle = "rgb(178,178,178)";
+  rough.fillStyle = "rgb(226,226,226)";
   bump.fillStyle = "rgb(128,128,128)";
   for (const ctx of [colour, rough, bump]) ctx.fillRect(0, 0, PX, PX);
   const r = rng(seed);
@@ -60,7 +60,7 @@ function paintWood(seed: number) {
   // broad bands of growth: darker, a touch glossier, slightly proud
   for (let i = 0; i < 9; i++) {
     const a = 0.1 + r() * 0.16;
-    line(r() * PX, 6 + r() * 14, 1, r() * 6, 14 + r() * 38, `rgba(58,30,12,${a})`, `rgba(120,120,120,${a})`, `rgba(165,165,165,${a})`);
+    line(r() * PX, 6 + r() * 14, 1, r() * 6, 14 + r() * 38, `rgba(58,30,12,${a})`, `rgba(196,196,196,${a})`, `rgba(165,165,165,${a})`);
   }
   // the grain itself: hundreds of fine lines, light and dark
   for (let i = 0; i < 620; i++) {
@@ -74,7 +74,7 @@ function paintWood(seed: number) {
       r() * 6,
       0.6 + r() * 2.2,
       dark ? `rgba(52,26,10,${a})` : `rgba(226,170,112,${a})`,
-      dark ? `rgba(245,245,245,${a})` : `rgba(110,110,110,${a})`,
+      dark ? `rgba(255,255,255,${a})` : `rgba(184,184,184,${a})`,
       dark ? `rgba(40,40,40,${a * 1.5})` : `rgba(215,215,215,${a})`,
     );
   }
@@ -90,6 +90,70 @@ function paintWood(seed: number) {
     for (const ctx of [colour, rough, bump]) ctx.fillRect(x, y, len, 1 + r() * 0.8);
   }
 
+  // a knot or two: rings of tight dark grain
+  for (let i = 0; i < 2; i++) {
+    const kx = r() * PX;
+    const ky = r() * PX;
+    const size = 9 + r() * 9;
+    for (let ring = 6; ring >= 0; ring--) {
+      const a = 0.16 + (6 - ring) * 0.07;
+      for (const [ctx, style] of [
+        [colour, `rgba(44,22,9,${a})`],
+        [rough, `rgba(255,255,255,${a})`],
+        [bump, `rgba(30,30,30,${a * 0.8})`],
+      ] as const) {
+        ctx.strokeStyle = style;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(kx, ky, size * (0.5 + ring * 0.45), size * (0.22 + ring * 0.2), 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+  }
+  // scuffs from years of cases going in and out: short pale scratches across the grain, dry and shallow
+  for (let i = 0; i < 70; i++) {
+    const x = r() * PX;
+    const y = r() * PX;
+    const dx = (r() - 0.5) * 26;
+    const dy = (r() - 0.5) * 90;
+    const a = 0.05 + r() * 0.12;
+    for (const [ctx, style] of [
+      [colour, `rgba(214,178,138,${a})`],
+      [rough, `rgba(255,255,255,${a * 2})`],
+      [bump, `rgba(70,70,70,${a * 1.6})`],
+    ] as const) {
+      ctx.strokeStyle = style;
+      ctx.lineWidth = 0.6 + r() * 0.8;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + dx, y + dy);
+      ctx.stroke();
+    }
+  }
+  // the fibre itself: fine streaks a few pixels long, so no patch of the board is perfectly even
+  const fibre = (ctx: CanvasRenderingContext2D, amount: number) => {
+    const img = ctx.getImageData(0, 0, PX, PX);
+    const d = img.data;
+    for (let y = 0; y < PX; y++) {
+      let run = 0;
+      let v = 0;
+      for (let x = 0; x < PX; x++) {
+        if (run-- <= 0) {
+          run = 2 + Math.floor(r() * 7);
+          v = (r() - 0.5) * 2 * amount;
+        }
+        const i = (y * PX + x) * 4;
+        d[i] += v;
+        d[i + 1] += v;
+        d[i + 2] += v;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  };
+  fibre(colour, 9);
+  fibre(rough, 20);
+  fibre(bump, 16);
+
   const tex = (c: HTMLCanvasElement, isColour: boolean) => {
     const t = new THREE.CanvasTexture(c);
     t.colorSpace = isColour ? THREE.SRGBColorSpace : THREE.NoColorSpace;
@@ -103,8 +167,9 @@ function paintWood(seed: number) {
 export function Shelf() {
   const { wood, dark, end } = useMemo(() => {
     const maps = paintWood(41);
-    // the roughness sheet carries the variation; bump height is in the model's metres
-    const shared = { ...maps, roughness: 1, bumpScale: 1.6 };
+    // the roughness sheet carries the variation; bump height is in the model's metres.
+    // Bare, unvarnished wood: it barely mirrors the room at all.
+    const shared = { ...maps, roughness: 1, bumpScale: 2.6, envMapIntensity: 0.25 };
     const wood = new THREE.MeshStandardMaterial({ ...shared, color: "#ffe9d0" });
     const dark = new THREE.MeshStandardMaterial({ ...shared, color: "#c9a888" });
     // an end in profile, front to back: square at the back, the top front corner rounded off
