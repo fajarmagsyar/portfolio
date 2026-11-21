@@ -25,6 +25,7 @@ const NAV: { label: StringKey; focus: FocusId; tv?: TvScreen }[] = [
 function HoverLabel() {
   const t = useT();
   const hover = useRoom((r) => r.hover);
+  const tip = useRoom((r) => r.tip);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const move = (e: PointerEvent) => {
@@ -34,8 +35,8 @@ function HoverLabel() {
     return () => window.removeEventListener("pointermove", move);
   }, []);
   return (
-    <div ref={ref} className={s.hover} data-on={!!hover} aria-hidden="true">
-      {hover ? t(FOCUS_LABEL[hover]).split(" — ")[0] : ""}
+    <div ref={ref} className={s.hover} data-on={!!hover || !!tip} aria-hidden="true">
+      {tip ? t(tip) : hover ? t(FOCUS_LABEL[hover]).split(" — ")[0] : ""}
     </div>
   );
 }
@@ -61,11 +62,16 @@ export function Hud() {
   const booted = useRoom((r) => r.booted);
   const focus = useRoom((r) => r.focus);
   const tvScreen = useRoom((r) => r.tvScreen);
+  const zoomed = useRoom((r) => r.zoomed !== null);
   const setFocus = useRoom((r) => r.setFocus);
   const [credits, setCredits] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // close in on a photo, Escape steps back to the open album first
+      if (e.key === "Escape" && useRoom.getState().zoomed !== null) return useRoom.getState().setZoomed(null);
+      // a CD that is out goes back in its place before the view leaves the shelf
+      if (e.key === "Escape" && useRoom.getState().focus === "cds" && useRoom.getState().selectedCd) return useRoom.getState().selectCd(null);
       if (e.key === "Escape") setCredits(false);
       // the TV handles its own Escape (it has screens to back out of first)
       if (e.key === "Escape" && useRoom.getState().focus && useRoom.getState().focus !== "tv") setFocus(null);
@@ -119,7 +125,7 @@ export function Hud() {
       )}
 
       {focus === "tv" && <TvOverlay />}
-      {focus && focus !== "tv" && <SidePanel key={focus} focus={focus} />}
+      {focus && focus !== "tv" && focus !== "cd" && focus !== "cds" && !zoomed && <SidePanel key={focus} focus={focus} />}
 
       <footer className={s.foot}>
         {!booted ? (
@@ -127,7 +133,7 @@ export function Hud() {
             {t("enter")}
           </p>
         ) : focus ? (
-          <button className={s.leave} onClick={() => (focus === "tv" ? tvBack() : setFocus(null))}>
+          <button className={s.leave} onClick={() => (focus === "tv" ? tvBack() : zoomed ? useRoom.getState().setZoomed(null) : setFocus(null))}>
             ← {t("back")} <kbd>Esc</kbd>
           </button>
         ) : (

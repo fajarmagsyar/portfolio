@@ -9,7 +9,7 @@ import * as THREE from "three";
 import { useLang, useLangStore } from "@/state/lang";
 import { useRoom } from "../store";
 import { useFonts } from "../textures";
-import { drawTv, tvKey, tvPointer, TV_H, TV_W, type TvMode } from "../tv/program";
+import { drawTv, tvKey, tvPointer, tvPointerOut, tvShow, tvWheel, TV_H, TV_W, type TvMode } from "../tv/program";
 
 // The picture area of Television_01, in the model's own space: the opening in the bezel.
 // The glass behind it is a bulged 10 x 10 grid; the picture is drawn on those very faces.
@@ -183,15 +183,26 @@ export function TvScreen({ url }: { url: string }) {
     };
   }, [mode, game]);
 
+  // a screen asked for by name (from the navigation) starts its program on the desktop
+  useEffect(() => {
+    if (focus === "tv") tvShow(tvScreen);
+  }, [focus, tvScreen]);
+
   useEffect(() => {
     if (focus !== "tv") return;
     const onKey = (e: KeyboardEvent) => {
-      if (!tvKey(e)) return;
+      if (!tvKey(e, useLangStore.getState().lang)) return;
       e.preventDefault();
       e.stopPropagation();
     };
+    // a drag that ends off the glass still has to end
+    const onUp = () => tvPointerOut();
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerup", onUp);
+    };
   }, [focus]);
 
   const last = useRef(-1);
@@ -213,15 +224,28 @@ export function TvScreen({ url }: { url: string }) {
       onPointerMove={(e: ThreeEvent<PointerEvent>) => {
         if (!live || !e.uv) return;
         e.stopPropagation();
-        document.body.style.cursor = tvPointer(e.uv.x, e.uv.y, false) ? "pointer" : "";
+        document.body.style.cursor = tvPointer(e.uv.x, e.uv.y, "move", lang) ? "pointer" : "";
       }}
-      onPointerOut={() => {
-        if (live) document.body.style.cursor = "";
-      }}
-      onClick={(e: ThreeEvent<MouseEvent>) => {
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
         if (!live || !e.uv) return;
         e.stopPropagation();
-        tvPointer(e.uv.x, e.uv.y, true);
+        tvPointer(e.uv.x, e.uv.y, "down", lang);
+      }}
+      onPointerUp={(e: ThreeEvent<PointerEvent>) => {
+        if (!live || !e.uv) return;
+        // handled here, on the glass, so the window's own listener does not also hide the pointer
+        e.stopPropagation();
+        e.nativeEvent.stopPropagation();
+        tvPointer(e.uv.x, e.uv.y, "up", lang);
+      }}
+      onWheel={(e: ThreeEvent<WheelEvent>) => {
+        if (!live) return;
+        e.stopPropagation();
+        tvWheel(e.deltaY);
+      }}
+      onPointerOut={() => {
+        tvPointerOut();
+        if (live) document.body.style.cursor = "";
       }}
     >
       <shaderMaterial vertexShader={vert} fragmentShader={frag} uniforms={uniforms} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />

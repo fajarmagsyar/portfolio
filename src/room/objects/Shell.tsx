@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+/* eslint-disable react-hooks/immutability -- three.js geometry and uniforms are mutable by design */
+
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
@@ -241,13 +243,16 @@ function CityWindow() {
   );
 }
 
-/** A hanging curtain: a sheet of cloth with soft vertical folds. */
-function Curtain({ x, width, seed }: { x: number; width: number; seed: number }) {
+/**
+ * A hanging curtain: a sheet of cloth with soft vertical folds, stirring in a slow draught.
+ * The rail holds the top still; the hem swings most. `side` is which way is away from the window.
+ */
+function Curtain({ x, width, seed, side }: { x: number; width: number; seed: number; side: 1 | -1 }) {
   const top = WIN.y + WIN.h / 2 + 0.16;
   const bottom = DESK.y + 0.03;
-  const geo = useMemo(() => {
+  const { geo, rest, phase } = useMemo(() => {
     const r = rng(seed);
-    const g = new THREE.PlaneGeometry(width, top - bottom, 40, 12);
+    const g = new THREE.PlaneGeometry(width, top - bottom, 40, 14);
     const p = g.attributes.position;
     const phase = r() * 6;
     for (let i = 0; i < p.count; i++) {
@@ -259,10 +264,34 @@ function Curtain({ x, width, seed }: { x: number; width: number; seed: number })
       p.setX(i, p.getX(i) * (0.9 + (1 - v) * 0.1));
     }
     g.computeVertexNormals();
-    return g;
+    return { geo: g, rest: Float32Array.from(p.array as Float32Array), phase };
   }, [width, top, bottom, seed]);
+  useEffect(() => () => geo.dispose(), [geo]);
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const p = geo.attributes.position as THREE.BufferAttribute;
+    const height = top - bottom;
+    // the draught comes and goes: long swells, never quite still
+    const gust = 0.45 + 0.35 * Math.sin(t * 0.21 + phase) + 0.2 * Math.sin(t * 0.083 + phase * 3);
+    for (let i = 0; i < p.count; i++) {
+      const x0 = rest[i * 3];
+      const y0 = rest[i * 3 + 1];
+      const u = x0 / width + 0.5;
+      const free = 1 - (y0 / height + 0.5); // 0 at the rail, 1 at the hem
+      const hang = free * free * (0.4 + 0.6 * free);
+      // a wave that climbs the cloth from the hem and drifts across it
+      const billow = Math.sin(t * 0.55 + phase - free * 2.6 + u * 1.7) * 0.6 + Math.sin(t * 0.93 + phase * 2 + u * 5.2 - free * 4.1) * 0.25;
+      const ripple = Math.sin(t * 1.4 + u * 13 + free * 6 + phase) * 0.1;
+      const push = (billow + ripple + 0.55) * gust * hang;
+      p.setXYZ(i, x0 + side * push * 0.014 + Math.sin(t * 0.4 + phase) * hang * 0.006, y0 + push * 0.004, rest[i * 3 + 2] + push * 0.05);
+    }
+    p.needsUpdate = true;
+    geo.computeVertexNormals();
+  });
+
   return (
-    <mesh geometry={geo} position={[x, (top + bottom) / 2, WALL_Z + 0.07]} castShadow receiveShadow>
+    <mesh geometry={geo} position={[x, (top + bottom) / 2, WALL_Z + 0.07]} castShadow receiveShadow frustumCulled={false}>
       <meshStandardMaterial color="#d8c2a0" roughness={1} side={THREE.DoubleSide} />
     </mesh>
   );
@@ -273,10 +302,10 @@ function Curtains() {
   const railY = WIN.y + WIN.h / 2 + 0.17;
   return (
     <group>
-      <Curtain x={-edge - 0.13} width={0.46} seed={3} />
-      <Curtain x={edge + 0.13} width={0.46} seed={8} />
+      <Curtain x={-edge - 0.1} width={0.36} seed={3} side={-1} />
+      <Curtain x={edge + 0.1} width={0.36} seed={8} side={1} />
       <mesh position={[0, railY, WALL_Z + 0.07]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.012, 0.012, WIN.w + 0.9, 12]} />
+        <cylinderGeometry args={[0.012, 0.012, WIN.w + 0.72, 12]} />
         <meshStandardMaterial color="#6a4a30" roughness={0.5} />
       </mesh>
     </group>

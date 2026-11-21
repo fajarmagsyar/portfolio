@@ -6,11 +6,11 @@ import { useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Sparkles } from "@react-three/drei";
 import * as THREE from "three";
-import { POS, WALL_Z, WIN } from "../layout";
+import { POS } from "../layout";
 import { useRoom } from "../store";
 
 // Small things that make the room feel lived in and the air feel thick: a hot coffee,
-// a string of fairy lights, the glow of the lamp, and haze and dust hanging in its light.
+// the glow of the lamp, and haze and dust hanging in its light.
 // Everything here is built in code; nothing is downloaded.
 
 const noise = /* glsl */ `
@@ -121,43 +121,6 @@ export function Coffee() {
   );
 }
 
-/** A string of warm bulbs hung in two swags across the top of the window. */
-export function FairyLights() {
-  const { wire, bulbs } = useMemo(() => {
-    const y = WIN.y + WIN.h / 2 - 0.36; // low enough to hang in view from the chair
-    const z = WALL_Z + 0.13;
-    const half = WIN.w / 2 + 0.36;
-    const pts: THREE.Vector3[] = [];
-    const n = 64;
-    for (let i = 0; i <= n; i++) {
-      const u = i / n; // 0-1 along the string
-      const swag = u < 0.5 ? u * 2 : (u - 0.5) * 2; // 0-1 inside each swag
-      const sag = Math.sin(swag * Math.PI) * 0.16 + Math.sin(swag * Math.PI * 2) * 0.012;
-      pts.push(new THREE.Vector3(-half + u * half * 2, y - sag, z + Math.sin(u * 40) * 0.004));
-    }
-    const curve = new THREE.CatmullRomCurve3(pts);
-    return {
-      wire: new THREE.TubeGeometry(curve, 160, 0.002, 5),
-      bulbs: Array.from({ length: 27 }, (_, i) => curve.getPointAt((i + 0.5) / 27)),
-    };
-  }, []);
-  return (
-    <group>
-      <mesh geometry={wire}>
-        <meshStandardMaterial color="#2a2018" roughness={0.8} />
-      </mesh>
-      {bulbs.map((p, i) => (
-        <mesh key={i} position={[p.x, p.y - 0.012, p.z]}>
-          <sphereGeometry args={[0.012, 10, 8]} />
-          {/* brighter than white, so the bloom pass turns each bulb into a soft ball of light */}
-          <meshBasicMaterial color={[3.4, 1.9, 0.75]} toneMapped={false} fog={false} />
-        </mesh>
-      ))}
-      <pointLight position={[0, WIN.y + WIN.h / 2 - 0.45, WALL_Z + 0.45]} color="#ffb060" intensity={0.9} distance={2.6} decay={2} />
-    </group>
-  );
-}
-
 const coneFrag = /* glsl */ `
   varying vec3 vPos;
   varying vec3 vNormal;
@@ -170,7 +133,7 @@ const coneFrag = /* glsl */ `
     float facing = abs(dot(normalize(vNormal), normalize(vView)));
     float a = pow(1.0 - h, 1.7) * pow(facing, 1.6);
     a *= 0.75 + 0.25 * noise(vec2(vPos.x * 9.0 + uTime * 0.05, vPos.y * 7.0 - uTime * 0.03));
-    gl_FragColor = vec4(vec3(1.0, 0.72, 0.42) * a * 0.6, 1.0);
+    gl_FragColor = vec4(vec3(1.0, 0.72, 0.42) * a * 0.2, 1.0);
   }
 `;
 
@@ -189,7 +152,8 @@ export function LampGlow() {
       {/* the cone hangs from the bulb, leaning the way the shade points */}
       <group rotation={[0.12, 0, 0.32]}>
         <mesh position={[0, -0.33, 0]}>
-          <coneGeometry args={[0.36, 0.66, 40, 1, true]} />
+          {/* as wide as the shade's mouth where it leaves it, opening out to the pool of light on the desk */}
+          <cylinderGeometry args={[0.055, 0.2, 0.66, 40, 1, true]} />
           <shaderMaterial
             vertexShader={plainVert}
             fragmentShader={coneFrag}
@@ -212,10 +176,12 @@ const hazeFrag = /* glsl */ `
   ${noise}
   void main() {
     float n = fbm(vUv * vec2(3.2, 2.0) + vec2(uTime * 0.012, uTime * 0.005));
-    // warm where the lamp lights it, cold where the night comes in through the glass
-    float lamp = smoothstep(0.5, 0.0, distance(vUv, vec2(0.41, 0.46)));
-    float night = smoothstep(0.42, 0.0, distance(vUv * vec2(1.0, 0.8), vec2(0.5, 0.46)));
-    vec3 col = vec3(1.0, 0.7, 0.42) * (0.1 + lamp * 0.6) + vec3(0.4, 0.5, 0.9) * night * 0.22;
+    // warm where the lamp lights it, cyan in front of the tube and where the night comes in
+    float lamp = smoothstep(0.42, 0.0, distance(vUv, vec2(0.425, 0.48)));
+    float tube = smoothstep(0.34, 0.0, distance(vUv * vec2(1.0, 0.7), vec2(0.49, 0.245)));
+    float night = smoothstep(0.42, 0.0, distance(vUv * vec2(1.0, 0.8), vec2(0.5, 0.5)));
+    float saturn = smoothstep(0.2, 0.0, distance(vUv * vec2(1.0, 0.6), vec2(0.65, 0.18)));
+    vec3 col = vec3(1.0, 0.66, 0.36) * (0.04 + lamp * 0.6) + vec3(0.2, 0.85, 1.0) * (tube * 0.42 + night * 0.12) + vec3(1.0, 0.42, 0.16) * saturn * 0.28;
     float fade = smoothstep(0.0, 0.25, vUv.y) * smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x);
     gl_FragColor = vec4(col * (0.3 + 0.7 * n) * fade * 0.08, 1.0);
   }

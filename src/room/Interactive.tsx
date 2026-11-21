@@ -18,13 +18,18 @@ export function Interactive({ target, children, ...props }: { target: FocusId } 
   return (
     <group
       {...props}
-      onPointerOver={(e: ThreeEvent<PointerEvent>) => {
+      // The name shown is that of the nearest thing under the cursor, decided on every move.
+      // (Claiming the hover outright with stopPropagation would be remembered for as long as
+      // the cursor stayed on the object, and after a click into the close-up it would go on
+      // swallowing the pointer before the object's own controls saw it.)
+      onPointerMove={(e: ThreeEvent<PointerEvent>) => {
         if (!live) return;
-        e.stopPropagation();
-        setHover(target);
+        const nearest = e.intersections[0]?.eventObject === e.eventObject;
+        if (nearest) setHover(target);
+        else if (useRoom.getState().hover === target) setHover(null);
       }}
       onPointerOut={() => {
-        if (live) setHover(null);
+        if (live && useRoom.getState().hover === target) setHover(null);
       }}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         if (!live) return;

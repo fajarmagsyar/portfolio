@@ -119,6 +119,7 @@
   opacity: 1;
 }
 
+
 /* ---------- bottom edge ---------- */
 
 .foot {
@@ -633,4 +634,10 @@ a.pill:hover,
     min-width: 0;
     max-height: 56vh;
   }
+}
+
+.hud button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
 }

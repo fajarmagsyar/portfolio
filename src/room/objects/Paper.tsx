@@ -70,24 +70,35 @@ export function Frames() {
   const fonts = useFonts();
   const diploma = useCanvasTexture(900, 560, (c, w, h) => drawDiploma(c, w, h, lang, fonts), [lang, fonts]);
   const certs = useCanvasTexture(640, 900, (c, w, h) => drawCerts(c, w, h, lang, fonts), [lang, fonts]);
+  // Both stand on the desk, each on its own bottom edge and tipped back a little: the tall
+  // one behind and to the right, the wide one in front of it and to the left, overlapping.
+  // Positions are in the group's own space (it is drawn at 0.62 of the models' size); the
+  // inner offsets lift each frame by exactly the distance from its middle to its bottom edge.
   return (
-    // Stood on the desk and leaning back on the wall, the certificates in front of the degree.
-    <Interactive target="frames" position={POS.frames} rotation={[-0.05, -0.4, 0]} scale={0.62}>
-      {/* landscape frame: degree. The model's opening is 0.75 x 0.5 m before scaling. */}
-      <group position={[-0.17, 0.2, 0]} rotation={[0, 0, -0.012]}>
-        <Model asset="hanging_picture_frame_02" scale={0.6} position={[0, 0.017, 0]} />
-        <mesh position={[0, 0, 0.012]}>
-          <planeGeometry args={[0.375, 0.232]} />
-          <meshStandardMaterial map={diploma} roughness={0.7} />
-        </mesh>
+    <Interactive target="frames" position={POS.frames} scale={0.62}>
+      {/* portrait frame: certificates. The model is 0.594 x 0.84 m before scaling. */}
+      <group position={[0.2, 0, -0.03]} rotation={[0, -0.22, 0]}>
+        <group rotation={[-0.11, 0, 0]}>
+          <group position={[0, 0.2355, 0]}>
+            <Model asset="hanging_picture_frame_01" scale={0.56} />
+            <mesh position={[0, 0, 0.0105]}>
+              <planeGeometry args={[0.268, 0.378]} />
+              <meshStandardMaterial map={certs} color="#a9a297" roughness={0.7} />
+            </mesh>
+          </group>
+        </group>
       </group>
-      {/* portrait frame: certificates */}
-      <group position={[0.2, 0.25, 0.06]} rotation={[-0.06, -0.12, 0.015]}>
-        <Model asset="hanging_picture_frame_01" scale={0.56} />
-        <mesh position={[0, 0, 0.0105]}>
-          <planeGeometry args={[0.268, 0.378]} />
-          <meshStandardMaterial map={certs} roughness={0.7} />
-        </mesh>
+      {/* landscape frame: degree. The model's opening is 0.75 x 0.5 m before scaling. */}
+      <group position={[-0.17, 0, 0.06]} rotation={[0, 0.1, 0]}>
+        <group rotation={[-0.14, 0, 0]}>
+          <group position={[0, 0.151, 0]}>
+            <Model asset="hanging_picture_frame_02" scale={0.6} position={[0, 0.017, 0]} />
+            <mesh position={[0, 0, 0.012]}>
+              <planeGeometry args={[0.375, 0.232]} />
+              <meshStandardMaterial map={diploma} color="#b8b1a6" roughness={0.7} />
+            </mesh>
+          </group>
+        </group>
       </group>
     </Interactive>
   );

@@ -1,0 +1,8 @@
+Model Information:
+* title:	Saturn Desk Lamp
+* source:	https://sketchfab.com/3d-models/saturn-desk-lamp-861fc2fffbb84622ad5127a806b975ae
+* author:	MooseMannequin (https://sketchfab.com/MooseMannequin)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

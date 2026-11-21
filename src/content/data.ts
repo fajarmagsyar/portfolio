@@ -136,6 +136,8 @@ export type Project = {
   tech: string[];
   url: string | null;
   disc: string; // disc / sleeve colour
+  /** screenshots for the leaflet inside the CD case: paths under /public, e.g. "/projects/toko-1.jpg". Up to two are shown. */
+  shots?: string[];
 };
 
 // PROTOTYPE: these four slots are intentionally empty. Replace with real projects.
