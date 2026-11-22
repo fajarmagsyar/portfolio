@@ -17,6 +17,7 @@ import { ALBUM_HELD, POS } from "../layout";
 import { orbit } from "../orbit";
 import { hint } from "../hint";
 import { useRoom } from "../store";
+import { tap } from "../touch";
 import { canvasTexture, paper, rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
 
 // A photo album. Its binding is an old leather-bound book (see "the binding", below); its
@@ -321,9 +322,11 @@ const pull = { leaf: -1, a: 0 };
 
 function startPress(e: ThreeEvent<PointerEvent>, photo: number | null, leaf: number, from: number, span: number) {
   e.stopPropagation();
-  press = { photo, leaf, from, x: e.nativeEvent.clientX, span, moved: false };
-  // close in on a photo there is nothing to turn, so a drag there looks around instead
-  orbit.locked = leaf > 0 && useRoom.getState().zoomed === null;
+  tap(photo === null ? `album-page-${leaf}` : `album-photo-${photo}`, photo === null ? "tip_page" : "tip_photo", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+    press = { photo, leaf, from, x: e.nativeEvent.clientX, span, moved: false };
+    // close in on a photo there is nothing to turn, so a drag there looks around instead
+    orbit.locked = leaf > 0 && useRoom.getState().zoomed === null;
+  });
 }
 
 function usePressHandling() {

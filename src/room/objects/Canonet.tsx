@@ -11,6 +11,7 @@ import { POS } from "../layout";
 import { hint } from "../hint";
 import { orbit } from "../orbit";
 import { useRoom } from "../store";
+import { tap } from "../touch";
 import { useClone } from "./Guitar";
 import { HitBox } from "./Props";
 
@@ -101,9 +102,11 @@ export function Canonet() {
         onClick={(e: ThreeEvent<MouseEvent>) => {
           if (!held) return;
           e.stopPropagation();
-          click(0.7);
-          hint(null);
-          useRoom.getState().setFinder(true);
+          tap("canonet-finder", "canonet_about", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+            click(0.7);
+            hint(null);
+            useRoom.getState().setFinder(true);
+          });
         }}
       >
         <group position={[0, -MID, 0]}>

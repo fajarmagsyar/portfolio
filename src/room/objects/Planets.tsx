@@ -12,6 +12,7 @@ import { hint } from "../hint";
 import { orbit } from "../orbit";
 import { PLANETS, type PlanetId } from "../planets";
 import { useRoom } from "../store";
+import { tap } from "../touch";
 
 // Model: "Saturn Desk Lamp" by MooseMannequin (Sketchfab Standard licence). See CREDITS.md.
 // The file is in metres and 35 cm tall; on this desk it is a smaller one (SATURN_SCALE).
@@ -273,10 +274,12 @@ function Globe({ index, map, turn }: { index: number; map: THREE.Texture; turn: 
             onClick={(e: ThreeEvent<MouseEvent>) => {
               if (!pick) return;
               e.stopPropagation();
-              click(1.1);
-              document.body.style.cursor = "";
-              useRoom.getState().setTip(null);
-              useRoom.getState().setPlanet(info.id);
+              tap(`planet-${info.id}`, info.about, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+                click(1.1);
+                document.body.style.cursor = "";
+                useRoom.getState().setTip(null);
+                useRoom.getState().setPlanet(info.id);
+              });
             }}
             onPointerOver={(e: ThreeEvent<PointerEvent>) => {
               // the one that is the lamp is there to be turned; the others, to be picked

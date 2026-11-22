@@ -109,6 +109,12 @@ function load(src: string) {
 /** Logical picture size of the game, before the TV stretches it to 4:3. */
 export const GAME_SIZE = { w: W * SCALE, h: H * SCALE };
 
+/** On-screen pads send their keys here; the game treats them just like the keyboard. */
+const touchListeners = new Set<(key: string, down: boolean) => void>();
+export function gameTouchKey(key: string, down: boolean) {
+  for (const listener of touchListeners) listener(key, down);
+}
+
 /**
  * Runs the game on the given canvas until the returned function is called.
  * It listens to the keyboard on `window` and draws every animation frame.
@@ -221,10 +227,8 @@ export function startGame(canvas: HTMLCanvasElement, getLang: () => Lang): () =>
     );
   };
 
-  const onDown = (e: KeyboardEvent) => {
-    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(k)) e.preventDefault();
-    if (e.repeat) return;
+  const press = (k: string, repeat: boolean) => {
+    if (repeat) return;
     keys.add(k);
     if (!(k === "Enter" || k === "z" || k === " ")) return;
     if (state.mode === "title") {
@@ -240,7 +244,14 @@ export function startGame(canvas: HTMLCanvasElement, getLang: () => Lang): () =>
       } else state.mode = "play";
     } else inspect();
   };
+  const onDown = (e: KeyboardEvent) => {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(k)) e.preventDefault();
+    press(k, e.repeat);
+  };
   const onUp = (e: KeyboardEvent) => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+  const onTouch = (key: string, down: boolean) => (down ? press(key, false) : keys.delete(key));
+  touchListeners.add(onTouch);
   window.addEventListener("keydown", onDown);
   window.addEventListener("keyup", onUp);
 
@@ -423,6 +434,7 @@ export function startGame(canvas: HTMLCanvasElement, getLang: () => Lang): () =>
   return () => {
     alive = false;
     cancelAnimationFrame(raf);
+    touchListeners.delete(onTouch);
     window.removeEventListener("keydown", onDown);
     window.removeEventListener("keyup", onUp);
   };

@@ -10,6 +10,7 @@ import { hint } from "../hint";
 import { Interactive } from "../Interactive";
 import { POS } from "../layout";
 import { useRoom } from "../store";
+import { tap } from "../touch";
 import { canvasTexture, rng } from "../textures";
 import { useClone } from "./Guitar";
 
@@ -327,7 +328,7 @@ export function Dice() {
         onClick={(e: ThreeEvent<MouseEvent>) => {
           if (!live) return;
           e.stopPropagation();
-          roll();
+          tap("dice-roll", "tip_dice", e.nativeEvent.clientX, e.nativeEvent.clientY, roll);
         }}
         onPointerOver={() => {
           if (live) hint("tip_dice");

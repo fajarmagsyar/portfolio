@@ -14,6 +14,7 @@ import { Interactive } from "../Interactive";
 import { CARDS_HELD, POS } from "../layout";
 import { orbit, resetOrbit } from "../orbit";
 import { useRoom } from "../store";
+import { tap } from "../touch";
 import { canvasTexture, paper, rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
 
 // Contact, as a pack of trading cards. It lies sealed on the desk. Looked at, it is held up:
@@ -601,18 +602,21 @@ function Card({ card, index, fonts, back, bind }: { card: CardInfo; index: numbe
       onClick={(e: ThreeEvent<MouseEvent>) => {
         if (!ready()) return;
         e.stopPropagation();
-        const s = useRoom.getState();
-        if (place() === "held") {
-          // mail opens the visitor's own mail program; everything else, a new tab
-          window.open(card.href, card.key === "email" ? "_self" : "_blank", "noopener");
-          return;
-        }
-        // a click anywhere on the stack takes the card on top of it
-        const next = place() === "stack" ? CARDS.findIndex((_, i) => i !== s.cardHeld && !s.cardsTaken.includes(i)) : index;
-        resetOrbit();
-        click(1.25);
-        s.holdCard(next);
-        hint(null);
+        const held = place() === "held";
+        tap(`card-${index}`, held ? "card_open_tip" : "card_take_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+          const s = useRoom.getState();
+          if (held) {
+            // mail opens the visitor's own mail program; everything else, a new tab
+            window.open(card.href, card.key === "email" ? "_self" : "_blank", "noopener");
+            return;
+          }
+          // a click anywhere on the stack takes the card on top of it
+          const next = place() === "stack" ? CARDS.findIndex((_, i) => i !== s.cardHeld && !s.cardsTaken.includes(i)) : index;
+          resetOrbit();
+          click(1.25);
+          s.holdCard(next);
+          hint(null);
+        });
       }}
       onPointerOver={(e: ThreeEvent<PointerEvent>) => {
         if (!ready()) return;
@@ -864,6 +868,7 @@ export function ContactPack() {
         onPointerDown={(e: ThreeEvent<PointerEvent>) => {
           if (!sealed()) return;
           e.stopPropagation();
+          if (!tap("pack-cut", "pack_cut_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) return;
           (e.target as Element).setPointerCapture(e.pointerId);
           const x = blade(e);
           state.current.cut = x === null ? null : { from: x, to: x };

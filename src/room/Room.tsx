@@ -7,8 +7,9 @@ import { Bloom, DepthOfField, EffectComposer, Noise, SMAA, ToneMapping, Vignette
 import { type DepthOfFieldEffect, Effect, SMAAPreset, ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
 import { CD_OPEN_VIEW, ENTER_VIEW, TYPING_VIEW, FINDER_FOV, FOCUS_FOV, HOME_FOV, HOME_VIEW, POS, VIEWS, WALL_Z } from "./layout";
-import { orbit, resetOrbit } from "./orbit";
+import { glideOrbit, orbit, resetOrbit, type OrbitLimits } from "./orbit";
 import { useRoom, type FocusId } from "./store";
+import { touch } from "./touch";
 import { Shell } from "./objects/Shell";
 import { Props } from "./objects/Props";
 import { TapeRack } from "./objects/Tapes";
@@ -40,12 +41,14 @@ const focusPoint = new THREE.Vector3(0, 1, 0);
 const LEVEL: [number, number, number] = [0, 1, 0];
 const sph = new THREE.Spherical();
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+/** Phones run the same room with fewer pixels and no shadow maps, so a drag stays smooth. */
+const LOW_POWER = typeof window !== "undefined" && (matchMedia("(pointer: coarse)").matches || matchMedia("(max-width: 700px)").matches);
 
 /** Close-ups where a drag turns the thing itself and the camera stays put. */
 const turnsObject = (focus: FocusId | null) => focus === "canonet" || focus === "saturn" || focus === "cards" || focus === "receipt";
 
 /** How far the view may be turned and zoomed by hand, depending on what is being looked at. */
-function reach(focus: FocusId | null) {
+function reach(focus: FocusId | null): OrbitLimits | null {
   // the tube fills the frame and takes the pointer itself; on the guitar every drag is playing
   if (focus === "tv" || focus === "guitar") return null;
   // the receipt is slid up and down in the hand to read it, as far as its foot
@@ -56,40 +59,81 @@ function reach(focus: FocusId | null) {
   return { yaw: 0.8, pitch: [-0.12, 0.45], zoom: [0.45, 1.5] };
 }
 
-/** Drag to turn the view, wheel to zoom. A drag must not also count as a click on whatever is under it. */
+/** With the eye at the finder, or a cassette open, there is nothing to turn. */
+function orbitLimits(): OrbitLimits | null {
+  const s = useRoom.getState();
+  if (s.focus === "tapes" && s.selectedTape) return null;
+  return s.booted && !s.finder ? reach(s.focus) : null;
+}
+
+/** Drag to turn the view, pinch or wheel to zoom. A drag must not also count as a click. */
 function useOrbitInput() {
   const gl = useThree((s) => s.gl);
   useEffect(() => {
     const el = gl.domElement;
+    /** every finger currently down on the glass, so two of them can pinch */
+    const fingers = new Map<number, { x: number; y: number }>();
     let from: { x: number; y: number } | null = null;
     let moved = false;
     let swallow = false;
-    const limits = () => {
-      const s = useRoom.getState();
-      // with the eye at the viewfinder the view is fixed: there is nothing behind the chair to turn and look at
-      // and while a cassette is open the view is held still, so its receipt can be read and dragged
-      if (s.focus === "tapes" && s.selectedTape) return null;
-      return s.booted && !s.finder ? reach(s.focus) : null;
+    let pinch: { gap: number; zoom: number } | null = null;
+    let lastAt = 0;
+    const gap = () => {
+      const [a, b] = Array.from(fingers.values());
+      return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
     };
     const down = (e: PointerEvent) => {
       swallow = false;
-      if (e.button !== 0 || !limits()) return;
+      if (e.pointerType === "touch") fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (e.button !== 0 || !orbitLimits()) return;
+      orbit.vYaw = 0;
+      orbit.vPitch = 0;
+      if (fingers.size >= 2) {
+        // the second finger turns the gesture into a zoom, never a turn or a click
+        from = null;
+        moved = true;
+        swallow = true;
+        pinch = { gap: gap(), zoom: orbit.zoom };
+        return;
+      }
       from = { x: e.clientX, y: e.clientY };
       moved = false;
+      lastAt = performance.now();
     };
     const move = (e: PointerEvent) => {
-      const l = limits();
-      if (!from || !l || orbit.locked) return;
-      if (!moved && Math.hypot(e.clientX - from.x, e.clientY - from.y) < 5) return;
+      if (fingers.has(e.pointerId)) fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const l = orbitLimits();
+      if (!l || orbit.locked) return;
+      if (pinch && fingers.size >= 2) {
+        const now = gap();
+        if (now > 8) {
+          moved = true;
+          orbit.zoom = clamp((pinch.zoom * pinch.gap) / now, l.zoom[0], l.zoom[1]);
+        }
+        return;
+      }
+      if (!from) return;
+      const dx = e.clientX - from.x;
+      const dy = e.clientY - from.y;
+      if (!moved && Math.hypot(dx, dy) < (e.pointerType === "touch" ? 8 : 5)) return;
       moved = true;
       orbit.dragging = true;
       document.body.classList.add("orbiting");
-      const turn = turnsObject(useRoom.getState().focus) ? 0.009 : 0.005;
-      orbit.yaw = clamp(orbit.yaw - (e.clientX - from.x) * turn, -l.yaw, l.yaw);
-      orbit.pitch = clamp(orbit.pitch + (e.clientY - from.y) * turn * 0.8, l.pitch[0], l.pitch[1]);
+      const finger = e.pointerType === "touch";
+      const turn = turnsObject(useRoom.getState().focus) ? (finger ? 0.007 : 0.009) : finger ? 0.0038 : 0.005;
+      orbit.yaw = clamp(orbit.yaw - dx * turn, -l.yaw, l.yaw);
+      orbit.pitch = clamp(orbit.pitch + dy * turn * 0.8, l.pitch[0], l.pitch[1]);
+      const now = performance.now();
+      const span = Math.max(8, now - lastAt) / 1000;
+      lastAt = now;
+      const coast = finger ? 0.25 : 0.5;
+      orbit.vYaw = clamp((-dx * turn * coast) / span, -2.2, 2.2);
+      orbit.vPitch = clamp((dy * turn * 0.8 * coast) / span, -1.8, 1.8);
       from = { x: e.clientX, y: e.clientY };
     };
-    const up = () => {
+    const up = (e: PointerEvent) => {
+      fingers.delete(e.pointerId);
+      if (pinch && fingers.size < 2) pinch = null;
       if (from && moved) swallow = true;
       from = null;
       orbit.dragging = false;
@@ -101,7 +145,7 @@ function useOrbitInput() {
       e.stopPropagation();
     };
     const wheel = (e: WheelEvent) => {
-      const l = limits();
+      const l = orbitLimits();
       if (!l) {
         // the wheel belongs to the receipt, not to the page or the camera
         if (useRoom.getState().selectedTape) e.preventDefault();
@@ -117,7 +161,7 @@ function useOrbitInput() {
     };
     // Wherever a drag would turn the view (or the thing in the hand), the pointer is an open
     // hand, and a closed one while it does. Controls put their own pointer over this.
-    const hand = () => document.body.classList.toggle("can-orbit", !!limits());
+    const hand = () => document.body.classList.toggle("can-orbit", !!orbitLimits());
     hand();
     const unwatch = useRoom.subscribe((s, was) => {
       if (s.focus !== was.focus || s.booted !== was.booted || s.finder !== was.finder || s.selectedTape !== was.selectedTape) hand();
@@ -160,7 +204,9 @@ function CameraRig() {
   useEffect(() => resetOrbit(), [focus, booted, zoomed, finder, tapeOpen]);
 
   useFrame((state, dt) => {
+    glideOrbit(dt, orbitLimits());
     const pointer = state.pointer;
+    const finger = touch();
     const camera = state.camera as THREE.PerspectiveCamera;
     // in the album, a photo that was clicked is looked at from close to
     const aspect = size.width / size.height;
@@ -172,8 +218,9 @@ function CameraRig() {
     tmpLook.set(...view.look);
     tmpPos.set(...view.pos);
     tmpUp.set(...(playing ? playing.up : LEVEL));
-    // on narrow windows step back so the whole desk stays in frame (the guitar's view has already allowed for it)
-    const pull = playing ? 1 : Math.max(1, 1.75 / aspect);
+    // on narrow screens step back so the whole desk stays in frame, but keep the subject close
+    // enough to see; a tall phone must not end up looking at the room from across the street
+    const pull = playing ? 1 : clamp(1.75 / aspect, 1, finger ? 2.05 : 2.6);
     tmpPos.sub(tmpLook).multiplyScalar(pull);
     // the visitor's own turn and zoom, about the point being looked at
     const h = hand.current;
@@ -200,11 +247,11 @@ function CameraRig() {
     // stay inside the room
     tmpPos.set(clamp(tmpPos.x, -2.9, 2.9), clamp(tmpPos.y, 0.25, 2.6), Math.max(tmpPos.z, WALL_Z + 0.2));
     const manual = peeking || orbit.dragging || Math.abs(orbit.yaw) + Math.abs(orbit.pitch) + Math.abs(orbit.zoom - 1) > 0.002;
-    const drift = playing || peeking ? 0 : focus ? 0.025 : 0.1;
+    const drift = finger || playing || peeking ? 0 : focus ? 0.025 : 0.1;
     tmpPos.x += pointer.x * drift;
     tmpPos.y += pointer.y * drift * 0.4;
     // seated at the desk, the mouse turns the head a little: enough to find the guitar and the wall
-    if (booted && !focus) {
+    if (booted && !focus && !finger) {
       tmpLook.x += pointer.x * 0.4;
       tmpLook.y += pointer.y * 0.12;
     }
@@ -391,10 +438,10 @@ export default function Room({ onReady }: { onReady?: () => void }) {
   return (
     <Canvas
       flat
-      shadows="soft"
-      dpr={[1.5, 2]}
+      shadows={LOW_POWER ? false : "soft"}
+      dpr={LOW_POWER ? [1, 1.5] : [1.5, 2]}
       camera={{ fov: HOME_FOV, near: 0.05, far: 40, position: HOME_VIEW.pos }}
-      gl={{ antialias: true, powerPreference: "high-performance" }}
+      gl={{ antialias: !LOW_POWER, powerPreference: "high-performance" }}
       onCreated={({ scene }) => {
         scene.background = new THREE.Color("#080b0c");
       }}
@@ -441,13 +488,13 @@ export default function Room({ onReady }: { onReady?: () => void }) {
           antialiasing never reaches it. Multisampling that buffer is the obvious fix, but on
           Intel/Mesa it renders the frame black, so edges are smoothed by SMAA after tone mapping. */}
       <EffectComposer multisampling={0}>
-        <FocusBlur />
-        <Bloom intensity={1.2} luminanceThreshold={0.86} luminanceSmoothing={0.2} radius={0.8} mipmapBlur />
+        {!LOW_POWER && <FocusBlur />}
+        <Bloom intensity={LOW_POWER ? 0.9 : 1.2} luminanceThreshold={0.86} luminanceSmoothing={0.2} radius={0.8} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         <Grade />
-        <SMAA preset={SMAAPreset.ULTRA} />
+        {!LOW_POWER && <SMAA preset={SMAAPreset.ULTRA} />}
         <Vignette offset={0.2} darkness={0.95} />
-        <Noise opacity={0.035} />
+        {!LOW_POWER && <Noise opacity={0.035} />}
       </EffectComposer>
       <Shutter />
     </Canvas>

@@ -2,7 +2,8 @@
 
 import type { ThreeElements, ThreeEvent } from "@react-three/fiber";
 import type * as THREE from "three";
-import { useRoom, type FocusId } from "./store";
+import { FOCUS_LABEL, useRoom, type FocusId } from "./store";
+import { tap } from "./touch";
 
 /**
  * Wraps an object in the room. From the wide view, hovering shows its name and clicking
@@ -39,7 +40,7 @@ export function Interactive({ target, children, ...props }: { target: FocusId } 
       onClick={(e: ThreeEvent<MouseEvent>) => {
         if (!live) return;
         e.stopPropagation();
-        setFocus(target);
+        tap(target, FOCUS_LABEL[target], e.nativeEvent.clientX, e.nativeEvent.clientY, () => setFocus(target));
       }}
     >
       {children}

@@ -63,11 +63,14 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#15100c",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 // Runs before first paint: if this device will get the 3D room, hide the static
 // markup so it does not flash before the room mounts. Mirrors canRunRoom() in Home.tsx.
-const preflight = `(function(){try{var p=new URLSearchParams(location.search);var f=p.get('room')==='1';var ok=innerWidth>=860&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!!document.createElement('canvas').getContext('webgl2');if((location.pathname==='/'||location.pathname==='${BASE_PATH}'||location.pathname==='${BASE_PATH}/')&&(f||ok))document.documentElement.classList.add('will-room');}catch(e){}})();`;
+const preflight = `(function(){try{var p=new URLSearchParams(location.search);var r=p.get('room');var f=r==='1';var ok=r!=='0'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!!document.createElement('canvas').getContext('webgl2');if((location.pathname==='/'||location.pathname==='${BASE_PATH}'||location.pathname==='${BASE_PATH}/')&&(f||ok))document.documentElement.classList.add('will-room');}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

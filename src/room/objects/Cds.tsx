@@ -14,6 +14,7 @@ import { Interactive } from "../Interactive";
 import { POS, SHELF } from "../layout";
 import { hint } from "../hint";
 import { useRoom } from "../store";
+import { tap } from "../touch";
 import { canvasTexture, paper, rng, useCanvasTexture, useFonts, wrap, type Fonts } from "../textures";
 import { useClone } from "./Guitar";
 import { HitBox } from "./Props";
@@ -612,14 +613,18 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
         // looking at the other half of the rack, a click here comes over to this half
         if (focus === "tapes") {
           e.stopPropagation();
-          hint(null);
-          useRoom.getState().setFocus("cds");
+          tap("rack-cds", "rack_cds_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+            hint(null);
+            useRoom.getState().setFocus("cds");
+          });
           return;
         }
         if (!live) return;
         e.stopPropagation();
-        click(selected ? 0.8 : 1.2);
-        selectCd(selected ? null : project.id);
+        tap(`cd-${project.id}`, selected ? "tip_put_back" : "card_take_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+          click(selected ? 0.8 : 1.2);
+          selectCd(selected ? null : project.id);
+        });
       }}
       onPointerOver={(e) => {
         if (focus === "tapes") {
@@ -929,8 +934,10 @@ export function CdPlayer() {
             const k = keys.get(e.object);
             if (!live || !k) return;
             e.stopPropagation();
-            k.at = performance.now() / 1000;
-            press(k.key);
+            tap(`cdkey-${k.key}`, `key_${k.key}`, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+              k.at = performance.now() / 1000;
+              press(k.key);
+            });
           }}
           // hover is tracked for the model as a whole, so which key the cursor is on is read on every move:
           // the nearest piece of the player under it, key or not
@@ -957,8 +964,10 @@ export function CdPlayer() {
           onClick={(e: ThreeEvent<MouseEvent>) => {
             if (!live) return;
             e.stopPropagation();
-            for (const k of keys.values()) if (k.key === "play") k.at = performance.now() / 1000;
-            press("play");
+            tap("cdkey-play", "key_play", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+              for (const k of keys.values()) if (k.key === "play") k.at = performance.now() / 1000;
+              press("play");
+            });
           }}
         >
           <circleGeometry args={[1.15, 20]} />

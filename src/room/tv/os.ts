@@ -798,9 +798,14 @@ function target(x: number, y: number, lang: Lang): null | (() => void) {
   }
   const i = os.icons.findIndex((it) => inside(iconRect(it), x, y));
   if (i >= 0)
-    return () => {
+    return     () => {
       const it = os.icons[i];
       const now = performance.now();
+      // touch already spends its first tap on the tooltip, so the second one opens the icon
+      if (useRoom.getState().input === "touch") {
+        os.lastDown.i = -1;
+        return launch(it.app);
+      }
       // a second press soon after the first opens it; a single press picks it up
       if (os.lastDown.i === i && now - os.lastDown.at < 480) {
         os.lastDown.i = -1;

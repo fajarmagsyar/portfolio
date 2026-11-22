@@ -7,6 +7,7 @@ import {
 } from "@/content/data";
 import { useLang, useT } from "@/state/lang";
 import { FOCUS_LABEL, useRoom, type FocusId } from "../store";
+import { tapClick } from "../touch";
 import s from "./ui.module.css";
 
 function FramesPanel() {
@@ -63,7 +64,7 @@ export function SidePanel({ focus }: { focus: Exclude<FocusId, "tv" | "tapes" | 
     <aside className={s.panel} aria-label={t(FOCUS_LABEL[focus])}>
       <header className={s.panelHead}>
         <h2>{t(FOCUS_LABEL[focus]).split(" — ")[0]}</h2>
-        <button className={s.back} onClick={() => setFocus(null)}>
+        <button className={s.back} onClick={tapClick("panel-back", "back", () => setFocus(null))}>
           ◀ {t("back")} <kbd>Esc</kbd>
         </button>
       </header>

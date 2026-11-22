@@ -6,15 +6,14 @@ import { LiteView } from "@/lite/LiteView";
 
 const RoomApp = dynamic(() => import("@/room/RoomApp"), { ssr: false });
 
-/** Same test as the preflight script in layout.tsx. `?room=1` forces the room. */
+/** Same test as the preflight script in layout.tsx. `?room=1` forces the room, `?room=0` opts out. */
 function canRunRoom(): boolean {
   try {
-    if (new URLSearchParams(location.search).get("room") === "1") return true;
-    return (
-      innerWidth >= 860 &&
-      !matchMedia("(prefers-reduced-motion: reduce)").matches &&
-      !!document.createElement("canvas").getContext("webgl2")
-    );
+    const forced = new URLSearchParams(location.search).get("room");
+    if (forced === "1") return true;
+    if (forced === "0") return false;
+    // Phones get the room too: touch controls and a lighter render take care of the small screen.
+    return !matchMedia("(prefers-reduced-motion: reduce)").matches && !!document.createElement("canvas").getContext("webgl2");
   } catch {
     return false;
   }

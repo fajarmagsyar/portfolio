@@ -11,6 +11,7 @@ import { hint } from "../hint";
 import { enterAnswer, enterPoint } from "../tv/program";
 import { useLang, useLangStore } from "@/state/lang";
 import { useRoom } from "../store";
+import { tap, touch } from "../touch";
 import { useFonts } from "../textures";
 import { BOOT_TIME, drawTv, tvKey, tvPointer, tvPointerOut, tvShow, tvWheel, TV_H, TV_W, type TvMode } from "../tv/program";
 
@@ -238,13 +239,16 @@ export function TvScreen({ url }: { url: string }) {
         e.stopPropagation();
         const answer = enterAnswer(e.uv.x, e.uv.y);
         if (!answer) return;
-        enterPoint(null);
-        hint(null);
-        useRoom.getState().setSound(answer === "on");
-        blip(880, 0.12);
-        useRoom.getState().setBooted();
+        tap(`tv-enter-${answer}`, answer === "on" ? "sound_on_tip" : "sound_off_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+          enterPoint(null);
+          hint(null);
+          useRoom.getState().setSound(answer === "on");
+          blip(880, 0.12);
+          useRoom.getState().setBooted();
+        });
       }}
       onPointerMove={(e: ThreeEvent<PointerEvent>) => {
+        if (touch()) return;
         if (!booted && e.uv) {
           const answer = enterAnswer(e.uv.x, e.uv.y);
           enterPoint(answer);
@@ -260,7 +264,7 @@ export function TvScreen({ url }: { url: string }) {
       onPointerDown={(e: ThreeEvent<PointerEvent>) => {
         if (!live || !e.uv) return;
         e.stopPropagation();
-        tvPointer(e.uv.x, e.uv.y, "down", lang);
+        if (tap("tv-screen", "tv_touch", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) tvPointer(e.uv.x, e.uv.y, "down", lang);
       }}
       onPointerUp={(e: ThreeEvent<PointerEvent>) => {
         if (!live || !e.uv) return;

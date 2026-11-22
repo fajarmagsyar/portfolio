@@ -140,6 +140,25 @@
 .hover[data-on="true"] {
   opacity: 1;
 }
+/* the touch version sits by the finger and waits for a second tap */
+.hover[data-tap="true"] {
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border: 1px solid rgba(240, 164, 65, 0.55);
+  border-radius: 8px;
+  background: rgba(13, 10, 9, 0.92);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  white-space: normal;
+}
+.hoverAgain {
+  display: block;
+  margin-top: 7px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
 
 
 /* ---------- bottom edge ---------- */
@@ -832,6 +851,81 @@ a.pill:hover,
   }
 }
 
+/* ---------- touch pads ----------
+   Shown only on touch screens: d-pad on the left, the two actions on the right. Every key
+   is at least a finger wide, and never lets the browser scroll or zoom the page. */
+.pad {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 76px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 32;
+  pointer-events: none;
+  touch-action: none;
+}
+.padKeys {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(2, 52px);
+  gap: 5px;
+  pointer-events: auto;
+}
+.padActions {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+.hud .padKey {
+  min-width: 52px;
+  min-height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  background: var(--glass);
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--ui);
+  text-shadow: var(--shade);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.padKey:active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.padUp {
+  grid-column: 2;
+  grid-row: 1;
+}
+.padLeft {
+  grid-column: 1;
+  grid-row: 2;
+}
+.padDown {
+  grid-column: 2;
+  grid-row: 2;
+}
+.padRight {
+  grid-column: 3;
+  grid-row: 2;
+}
+.hud .padShutter {
+  min-width: 76px;
+  border-color: rgba(240, 164, 65, 0.65);
+  color: var(--accent);
+}
+.gamePad {
+  bottom: 80px;
+}
+
 /* the owner's mark before the name: black artwork, turned white for the dark room */
 .hud .brand {
   display: inline-flex;
@@ -842,4 +936,28 @@ a.pill:hover,
   height: 22px;
   width: auto;
   filter: invert(1) drop-shadow(0 1px 6px rgba(0, 0, 0, 0.6));
+}
+
+@media (pointer: coarse) {
+  .top {
+    padding: max(14px, env(safe-area-inset-top)) 16px 10px;
+  }
+  .foot {
+    padding: 10px 16px max(14px, env(safe-area-inset-bottom));
+  }
+  .hud button,
+  .pill {
+    min-height: 44px;
+  }
+  .pill {
+    padding: 5px 16px;
+  }
+  .leave kbd,
+  .back kbd {
+    display: none;
+  }
+  .wheelBox {
+    width: clamp(150px, 42vw, 220px);
+    bottom: 74px;
+  }
 }

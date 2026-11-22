@@ -75,3 +75,14 @@ body.can-orbit {
 body.can-orbit.orbiting {
   cursor: grabbing !important;
 }
+
+/* A finger that drags the room is not scrolling the page or pinching the viewport. */
+html.will-room,
+html.will-room body {
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+html.will-room canvas {
+  touch-action: none;
+}

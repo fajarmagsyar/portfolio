@@ -10,6 +10,7 @@ import { Interactive } from "../Interactive";
 import { POS, SHELF, tapeHeld } from "../layout";
 import { hint } from "../hint";
 import { useRoom } from "../store";
+import { tap } from "../touch";
 import { receiptOpen } from "./Pamphlet";
 import { paper, useCanvasTexture, useFonts } from "../textures";
 
@@ -128,13 +129,15 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
         // looking at the other half of the rack, a click here comes over to this half
         if (focus === "cds") {
           e.stopPropagation();
-          hint(null);
-          useRoom.getState().setFocus("tapes");
+          tap("rack-tapes", "rack_tapes_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+            hint(null);
+            useRoom.getState().setFocus("tapes");
+          });
           return;
         }
         if (!live) return;
         e.stopPropagation();
-        selectTape(selected ? null : job.id);
+        tap(`tape-${job.id}`, selected ? "tip_put_back" : "card_take_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => selectTape(selected ? null : job.id));
       }}
       onPointerOver={(e) => {
         if (focus === "cds") {

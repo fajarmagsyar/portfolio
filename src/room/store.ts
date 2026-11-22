@@ -8,6 +8,8 @@ import type { PlanetId } from "./planets";
 
 export type FocusId = "tv" | "tapes" | "cds" | "cd" | "guitar" | "frames" | "notes" | "cards" | "canonet" | "album" | "saturn" | "dice" | "receipt" | "clock" | "portrait";
 export type TvScreen = "menu" | "memory" | "game" | "about";
+/** A tooltip raised by the first tap on a touch screen, waiting for the second one. */
+export type TapTip = { id: string; text: StringKey; x: number; y: number };
 
 export const FOCUS_ORDER: FocusId[] = ["tv", "tapes", "cds", "cd", "guitar", "frames", "notes", "cards", "canonet", "album", "saturn", "dice", "receipt", "clock", "portrait"];
 
@@ -38,6 +40,13 @@ type RoomState = {
   hover: FocusId | null;
   /** what the control under the cursor does, shown beside the cursor (the Discman's keys) */
   tip: StringKey | null;
+  /** the last kind of pointer used; touch screens ask for a tooltip before an action */
+  input: "mouse" | "touch";
+  setInput: (input: "mouse" | "touch") => void;
+  /** the first tap's explanation; the second tap on the same id carries out the action */
+  tapTip: TapTip | null;
+  showTapTip: (tip: TapTip) => void;
+  clearTapTip: () => void;
   tvScreen: TvScreen;
   /** job id pulled out of the rack */
   selectedTape: string | null;
@@ -153,7 +162,7 @@ export const useRoom = create<RoomState>((set) => ({
   cdOpen: null,
   setCdOpen: (cdOpen) => set({ cdOpen }),
   plucks: [-10, -10, -10, -10, -10, -10],
-  setBooted: () => set({ booted: true }),
+  setBooted: () => set({ booted: true, tapTip: null }),
   guitarMode: "lead",
   chords: savedChords(),
   slot: 5,
@@ -171,7 +180,7 @@ export const useRoom = create<RoomState>((set) => ({
     set({ distortion });
   },
   finder: false,
-  setFinder: (finder) => set({ finder, tip: null }),
+  setFinder: (finder) => set({ finder, tip: null, tapTip: null }),
   shutter: 0,
   pressShutter: () => set((s) => ({ shutter: s.shutter + 1 })),
   shot: savedShot(),
@@ -197,12 +206,17 @@ export const useRoom = create<RoomState>((set) => ({
   zoomed: null,
   planet: "mars",
   setPlanet: (planet) => set({ planet }),
-  setFocus: (focus) => set({ focus, hover: null, tip: null, tvScreen: "menu", zoomed: null, selectedCd: null, selectedTape: null, finder: false }),
-  setAlbumTurned: (albumTurned) => set({ albumTurned }),
-  setZoomed: (zoomed) => set({ zoomed }),
+  setFocus: (focus) => set({ focus, hover: null, tip: null, tapTip: null, tvScreen: "menu", zoomed: null, selectedCd: null, selectedTape: null, finder: false }),
+  setAlbumTurned: (albumTurned) => set({ albumTurned, tapTip: null }),
+  setZoomed: (zoomed) => set({ zoomed, tapTip: null }),
+  input: typeof window !== "undefined" && matchMedia("(pointer: coarse)").matches ? "touch" : "mouse",
+  setInput: (input) => set((s) => (s.input === input ? s : { input, tapTip: s.input === input ? s.tapTip : null })),
+  tapTip: null,
+  showTapTip: (tapTip) => set({ tapTip, hover: null, tip: null }),
+  clearTapTip: () => set({ tapTip: null }),
   setHover: (hover) => set((s) => (s.hover === hover ? s : { hover })),
   setTip: (tip) => set((s) => (s.tip === tip ? s : { tip })),
-  setTvScreen: (tvScreen) => set({ tvScreen }),
+  setTvScreen: (tvScreen) => set({ tvScreen, tapTip: null }),
   selectTape: (selectedTape) => set({ selectedTape }),
   selectCd: (selectedCd) => set({ selectedCd }),
   markPluck: (string, at) =>

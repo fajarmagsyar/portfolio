@@ -12,6 +12,7 @@ import { Interactive } from "../Interactive";
 import { POS } from "../layout";
 import { FRET_Y, FRETS, JACK, NUT_Y, REST, SADDLE_Y, STAND_YAW, STRING_Z, TELE as T, fingerY, fretAt, guitarDir, guitarToWorld, stringGap, stringX } from "../guitarView";
 import { useRoom } from "../store";
+import { tap } from "../touch";
 
 // Models: see CREDITS.md.
 //  - "Telecaster" by aledororo (CC BY-NC 4.0)
@@ -154,9 +155,14 @@ function Telecaster() {
     const p = local(e);
     if (!p) return;
     e.stopPropagation();
-    (e.target as Element).setPointerCapture(e.pointerId);
     const s = stringNear(p.x, p.y);
-    if (useRoom.getState().guitarMode === "rhythm") {
+    const rhythm = useRoom.getState().guitarMode === "rhythm";
+    const onNeck = rhythm && s >= 0 && p.y > FRET_Y[FRETS] && p.y < NUT_Y + 0.02;
+    const tip = rhythm ? (onNeck ? "tip_finger" : "tip_strum") : "tip_lead";
+    // the first touch on a string explains it; the next one plays it
+    if (!tap(onNeck ? "guitar-neck" : "guitar-strum", tip, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) return;
+    (e.target as Element).setPointerCapture(e.pointerId);
+    if (rhythm) {
       // On the neck a click is the left hand: it puts a finger on that string at that fret.
       // On the finger already there it lifts it off, leaving the string open; at the nut it
       // mutes the string, or lets it ring again.

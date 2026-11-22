@@ -2,34 +2,47 @@
 
 import { asset } from "@/asset";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type PointerEvent as ReactPointerEvent } from "react";
 import { chordName } from "@/audio/guitar";
 import { click } from "@/audio/sfx";
 import { profile } from "@/content/data";
+import type { StringKey } from "@/content/strings";
 import { useLangStore, useT } from "@/state/lang";
+import { gameTouchKey } from "@/game/engine";
 import { finderCam, lookFinderCam, resetFinderCam } from "../finderCam";
 import { FOCUS_LABEL, useRoom } from "../store";
+import { tap, tapClick } from "../touch";
 import { tvBack } from "../tv/program";
 import { SidePanel } from "./Panels";
 import { TvOverlay } from "./TvOverlay";
 import s from "./ui.module.css";
 
-/** Name tag that follows the cursor while it is over something clickable in the room. */
+/** Name tag that follows the cursor, or sits by the finger after the first tap. */
 function HoverLabel() {
   const t = useT();
   const hover = useRoom((r) => r.hover);
   const tip = useRoom((r) => r.tip);
+  const tapTip = useRoom((r) => r.tapTip);
+  const input = useRoom((r) => r.input);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const move = (e: PointerEvent) => {
-      if (ref.current) ref.current.style.transform = `translate(${e.clientX + 16}px, ${e.clientY + 18}px)`;
+      if (ref.current && e.pointerType !== "touch") ref.current.style.transform = `translate(${e.clientX + 16}px, ${e.clientY + 18}px)`;
     };
     window.addEventListener("pointermove", move);
     return () => window.removeEventListener("pointermove", move);
   }, []);
-  const lines = (tip ? t(tip) : hover ? t(FOCUS_LABEL[hover]).split(" — ")[0] : "").split("\n");
+  useEffect(() => {
+    const el = ref.current;
+    if (!tapTip || !el) return;
+    const x = Math.min(Math.max(12, tapTip.x + 16), window.innerWidth - el.offsetWidth - 12);
+    const y = Math.min(Math.max(12, tapTip.y + 18), window.innerHeight - el.offsetHeight - 12);
+    el.style.transform = `translate(${x}px, ${y}px)`;
+  }, [tapTip]);
+  const label: StringKey | null = tapTip?.text ?? (input === "touch" ? null : tip ?? (hover ? FOCUS_LABEL[hover] : null));
+  const lines = label ? (input === "touch" && !tapTip ? t(label) : t(label).split(" — ")[0]).split("\n") : [];
   return (
-    <div ref={ref} className={s.hover} data-on={!!hover || !!tip} aria-hidden="true">
+    <div ref={ref} className={s.hover} data-on={!!label} data-tap={!!tapTip} role="status" aria-live="polite">
       {/* a name; and for some things a few lines under it */}
       {lines[0]}
       {lines.slice(1).map((line) => (
@@ -37,8 +50,18 @@ function HoverLabel() {
           {line}
         </span>
       ))}
+      {tapTip && (
+        <span className={s.hoverAgain}>
+          ↳ {t("tap_again")}
+        </span>
+      )}
     </div>
   );
+}
+
+/** A button that explains itself on the first touch and runs on the second. */
+function TipButton({ id, tip, onClick, ...rest }: { id: string; tip: StringKey; onClick: () => void } & ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button {...rest} onClick={tapClick(id, tip, onClick)} />;
 }
 
 function LangPill() {
@@ -46,12 +69,12 @@ function LangPill() {
   const setLang = useLangStore((r) => r.setLang);
   return (
     <div className={s.pill} role="group" aria-label="Bahasa / Language">
-      <button aria-pressed={lang === "id"} onClick={() => setLang("id")}>
+      <TipButton id="lang-id" tip="lang_tip" aria-pressed={lang === "id"} onClick={() => setLang("id")}>
         ID
-      </button>
-      <button aria-pressed={lang === "en"} onClick={() => setLang("en")}>
+      </TipButton>
+      <TipButton id="lang-en" tip="lang_tip" aria-pressed={lang === "en"} onClick={() => setLang("en")}>
         EN
-      </button>
+      </TipButton>
     </div>
   );
 }
@@ -66,17 +89,17 @@ function GuitarSwitches() {
   return (
     <>
       <div className={s.pill} role="group" aria-label="Guitar">
-        <button aria-pressed={mode === "lead"} onClick={() => setMode("lead")}>
+        <TipButton id="guitar-lead" tip="guitar_lead_tip" aria-pressed={mode === "lead"} onClick={() => setMode("lead")}>
           {t("guitar_lead")}
-        </button>
-        <button aria-pressed={mode === "rhythm"} onClick={() => setMode("rhythm")}>
+        </TipButton>
+        <TipButton id="guitar-rhythm" tip="guitar_rhythm_tip" aria-pressed={mode === "rhythm"} onClick={() => setMode("rhythm")}>
           {t("guitar_rhythm")}
-        </button>
+        </TipButton>
       </div>
       <div className={s.pill}>
-        <button aria-pressed={distortion} onClick={() => setDistortion(!distortion)}>
+        <TipButton id="guitar-distortion" tip="guitar_distortion_tip" aria-pressed={distortion} onClick={() => setDistortion(!distortion)}>
           {t("guitar_distortion")}
-        </button>
+        </TipButton>
       </div>
     </>
   );
@@ -114,7 +137,15 @@ function ChordWheel() {
           const [x, y] = at(i, 70);
           const [kx, ky] = at(i, 91);
           return (
-            <g key={i} className={s.wedge} data-on={slot === i} onPointerDown={() => setSlot(i)} onDoubleClick={() => resetChord(i)}>
+            <g
+              key={i}
+              className={s.wedge}
+              data-on={slot === i}
+              onPointerDown={(e) => tap(`chord-${i}`, "tip_finger", e.clientX, e.clientY, () => setSlot(i))}
+              onDoubleClick={() => {
+                if (useRoom.getState().input === "mouse") resetChord(i);
+              }}
+            >
               <path d={`M ${edge(i, 42)} L ${edge(i, R)} A ${R} ${R} 0 0 1 ${edge(i + 1, R)} L ${edge(i + 1, 42)} A 42 42 0 0 0 ${edge(i, 42)} Z`} />
               <text x={x} y={y + 6} textAnchor="middle" data-long={name.length > 4}>
                 {name}
@@ -134,6 +165,30 @@ function ChordWheel() {
   );
 }
 
+/** One key of an on-screen pad. Held to move, explained on the first touch. */
+function PadKey({ id, tip, label, on, off, className }: { id: string; tip: StringKey; label: string; on: () => void; off?: () => void; className?: string }) {
+  return (
+    <button
+      className={`${s.padKey} ${className ?? ""}`}
+      onPointerDown={(e: ReactPointerEvent<HTMLButtonElement>) => {
+        e.stopPropagation();
+        tap(id, tip, e.clientX, e.clientY, () => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          on();
+        });
+      }}
+      onPointerUp={(e: ReactPointerEvent<HTMLButtonElement>) => {
+        e.stopPropagation();
+        off?.();
+      }}
+      onPointerCancel={() => off?.()}
+      onLostPointerCapture={() => off?.()}
+    >
+      {label}
+    </button>
+  );
+}
+
 /**
  * What the eye sees at the Canonet's viewfinder besides the room: the dark of the finder
  * round a bright window, the frame lines that show what the film will take, and the pale
@@ -142,6 +197,7 @@ function ChordWheel() {
 function Viewfinder() {
   const t = useT();
   const [fired, setFired] = useState(0);
+  const input = useRoom((r) => r.input);
   const press = useRef<{ x: number; y: number; moved: boolean } | null>(null);
 
   // W A S D (or the arrows) walk; Q and E go down and up
@@ -180,6 +236,8 @@ function Viewfinder() {
       className={s.finder}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
+        // a tap first says what the finder does; the next one looks or shoots
+        if (!tap("finder", "finder_touch", e.clientX, e.clientY, () => {})) return;
         e.currentTarget.setPointerCapture(e.pointerId);
         press.current = { x: e.clientX, y: e.clientY, moved: false };
       }}
@@ -221,6 +279,42 @@ function Viewfinder() {
           {t("shot_saved")}
         </p>
       )}
+      {input === "touch" && (
+        <div className={s.pad} aria-label={t("game_touch")}>
+          <div className={s.padKeys}>
+            <PadKey id="finder-up" tip="finder_touch" className={s.padUp} label="▲" on={() => finderCam.keys.add("KeyE")} off={() => finderCam.keys.delete("KeyE")} />
+            <PadKey id="finder-left" tip="finder_touch" className={s.padLeft} label="◀" on={() => finderCam.keys.add("KeyA")} off={() => finderCam.keys.delete("KeyA")} />
+            <PadKey id="finder-down" tip="finder_touch" className={s.padDown} label="▼" on={() => finderCam.keys.add("KeyQ")} off={() => finderCam.keys.delete("KeyQ")} />
+            <PadKey id="finder-right" tip="finder_touch" className={s.padRight} label="▶" on={() => finderCam.keys.add("KeyD")} off={() => finderCam.keys.delete("KeyD")} />
+          </div>
+          <div className={s.padActions}>
+            <PadKey id="finder-walk" tip="finder_touch" label={t("walk")} on={() => finderCam.keys.add("KeyW")} off={() => finderCam.keys.delete("KeyW")} />
+            <PadKey id="finder-shutter" tip="finder_touch" className={s.padShutter} label={t("shutter")} on={shoot} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The TV's little game has no keyboard on a phone: these keys go straight into its engine. */
+function GamePad() {
+  const t = useT();
+  useEffect(
+    () => () => {
+      for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) gameTouchKey(key, false);
+    },
+    [],
+  );
+  return (
+    <div className={`${s.pad} ${s.gamePad}`} aria-label={t("game_touch")}>
+      <div className={s.padKeys}>
+        <PadKey id="game-up" tip="game_move_touch" className={s.padUp} label="▲" on={() => gameTouchKey("ArrowUp", true)} off={() => gameTouchKey("ArrowUp", false)} />
+        <PadKey id="game-left" tip="game_move_touch" className={s.padLeft} label="◀" on={() => gameTouchKey("ArrowLeft", true)} off={() => gameTouchKey("ArrowLeft", false)} />
+        <PadKey id="game-down" tip="game_move_touch" className={s.padDown} label="▼" on={() => gameTouchKey("ArrowDown", true)} off={() => gameTouchKey("ArrowDown", false)} />
+        <PadKey id="game-right" tip="game_move_touch" className={s.padRight} label="▶" on={() => gameTouchKey("ArrowRight", true)} off={() => gameTouchKey("ArrowRight", false)} />
+      </div>
+      <PadKey id="game-action" tip="game_action_touch" className={s.padShutter} label="●" on={() => gameTouchKey("Enter", true)} off={() => gameTouchKey("Enter", false)} />
     </div>
   );
 }
@@ -231,6 +325,8 @@ export function Hud() {
   const booted = useRoom((r) => r.booted);
   const focus = useRoom((r) => r.focus);
   const zoomed = useRoom((r) => r.zoomed !== null);
+  const tvScreen = useRoom((r) => r.tvScreen);
+  const input = useRoom((r) => r.input);
   const setFocus = useRoom((r) => r.setFocus);
   const finder = useRoom((r) => r.finder);
   const sound = useRoom((r) => r.sound);
@@ -254,16 +350,17 @@ export function Hud() {
   return (
     <div className={s.hud}>
       <header className={s.top}>
-        <button className={s.brand} onClick={() => setFocus(null)}>
+        <TipButton id="brand" tip="back" className={s.brand} onClick={() => setFocus(null)}>
           {/* eslint-disable-next-line @next/next/no-img-element -- a small fixed mark */}
           <img className={s.mark} src={asset("/logo.png")} alt="" />
           {profile.name}
-        </button>
+        </TipButton>
       </header>
 
       <HoverLabel />
 
       {focus === "tv" && <TvOverlay />}
+      {focus === "tv" && tvScreen === "game" && input === "touch" && <GamePad />}
       {focus === "guitar" && <ChordWheel />}
       {focus === "canonet" && finder && <Viewfinder />}
       {focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && !zoomed && <SidePanel key={focus} focus={focus} />}
@@ -274,9 +371,9 @@ export function Hud() {
             {t("enter")}
           </p>
         ) : focus ? (
-          <button className={s.leave} onClick={() => (focus === "tv" ? tvBack() : finder ? useRoom.getState().setFinder(false) : zoomed ? useRoom.getState().setZoomed(null) : setFocus(null))}>
-            ← {t("back")} <kbd>Esc</kbd>
-          </button>
+          <TipButton id="back" tip="back" className={s.leave} onClick={() => (focus === "tv" ? tvBack() : finder ? useRoom.getState().setFinder(false) : zoomed ? useRoom.getState().setZoomed(null) : setFocus(null))}>
+            ← {t("back")} {input === "mouse" && <kbd>Esc</kbd>}
+          </TipButton>
         ) : (
           <span />
         )}
@@ -284,25 +381,32 @@ export function Hud() {
           {focus === "guitar" && <GuitarSwitches />}
           {(focus === "tapes" || focus === "cds") && (
             <div className={s.pill} role="group" aria-label={t("rack")}>
-              <button aria-pressed={focus === "tapes"} onClick={() => setFocus("tapes")}>
+              <TipButton id="rack-tapes" tip="rack_tapes_tip" aria-pressed={focus === "tapes"} onClick={() => setFocus("tapes")}>
                 {t("rack_tapes")}
-              </button>
-              <button aria-pressed={focus === "cds"} onClick={() => setFocus("cds")}>
+              </TipButton>
+              <TipButton id="rack-cds" tip="rack_cds_tip" aria-pressed={focus === "cds"} onClick={() => setFocus("cds")}>
                 {t("rack_cds")}
-              </button>
+              </TipButton>
             </div>
           )}
           {booted && (
             <div className={s.pill}>
-              <button aria-pressed={sound} onClick={() => setSound(!sound)} title={t(sound ? "sound_on_tip" : "sound_off_tip")}>
+              <TipButton id="sound" tip={sound ? "sound_on_tip" : "sound_off_tip"} aria-pressed={sound} onClick={() => setSound(!sound)}>
                 {t("sound")}
-              </button>
+              </TipButton>
             </div>
           )}
           <LangPill />
           {/* while the guitar is being played the corner belongs to its two switches */}
           {focus !== "guitar" && (
-            <Link className={s.pill} href="/lite" title={t("lofi_tip")}>
+            <Link
+              className={s.pill}
+              href="/lite"
+              title={t("lofi_tip")}
+              onClick={(e) => {
+                if (!tap("lofi", "lofi_tip", e.clientX, e.clientY, () => {})) e.preventDefault();
+              }}
+            >
               <svg viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <rect x="1.6" y="0.6" width="8.8" height="10.8" rx="1" />
                 <path d="M3.8 3.6h4.4M3.8 6h4.4M3.8 8.4h2.6" />

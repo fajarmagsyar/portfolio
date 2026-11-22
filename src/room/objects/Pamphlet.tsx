@@ -9,6 +9,7 @@ import { jobs, jobYears, type Job, type Lang } from "@/content/data";
 import { useLang } from "@/state/lang";
 import { tapeHeld } from "../layout";
 import { useRoom } from "../store";
+import { tap } from "../touch";
 import { canvasTexture, paper, rng, useFonts, useImage, type Fonts } from "../textures";
 
 // What opens when a cassette is picked: its inlay, the long fold-out insert of a tape, folded
@@ -495,6 +496,7 @@ function Sheet({ job, selected }: { job: Job; selected: boolean }) {
       onPointerDown={(e: ThreeEvent<PointerEvent>) => {
         if (!live.current) return;
         e.stopPropagation();
+        if (!tap("receipt-scroll", "tip_receipt", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) return;
         (e.target as unknown as { setPointerCapture?: (id: number) => void }).setPointerCapture?.(e.pointerId);
         drag.current = e.clientY;
         grab(true);
