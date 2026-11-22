@@ -5,9 +5,9 @@
 import { asset } from "@/asset";
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { useGLTF, useTexture } from "@react-three/drei";
+import { RoundedBox, useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { DESK, POS, SILL, WALL_Z, WIN } from "../layout";
+import { DESK, LAMP_LIGHT_OFFSET, POS, SILL, WALL_Z, WIN } from "../layout";
 import { canvasTexture, rng } from "../textures";
 import { useClone } from "./Guitar";
 
@@ -221,92 +221,29 @@ function WindowFrame() {
 }
 
 /**
- * Old painted-over pine for the sill, drawn here: long wavering grain with darker and lighter
- * streaks, knots with their rings, pores, nicks, and a worn, paler edge along the front.
- * Three pictures of the one board: its colour, its bump and its roughness (the grain holds dirt
- * and is duller than the smooth wood between).
+ * Pale oak veneer for the sill, using the colour and roughness maps from the supplied glTF.
+ * Tiled along the board and wrapped over a rounded edge, so it reads as a finished timber lip.
  */
 function useSillWood() {
+  const maps = useTexture({
+    map: "/textures/oak_veneer_01/diff.jpg",
+    roughnessMap: "/textures/oak_veneer_01/rough.jpg",
+  });
   return useMemo(() => {
-    const W = 2048;
-    const H = 256;
-    const make = (kind: "colour" | "bump" | "rough") =>
-      canvasTexture(W, H, (ctx, w, h) => {
-        const r = rng(77);
-        const col = kind === "colour";
-        // the board: slow bands of tone running along it
-        ctx.fillStyle = col ? "#b58b5c" : kind === "bump" ? "#808080" : "#9a9a9a";
-        ctx.fillRect(0, 0, w, h);
-        for (let y = 0; y < h; y++) {
-          const t = Math.sin(y * 0.11 + 1.3) * 0.5 + Math.sin(y * 0.037) * 0.8 + Math.sin(y * 0.29 + 4) * 0.25;
-          ctx.fillStyle = col ? `rgba(${t > 0 ? "255,235,200" : "70,40,15"},${Math.abs(t) * 0.07})` : `rgba(${t > 0 ? "255,255,255" : "0,0,0"},${Math.abs(t) * 0.05})`;
-          ctx.fillRect(0, y, w, 1);
-        }
-        // the grain: long thin lines that wander and thin out
-        for (let i = 0; i < 900; i++) {
-          const y0 = r() * h;
-          const amp = 0.6 + r() * 3;
-          const freq = 0.001 + r() * 0.004;
-          const ph = r() * 6.28;
-          const len = 300 + r() * 1700;
-          const x0 = r() * w - 200;
-          const dark = r() < 0.62;
-          const a = 0.05 + r() * 0.2;
-          if (col) ctx.strokeStyle = dark ? `rgba(70,40,18,${a})` : `rgba(255,232,196,${a * 0.8})`;
-          else if (kind === "bump") ctx.strokeStyle = dark ? `rgba(0,0,0,${a * 1.4})` : `rgba(255,255,255,${a})`;
-          else ctx.strokeStyle = dark ? `rgba(255,255,255,${a * 0.9})` : `rgba(0,0,0,${a * 0.5})`;
-          ctx.lineWidth = 0.5 + r() * 1.7;
-          ctx.beginPath();
-          for (let x = 0; x <= len; x += 14) {
-            const yy = y0 + Math.sin((x0 + x) * freq + ph) * amp + (x / len) * (r() - 0.5) * 0.4;
-            if (x === 0) ctx.moveTo(x0, yy);
-            else ctx.lineTo(x0 + x, yy);
-          }
-          ctx.stroke();
-        }
-        // knots: rings that the grain bends round
-        for (let k = 0; k < 3; k++) {
-          const kx = 250 + r() * (w - 500);
-          const ky = 50 + r() * (h - 100);
-          for (let ring = 34; ring > 2; ring -= 3) {
-            const a = 0.18 + (34 - ring) * 0.012;
-            ctx.strokeStyle = col ? `rgba(60,32,12,${a})` : kind === "bump" ? `rgba(0,0,0,${a})` : "rgba(255,255,255,0.12)";
-            ctx.lineWidth = 1.4;
-            ctx.beginPath();
-            ctx.ellipse(kx, ky, ring * 2.6, ring * 0.8, 0, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-          ctx.fillStyle = col ? "rgba(48,26,10,0.7)" : kind === "bump" ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.4)";
-          ctx.beginPath();
-          ctx.ellipse(kx, ky, 7, 2.6, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        // pores and tiny flecks
-        for (let i = 0; i < 5000; i++) {
-          ctx.fillStyle = col ? "rgba(60,36,16,0.28)" : kind === "bump" ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.25)";
-          ctx.fillRect(r() * w, r() * h, 1 + r() * 5, 1);
-        }
-        // a few nicks and dents where things have been set down
-        for (let i = 0; i < 14; i++) {
-          ctx.fillStyle = col ? "rgba(235,215,180,0.5)" : kind === "bump" ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.3)";
-          ctx.fillRect(r() * w, r() * h, 3 + r() * 14, 1 + r() * 2);
-        }
-        // worn along the front edge (the bottom of the picture): paler, where hands and sleeves pass
-        if (col) {
-          const g = ctx.createLinearGradient(0, h * 0.8, 0, h);
-          g.addColorStop(0, "rgba(255,240,210,0)");
-          g.addColorStop(1, "rgba(255,240,210,0.22)");
-          ctx.fillStyle = g;
-          ctx.fillRect(0, h * 0.8, w, h * 0.2);
-        }
-      });
-    const maps = { map: make("colour"), bumpMap: make("bump"), roughnessMap: make("rough") };
-    for (const t of Object.values(maps)) {
-      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    const out = {} as typeof maps;
+    for (const key of Object.keys(maps) as (keyof typeof maps)[]) {
+      const t = maps[key].clone();
+      t.wrapS = t.wrapT = THREE.MirroredRepeatWrapping;
+      t.center.set(0.5, 0.5);
+      t.rotation = Math.PI / 2;
+      t.repeat.set(1.5, 1);
       t.anisotropy = 8;
+      if (key === "map") t.colorSpace = THREE.SRGBColorSpace;
+      t.needsUpdate = true;
+      out[key] = t;
     }
-    return maps;
-  }, []);
+    return out;
+  }, [maps]);
 }
 
 function CityWindow() {
@@ -321,7 +258,7 @@ function CityWindow() {
     const rad = Math.PI / 180;
     // where the desk lamp appears to be, seen in the glass
     const glassZ = POS.window[2] + GLASS_Z;
-    const lamp = new THREE.Vector3(POS.lamp[0] + 0.34, POS.lamp[1] + 0.6, 2 * glassZ - (POS.lamp[2] + 0.14));
+    const lamp = new THREE.Vector3(POS.lamp[0] + LAMP_LIGHT_OFFSET[0], POS.lamp[1] + LAMP_LIGHT_OFFSET[1], 2 * glassZ - (POS.lamp[2] + LAMP_LIGHT_OFFSET[2]));
     return {
       uTime: { value: 0 },
       uView: { value: view },
@@ -342,10 +279,9 @@ function CityWindow() {
       </mesh>
       <WindowFrame />
       {/* sill */}
-      <mesh position={[0, -WIN.h / 2 - 0.035, 0.06]} castShadow receiveShadow>
-        <boxGeometry args={[WIN.w + 0.3, 0.035, 0.2]} />
-        <meshStandardMaterial {...sillWood} bumpScale={1.6} roughness={1} />
-      </mesh>
+      <RoundedBox args={[WIN.w + 0.3, 0.035, 0.2]} radius={0.008} smoothness={3} position={[0, -WIN.h / 2 - 0.035, 0.06]} castShadow receiveShadow>
+        <meshStandardMaterial {...sillWood} roughness={1} />
+      </RoundedBox>
     </group>
   );
 }
@@ -598,6 +534,7 @@ function Desk() {
   return <primitive object={table} position={[(DESK.x0 + DESK.x1) / 2, 0, (DESK.z0 + DESK.z1) / 2]} rotation={[0, Math.PI / 2, 0]} scale={scale} />;
 }
 useGLTF.preload(TABLE);
+useTexture.preload(["/textures/oak_veneer_01/diff.jpg", "/textures/oak_veneer_01/rough.jpg"]);
 
 export function Shell() {
   return (

@@ -6,7 +6,7 @@ import { asset } from "@/asset";
 import { useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Sparkles, useGLTF } from "@react-three/drei";
-import { POS } from "../layout";
+import { LAMP_BULB_OFFSET, POS } from "../layout";
 import { useRoom } from "../store";
 import { useClone } from "./Guitar";
 
@@ -91,7 +91,7 @@ export function Coffee() {
 useGLTF.preload(CUP);
 
 /** Where the desk lamp's bulb sits inside its shade. */
-export const BULB: [number, number, number] = [POS.lamp[0] + 0.215, POS.lamp[1] + 0.665, POS.lamp[2] + 0.075];
+export const BULB: [number, number, number] = [POS.lamp[0] + LAMP_BULB_OFFSET[0], POS.lamp[1] + LAMP_BULB_OFFSET[1], POS.lamp[2] + LAMP_BULB_OFFSET[2]];
 
 /** The lamp's bulb itself. */
 export function LampGlow() {

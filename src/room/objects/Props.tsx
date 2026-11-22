@@ -6,7 +6,7 @@ import { useFrame, type ThreeElements } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { Interactive } from "../Interactive";
-import { POS } from "../layout";
+import { LAMP_ROTATION, POS } from "../layout";
 import { SaturnLamp } from "./Planets";
 import { TUBE, TvScreen } from "./TvScreen";
 
@@ -90,10 +90,10 @@ export function Props() {
         <Model asset="gamepad" position={POS.gamepad} rotation={[0, 0.115, 0]} scale={0.8} process={trimGamepadWire} />
       </Interactive>
       {/* lamp on the left of the desk, its shade turned towards the middle */}
-      <Model asset="desk_lamp_arm_01" position={POS.lamp} rotation={[0, -1.9, 0]} />
+      <Model asset="desk_lamp_arm_01" position={POS.lamp} rotation={[0, LAMP_ROTATION, 0]} />
       <SaturnLamp />
       <Model asset="potted_plant_02" position={POS.deskPlant} scale={0.5} />
-      <Model asset="potted_plant_02" position={POS.plant} rotation={[0, 2, 0]} scale={1.15} />
+      <Model asset="potted_plant_02" position={POS.plant} rotation={[0, 2, 0]} scale={0.5} />
     </group>
   );
 }

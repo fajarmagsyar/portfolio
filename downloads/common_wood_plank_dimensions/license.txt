@@ -1,0 +1,11 @@
+Model Information:
+* title:	Common Wood Plank Dimensions
+* source:	https://sketchfab.com/3d-models/common-wood-plank-dimensions-5599b67d36254221b247811b561c998e
+* author:	Lodgelus (https://sketchfab.com/lodgelus)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Common Wood Plank Dimensions" (https://sketchfab.com/3d-models/common-wood-plank-dimensions-5599b67d36254221b247811b561c998e) by Lodgelus (https://sketchfab.com/lodgelus) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

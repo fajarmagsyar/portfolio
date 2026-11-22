@@ -16,7 +16,7 @@ import { Model } from "./Props";
 // chest's top is at 1.09 before scaling; the side table's at 0.55.
 
 const SHELF: [number, number, number] = [2.2, 0, WALL_Z + 0.3];
-const CHEST: [number, number, number] = [-1.98, 0, 0.85];
+const CHEST: [number, number, number] = [-1.98, 0, 0.7];
 const CHEST_SCALE = 0.64;
 const CHEST_TOP = 1.09 * CHEST_SCALE;
 const TABLE: [number, number, number] = [2.95, 0, 0.5];
@@ -34,8 +34,8 @@ export function Furniture() {
         <Clock position={[0.3, 0.38 + 0.13, 0.08]} rotation={[-0.12, -0.2, 0]} scale={0.8} />
       </group>
       {/* a chair to read in, turned towards the desk, and a small table beside it */}
-      <Model asset="mid_century_lounge_chair" position={[2.3, 0, 1.3]} rotation={[0, -2.35, 0]} />
-      <Model asset="side_table_01" position={TABLE} rotation={[0, -0.3, 0]} />
+      <Model asset="mid_century_lounge_chair" position={[1.0, 0, 0.6]} rotation={[0, -2.55, 0]} scale={0.8} />
+      <Model asset="side_table_01" position={TABLE} rotation={[0, 0, 0]} />
       <Model asset="potted_plant_04" position={[TABLE[0], 0.55, TABLE[2]]} rotation={[0, 1.2, 0]} scale={1.4} />
 
       {/* left: the chest of drawers along the wall, with the boombox on it */}
@@ -69,4 +69,3 @@ export function Furniture() {
 for (const id of ["wooden_bookshelf_worn", "book_encyclopedia_set_01", "boombox", "mid_century_lounge_chair", "side_table_01", "vintage_wooden_drawer_01", "wall_clock", "potted_plant_04"]) {
   useGLTF.preload(asset(`/models/${id}/${id}.gltf`));
 }
-

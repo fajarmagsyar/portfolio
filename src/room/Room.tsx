@@ -6,7 +6,7 @@ import { Environment, Lightformer } from "@react-three/drei";
 import { Bloom, DepthOfField, EffectComposer, Noise, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
 import { type DepthOfFieldEffect, Effect, SMAAPreset, ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
-import { CD_OPEN_VIEW, ENTER_VIEW, TYPING_VIEW, FINDER_FOV, FOCUS_FOV, HOME_FOV, HOME_VIEW, POS, VIEWS, WALL_Z } from "./layout";
+import { CD_OPEN_VIEW, ENTER_VIEW, LAMP_LIGHT_OFFSET, TYPING_VIEW, FINDER_FOV, FOCUS_FOV, HOME_FOV, HOME_VIEW, POS, VIEWS, WALL_Z } from "./layout";
 import { glideOrbit, orbit, resetOrbit, type OrbitLimits } from "./orbit";
 import { useRoom, type FocusId } from "./store";
 import { touch } from "./touch";
@@ -363,12 +363,12 @@ function Lights() {
       {/* Night, and two sources that matter: the warm desk lamp and the cyan of the tube (its light
           is in objects/Props.tsx). Everything else only keeps the shadows from going to black, and
           leans teal so the lamplight has something to stand against. */}
-      <ambientLight color="#b89378" intensity={0.28} />
-      <hemisphereLight args={["#ffd8b0", "#5a3d2b", 0.42]} />
+      <ambientLight color="#e0a86a" intensity={0.18} />
+      <hemisphereLight args={["#ffcf8e", "#8a4a22", 0.26]} />
       {/* desk lamp: the warm key light, low on the left */}
       <pointLight
         ref={lamp}
-        position={[POS.lamp[0] + 0.34, POS.lamp[1] + 0.6, POS.lamp[2] + 0.14]}
+        position={[POS.lamp[0] + LAMP_LIGHT_OFFSET[0], POS.lamp[1] + LAMP_LIGHT_OFFSET[1], POS.lamp[2] + LAMP_LIGHT_OFFSET[2]]}
         color="#ffd6b0"
         distance={8.5}
         decay={1.45}
@@ -404,15 +404,15 @@ function Lights() {
   );
 }
 
-// The grade: shadows drift to teal, highlights to amber, with a slightly harder curve.
+// The grade: a gentle, low-contrast wash, with only a little teal in the shadows and amber in the highlights.
 const gradeFrag = /* glsl */ `
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
     vec3 c = inputColor.rgb;
     float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
-    c += vec3(-0.003, 0.016, 0.024) * smoothstep(0.0, 0.06, l) * (1.0 - smoothstep(0.08, 0.5, l));
-    c *= mix(vec3(1.0), vec3(1.04, 1.0, 0.93), smoothstep(0.35, 0.95, l));
-    c = mix(c, c * c * (3.0 - 2.0 * c), 0.28);
-    c *= 0.94;
+    c += vec3(-0.002, 0.009, 0.014) * smoothstep(0.0, 0.06, l) * (1.0 - smoothstep(0.08, 0.5, l));
+    c *= mix(vec3(1.0), vec3(1.02, 1.0, 0.97), smoothstep(0.35, 0.95, l));
+    c = mix(c, c * c * (3.0 - 2.0 * c), 0.04);
+    c *= 0.93;
     outputColor = vec4(max(c, 0.0), inputColor.a);
   }
 `;
@@ -423,11 +423,10 @@ function Grade() {
   return <primitive object={effect} />;
 }
 
-// A soft focus that falls away from the middle, so the frame dissolves at its rim.
-const featherFrag = /* glsl */ `
+// A touch of even softness, not enough to lose detail.
+const softFocusFrag = /* glsl */ `
   void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-    float edge = smoothstep(0.3, 0.72, length(uv - 0.5));
-    float r = edge * 0.006;
+    float r = 0.001;
     vec4 blurred = inputColor * 0.25;
     blurred += texture2D(inputBuffer, uv + vec2(r, 0.0)) * 0.125;
     blurred += texture2D(inputBuffer, uv - vec2(r, 0.0)) * 0.125;
@@ -437,12 +436,12 @@ const featherFrag = /* glsl */ `
     blurred += texture2D(inputBuffer, uv + vec2(r, -r)) * 0.0625;
     blurred += texture2D(inputBuffer, uv + vec2(-r, r)) * 0.0625;
     blurred += texture2D(inputBuffer, uv - vec2(r, r)) * 0.0625;
-    outputColor = mix(inputColor, blurred, edge);
+    outputColor = mix(inputColor, blurred, 0.18);
   }
 `;
 
-function FeatherBlur() {
-  const effect = useMemo(() => new Effect("FeatherBlur", featherFrag), []);
+function SoftFocus() {
+  const effect = useMemo(() => new Effect("SoftFocus", softFocusFrag), []);
   useEffect(() => () => effect.dispose(), [effect]);
   return <primitive object={effect} />;
 }
@@ -514,9 +513,9 @@ export default function Room({ onReady }: { onReady?: () => void }) {
         <Bloom intensity={LOW_POWER ? 0.45 : 0.6} luminanceThreshold={0.92} luminanceSmoothing={0.25} radius={0.7} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         <Grade />
-        <FeatherBlur />
+        <SoftFocus />
         {!LOW_POWER && <SMAA preset={SMAAPreset.ULTRA} />}
-        <Vignette offset={0.25} darkness={0.8} />
+        <Vignette offset={0.25} darkness={0.5} />
         {!LOW_POWER && <Noise opacity={0.025} />}
       </EffectComposer>
       <Shutter />

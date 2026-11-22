@@ -23,9 +23,9 @@ export const SHELF = {
   x: 0.37,
   inner: 0.166, // between the two ends
   wall: 0.012, // thickness of the boards
-  back: -0.462,
-  front: -0.292,
-  spine: -0.303, // where the spines line up
+  back: -0.412,
+  front: -0.242,
+  spine: -0.253, // where the spines line up
   /** from the left end to the middle of the first cassette, and from one to the next */
   tape: { start: 0.0144, pitch: 0.0168 },
   divider: 0.099,
@@ -52,8 +52,8 @@ export const POS = {
   gamepad: [-0.62, DESK.y, -0.02] as V3,
   // the old keyboard, square in front of the TV
   keyboard: [-0.05, DESK.y, 0.094] as V3,
-  lamp: [-0.66, DESK.y, -0.42] as V3,
-  deskPlant: [-0.86, DESK.y, -0.38] as V3,
+  lamp: [-0.6, DESK.y, -0.35] as V3,
+  deskPlant: [-0.86, DESK.y, -0.31] as V3,
   cards: [-0.82, DESK.y, 0.04] as V3,
   // both are the middle of the group, at the top of the shelf's floor, on the line of the spines
   tapeRack: [TAPES_X, DESK.y + SHELF.wall, SHELF.spine] as V3,
@@ -63,9 +63,9 @@ export const POS = {
   coffee: [-0.335, DESK.y, 0.095] as V3,
   // the mouse to the right of the keyboard, with room to move; the dice in front of the Discman
   mouse: [0.27, DESK.y, 0.085] as V3,
-  dice: [0.5, DESK.y, 0.115] as V3,
+  dice: [0.5, DESK.y, 0.11] as V3,
   // the receipt, folded small, near the planet lamp: far enough towards the middle that the camera in front does not hide it
-  receipt: [0.62, DESK.y, -0.13] as V3,
+  receipt: [0.62, DESK.y, -0.2] as V3,
   // the clock on the wall to the right of the window, above the notes: in sight from the chair
   clock: [1.2, 1.6, WALL_Z + 0.004] as V3,
   notes: [1.17, 1.22, WALL_Z + 0.006] as V3,
@@ -75,7 +75,7 @@ export const POS = {
   canonet: [0.67, DESK.y, 0.08] as V3,
   album: [0.86, DESK.y, 0.05] as V3,
   // the Saturn lamp at the right-hand end, between the frames and the album
-  saturn: [0.92, DESK.y, -0.18] as V3,
+  saturn: [0.86, DESK.y, -0.18] as V3,
   /** the framed family photo standing on the window sill */
   sillPhoto: [-0.56, SILL.y, SILL.z + 0.07] as V3,
   /** the poster taped to the wall left of the window: x and y of its middle */
@@ -83,9 +83,14 @@ export const POS = {
   guitar: [-1.22, 0, -0.22] as V3,
   amp: [-1.62, 0, -0.4] as V3,
   // far enough along that its leaves do not hang in front of the album when it is held up
-  plant: [1.5, 0, -0.2] as V3,
+  plant: [1.1, 0, -0.3] as V3,
   window: [WIN.x, WIN.y, WALL_Z] as V3,
 };
+
+/** The arm lamp is yawed towards the desk; its bulb and light offsets are measured in that turn. */
+export const LAMP_ROTATION = -2.2 + Math.PI / 9;
+export const LAMP_LIGHT_OFFSET: V3 = [0.346, 0.6, 0.123];
+export const LAMP_BULB_OFFSET: V3 = [0.218, 0.665, 0.064];
 
 /** The lamp model is scaled to this; its globe then sits this high and is this big. */
 export const SATURN_SCALE = 0.44;
@@ -93,7 +98,7 @@ export const SATURN_GLOBE_Y = DESK.y + 0.2129 * SATURN_SCALE;
 export const SATURN_GLOBE_R = 0.1343 * SATURN_SCALE;
 
 /** The view when a CD is out of the shelf, open, with its leaflet unfolded above it. */
-export const CD_OPEN_VIEW = { pos: [CDS_X, 1.12, 0.4] as V3, look: [CDS_X, 1.075, -0.2] as V3 };
+export const CD_OPEN_VIEW = { pos: [CDS_X, 1.12, 0.4] as V3, look: [CDS_X, 1.075, SHELF.spine + 0.1] as V3 };
 
 /** Where the pack of contact cards is held up, and its cards after it. */
 export const CARDS_HELD: V3 = [-0.76, 0.99, 0.22];
@@ -109,7 +114,7 @@ export const ALBUM_HELD: V3 = [0.76, 1.0, 0.27];
 
 // The wide view is the eyes of someone sitting at the desk: low, close, with the desk top
 // running out of the bottom of the frame. Close-ups use a longer lens so objects are not distorted.
-export const HOME_VIEW = { pos: [0.0, 1.17, 1.2] as V3, look: [0, 1.05, -0.3] as V3 };
+export const HOME_VIEW = { pos: [0.0, 1.17, 1.3] as V3, look: [0, 1.05, -0.3] as V3 };
 /** Before the visitor has clicked to enter: close on the TV, which carries the sound prompt. */
 export const ENTER_VIEW = { pos: [-0.056, 1.019, 0.58] as V3, look: [-0.1, 1.019, -0.005] as V3 };
 /** At the typing test the view draws back a little from the TV so the keyboard is in the picture too. */
@@ -122,8 +127,8 @@ export const VIEWS: Record<FocusId, { pos: V3; look: V3 }> = {
   // square on to the tube and close enough that the picture nearly fills the height
   tv: { pos: [-0.056, 1.019, 0.55], look: [-0.1, 1.019, -0.005] },
   // close on the shelf: the spines fill the lower half, and what is pulled out is held up in front
-  tapes: { pos: [TAPES_X, 1.0, 0.2], look: [TAPES_X, 0.865, -0.3] },
-  cds: { pos: [CDS_X, 1.0, 0.2], look: [CDS_X, 0.865, -0.3] },
+  tapes: { pos: [TAPES_X, 1.0, 0.2], look: [TAPES_X, 0.865, SHELF.spine] },
+  cds: { pos: [CDS_X, 1.0, 0.2], look: [CDS_X, 0.865, SHELF.spine] },
   // looking down on the Discman's keys from just in front of it
   cd: { pos: [0.45, 0.99, 0.17], look: [0.445, 0.79, -0.01] },
   guitar: { pos: [-0.57, 0.72, 1.58], look: [-1.22, 0.58, -0.17] },

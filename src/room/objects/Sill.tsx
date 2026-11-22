@@ -36,8 +36,8 @@ function Stood({ url, size, position, rotation }: { url: string; size: number; p
 export function SillDecor() {
   return (
     <group>
-      <Stood url={HELMET} size={0.19} position={[0.52, SILL.y, SILL.z + 0.1]} rotation={[0, Math.PI - 0.5, 0]} />
-      <Stood url={DS} size={0.125} position={[0.37, SILL.y, SILL.z + 0.12]} rotation={[0, 0.35, 0]} />
+      <Stood url={HELMET} size={0.12} position={[0.56, SILL.y, SILL.z + 0.1]} rotation={[0, Math.PI - 0.5, 0]} />
+      <Stood url={DS} size={0.125} position={[0.40, SILL.y, SILL.z + 0.08]} rotation={[0, 0.35, 0]} />
     </group>
   );
 }

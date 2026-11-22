@@ -246,7 +246,7 @@ function Portrait() {
         <group rotation={[-0.2, 0, 0]}>
           <group position={[0, 0.2355 * 0.3, 0]} scale={0.3}>
             <Model asset="hanging_picture_frame_01" scale={0.56} />
-            <mesh position={[0, 0, 0.0105]}>
+            <mesh position={[0, 0, 0.0105]} castShadow>
               <planeGeometry args={[0.268, 0.378]} />
               <meshStandardMaterial map={tex} color="#ffffff" roughness={0.82} />
             </mesh>
