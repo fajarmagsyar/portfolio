@@ -389,9 +389,7 @@ export function Hud() {
 
       <footer className={s.foot}>
         {!booted ? (
-          <p className={s.hint} data-blink="true">
-            {t("enter")}
-          </p>
+          <span />
         ) : focus ? (
           <button className={s.leave} onClick={() => (focus === "tv" ? tvBack() : finder ? useRoom.getState().setFinder(false) : zoomed ? useRoom.getState().setZoomed(null) : setFocus(null))}>
             ← {t("back")} {input === "mouse" && <kbd>Esc</kbd>}

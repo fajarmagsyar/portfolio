@@ -3,7 +3,7 @@
 // Whether the room makes any sound at all. The visitor chooses on the way in, and can change
 // it afterwards. Everything that makes sound asks here, or is told when it changes.
 
-let on = true;
+let on = false;
 const listeners = new Set<(on: boolean) => void>();
 
 export const soundOn = () => on;

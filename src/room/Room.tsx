@@ -256,7 +256,7 @@ function CameraRig() {
       tmpLook.y += pointer.y * 0.12;
     }
 
-    const fov = peeking ? FINDER_FOV : focus ? FOCUS_FOV : HOME_FOV;
+    const fov = peeking ? FINDER_FOV : !booted || focus ? FOCUS_FOV : HOME_FOV;
     if (first.current) {
       first.current = false;
       camera.position.copy(tmpPos);
@@ -448,7 +448,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
     >
       <CameraRig />
       {/* a little smoke in the air: far corners soften and sink into brown */}
-      <fogExp2 attach="fog" args={["#070b0d", 0.05]} />
+      <fogExp2 attach="fog" args={["#070b0d", 0.06]} />
       <Lights />
       <Environment resolution={64} frames={1}>
         <color attach="background" args={["#0a0806"]} />

@@ -148,7 +148,7 @@ function refinger(chords: number[][], slot: number, frets: number[], held: numbe
 
 export const useRoom = create<RoomState>((set) => ({
   booted: false,
-  sound: true,
+  sound: false,
   setSound: (sound) => {
     switchSound(sound);
     set({ sound });

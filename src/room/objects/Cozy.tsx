@@ -159,8 +159,8 @@ const screenHazeFrag = /* glsl */ `
   ${noise}
   void main() {
     float n = fbm(vUv * vec2(3.2, 2.0) + vec2(uTime * 0.012, uTime * 0.005));
-    vec3 col = vec3(0.2, 0.85, 1.0) * 0.5 + vec3(1.0, 0.66, 0.36) * 0.25;
-    gl_FragColor = vec4(col * (0.4 + 0.6 * n) * 0.07, 1.0);
+    vec3 col = vec3(0.2, 0.85, 1.0) * 0.45 + vec3(1.0, 0.66, 0.36) * 0.3;
+    gl_FragColor = vec4(col * (0.45 + 0.55 * n) * 0.1, 1.0);
   }
 `;
 
