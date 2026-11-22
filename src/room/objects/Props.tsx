@@ -12,8 +12,27 @@ import { TUBE, TvScreen } from "./TvScreen";
 
 const path = (id: string) => asset(`/models/${id}/${id}.gltf`);
 
+function trimGamepadWire(root: THREE.Group) {
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const g = m.geometry.index ? m.geometry.clone() : m.geometry.toNonIndexed();
+    const at = g.attributes.position;
+    const idx = g.index;
+    if (!idx) return;
+    const kept: number[] = [];
+    for (let t = 0; t < idx.count; t += 3) {
+      const tri = [idx.getX(t), idx.getX(t + 1), idx.getX(t + 2)];
+      const maxZ = Math.max(at.getZ(tri[0]), at.getZ(tri[1]), at.getZ(tri[2]));
+      if (maxZ >= -0.08) kept.push(tri[0], tri[1], tri[2]);
+    }
+    g.setIndex(kept);
+    m.geometry = g;
+  });
+}
+
 /** A downloaded Poly Haven model (CC0), cloned so it can be placed more than once, with shadows on. */
-export function Model({ asset, ...props }: { asset: string } & ThreeElements["group"]) {
+export function Model({ asset, process, ...props }: { asset: string; process?: (root: THREE.Group) => void } & ThreeElements["group"]) {
   const { scene } = useGLTF(path(asset));
   const clone = useMemo(() => {
     const c = scene.clone(true);
@@ -23,8 +42,9 @@ export function Model({ asset, ...props }: { asset: string } & ThreeElements["gr
         o.receiveShadow = true;
       }
     });
+    process?.(c);
     return c;
-  }, [scene]);
+  }, [scene, process]);
   return (
     <group {...props}>
       <primitive object={clone} />
@@ -67,7 +87,7 @@ export function Props() {
       {/* console and pad belong to the TV: clicking them opens the TV too */}
       <Interactive target="tv">
         <Model asset="gaming_console" position={POS.console} rotation={[0, 0.35, 0]} scale={0.82} />
-        <Model asset="gamepad" position={POS.gamepad} rotation={[0, 0.9, 0]} scale={0.8} />
+        <Model asset="gamepad" position={POS.gamepad} rotation={[0, 0.115, 0]} scale={0.8} process={trimGamepadWire} />
       </Interactive>
       {/* lamp on the left of the desk, its shade turned towards the middle */}
       <Model asset="desk_lamp_arm_01" position={POS.lamp} rotation={[0, -1.9, 0]} />

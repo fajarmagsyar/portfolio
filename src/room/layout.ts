@@ -48,8 +48,8 @@ export function tapeHeld(aspect: number): V3 {
 
 export const POS = {
   tv: [-0.05, DESK.y, -0.2] as V3,
-  console: [-0.5, DESK.y, -0.07] as V3,
-  gamepad: [-0.5, DESK.y + 0.002, 0.12] as V3,
+  console: [-0.58, DESK.y, -0.18] as V3,
+  gamepad: [-0.62, DESK.y, -0.02] as V3,
   // the old keyboard, square in front of the TV
   keyboard: [-0.05, DESK.y, 0.094] as V3,
   lamp: [-0.66, DESK.y, -0.42] as V3,

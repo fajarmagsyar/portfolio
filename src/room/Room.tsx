@@ -356,53 +356,50 @@ function Lights() {
   const lamp = useRef<THREE.PointLight>(null);
   useFrame(({ clock }) => {
     // an old bulb never burns perfectly evenly
-    if (lamp.current) lamp.current.intensity = 3.8 + Math.sin(clock.elapsedTime * 1.3) * 0.03;
+    if (lamp.current) lamp.current.intensity = 5 + Math.sin(clock.elapsedTime * 1.3) * 0.03;
   });
   return (
     <>
       {/* Night, and two sources that matter: the warm desk lamp and the cyan of the tube (its light
           is in objects/Props.tsx). Everything else only keeps the shadows from going to black, and
           leans teal so the lamplight has something to stand against. */}
-      <hemisphereLight args={["#2c7488", "#2a1a10", 0.05]} />
+      <ambientLight color="#b89378" intensity={0.28} />
+      <hemisphereLight args={["#ffd8b0", "#5a3d2b", 0.42]} />
       {/* desk lamp: the warm key light, low on the left */}
       <pointLight
         ref={lamp}
         position={[POS.lamp[0] + 0.34, POS.lamp[1] + 0.6, POS.lamp[2] + 0.14]}
-        color="#ffb066"
-        distance={7.5}
-        decay={1.7}
+        color="#ffc27a"
+        distance={8.5}
+        decay={1.45}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.002}
-        shadow-radius={6}
+        shadow-radius={16}
       />
       {/* the lamp's light coming back off the room behind the chair */}
-      <pointLight position={[1.6, 1.8, 2.4]} color="#ff9a58" intensity={0.3} distance={8} decay={1.7} />
+      <pointLight position={[1.6, 1.8, 2.4]} color="#ffba82" intensity={0.7} distance={9} decay={1.45} />
       {/* night through the glass, pulled towards the TV's cyan */}
-      <pointLight position={[POS.window[0], POS.window[1] + 0.2, POS.window[2] + 0.45]} color="#3b8fd8" intensity={0.95} distance={4.5} decay={1.9} />
+      <pointLight position={[POS.window[0], POS.window[1] + 0.2, POS.window[2] + 0.45]} color="#7bb7dd" intensity={0.75} distance={5.5} decay={1.7} />
       {/* a blue edge from the far side, so shapes separate from the dark */}
-      <pointLight position={[1.9, 1.5, 0.6]} color="#2f7fd6" intensity={0.22} distance={5} decay={1.7} />
-      <pointLight position={[-2.4, 1.2, 1.0]} color="#2a6fc2" intensity={0.08} distance={5} decay={1.7} />
+      <pointLight position={[1.9, 1.5, 0.6]} color="#7aaed8" intensity={0.22} distance={6} decay={1.5} />
+      <pointLight position={[-2.4, 1.2, 1.0]} color="#88b0d6" intensity={0.12} distance={6} decay={1.5} />
       {/* the right of the desk: a soft, warm pool from up and in front, falling off into the dark
           at its rim. The gradient is what gives the things on it a lit side and a shadowed one, and
-          its shadows ground them on the wood. */}
+          which the camera sees sliding across the postcard and the ink bottle as the view shifts. */}
       <Aimed
-        at={[0.68, 0.78, -0.02]}
-        position={[1.45, 1.75, 0.95]}
-        color="#ffb07a"
-        intensity={0.85}
-        angle={0.32}
+        at={[0.86, 0.85, -0.24]}
+        position={[0.92, 1.52, 0.58]}
+        color="#ffd6a8"
+        intensity={1.1}
+        angle={0.4}
         penumbra={1}
-        distance={5.5}
-        decay={1.7}
-        castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-bias={-0.002}
-        shadow-radius={8}
+        distance={4}
+        decay={1.55}
       />
-      {/* cold backlight through the window: a thin cyan rim on the tops and far edges, so shapes
-          come off the dark instead of sinking into it */}
-      <Aimed at={[0.5, 0.85, 0.0]} position={[0.9, 2.1, -1.5]} color="#4b98e8" intensity={0.9} angle={0.5} penumbra={1} distance={7} decay={1.5} />
+      {/* a soft front fill, so the album cover and the dark things on the right do not read as a silhouette,
+          but not enough to lift the floor under the desk */}
+      <Aimed at={[0.5, 0.85, 0.0]} position={[0.9, 2.1, -1.5]} color="#ffdcb8" intensity={0.85} angle={0.62} penumbra={1} distance={7.5} decay={1.4} />
     </>
   );
 }
@@ -449,15 +446,15 @@ export default function Room({ onReady }: { onReady?: () => void }) {
     >
       <CameraRig />
       {/* a little smoke in the air: far corners soften and sink into brown */}
-      <fogExp2 attach="fog" args={["#070b0d", 0.06]} />
+      <fogExp2 attach="fog" args={["#120f0c", 0.03]} />
       <Lights />
-      <Environment resolution={64} frames={1}>
-        <color attach="background" args={["#0a0806"]} />
+      <Environment resolution={64} frames={1} environmentIntensity={1}>
+        <color attach="background" args={["#18120d"]} />
         {/* what polished things mirror: lamp-amber on one side, tube-cyan on the other */}
-        <Lightformer form="rect" intensity={0.85} color="#ffa550" position={[-3, 2, 1]} scale={[3, 2, 1]} />
-        <Lightformer form="rect" intensity={0.45} color="#3b8fd8" position={[2.5, 1.5, 3]} scale={[2, 2, 1]} />
-        <Lightformer form="rect" intensity={0.2} color="#3b8fd8" position={[0, 2, -4]} scale={[2, 2, 1]} />
-        <Lightformer form="rect" intensity={0.12} color="#ffd0a0" position={[0, 4, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[4, 2, 1]} />
+        <Lightformer form="rect" intensity={1.25} color="#ffc888" position={[-3, 2, 1]} scale={[4, 2.5, 1]} />
+        <Lightformer form="rect" intensity={0.55} color="#88bce8" position={[2.5, 1.5, 3]} scale={[3, 2.5, 1]} />
+        <Lightformer form="rect" intensity={0.25} color="#7aaed8" position={[0, 2, -4]} scale={[3, 2, 1]} />
+        <Lightformer form="rect" intensity={0.45} color="#ffe4c2" position={[0, 4, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[5, 3, 1]} />
       </Environment>
       <Suspense fallback={null}>
         <Shell />
