@@ -1,11 +1,8 @@
 "use client";
 
 import { asset } from "@/asset";
-import { useEffect, useRef, useState } from "react";
-import { useFrame } from "@react-three/fiber";
-import * as THREE from "three";
+import { useEffect, useState } from "react";
 import { Interactive } from "../Interactive";
-import { useRoom } from "../store";
 import { POS, WALL_Z } from "../layout";
 import { rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
 import { Glass } from "./Glass";
@@ -49,17 +46,6 @@ const OK_COMPUTER: Album = {
   ink: "#1c2a3a",
   accent: "#c8402a",
   art: "/art/ok-computer.jpg",
-};
-
-const DAMN: Album = {
-  title: "DAMN.",
-  artist: "KENDRICK LAMAR",
-  year: 2017,
-  tracks: ["BLOOD.", "DNA.", "YAH.", "ELEMENT.", "FEEL.", "LOYALTY.", "PRIDE.", "HUMBLE.", "LUST.", "LOVE.", "XXX.", "FEAR.", "GOD.", "DUCKWORTH."],
-  paper: "#141010",
-  ink: "#f3ead8",
-  accent: "#e0241b",
-  art: "/art/damn.jpg",
 };
 
 function fit(ctx: CanvasRenderingContext2D, text: string, weight: number, family: string, max: number, start: number) {
@@ -241,113 +227,6 @@ function Poster({
   );
 }
 
-// the standing frame: the print, its mount and the wooden bars round them
-const FRAME = (() => {
-  const w = 0.19;
-  const h = w * (PH / PW);
-  const bar = 0.014;
-  const mat = 0.012;
-  return { w, h, bar, ow: w + (mat + bar) * 2, oh: h + (mat + bar) * 2 };
-})();
-
-/**
- * A poster kept behind glass in a small standing frame, for the ones there is no wall
- * left for now that the view is close in. No tape, creases or torn edges on these.
- */
-function FramedPoster({
-  album,
-  photo,
-  position,
-  rotation,
-  fonts,
-  wood = "#3a2a1c",
-  lit = false,
-  frame = FRAME,
-  portrait = false,
-}: {
-  album?: Album;
-  /** a photograph under /public to show instead of an album's poster */
-  photo?: string;
-  position: [number, number, number];
-  rotation: [number, number, number];
-  fonts: Fonts | null;
-  wood?: string;
-  /** a photograph is lit up while it is looked at */
-  lit?: boolean;
-  frame?: { w: number; h: number; bar: number; ow: number; oh: number };
-  portrait?: boolean;
-}) {
-  const glow = useRef<THREE.MeshStandardMaterial>(null);
-  useFrame((_, dt) => {
-    const m = glow.current;
-    if (m) m.emissiveIntensity += ((lit ? 0.85 : 0.1) - m.emissiveIntensity) * (1 - Math.exp(-dt * 5));
-  });
-  const art = useImage(photo ?? album?.art ?? "");
-  const tex = useCanvasTexture(
-    portrait ? 680 : 620,
-    portrait ? 840 : 874,
-    (ctx, w, h) => {
-      if (photo) {
-        // the photograph fills the print, cropped to its shape
-        ctx.fillStyle = "#1a1512";
-        ctx.fillRect(0, 0, w, h);
-        if (art) {
-          const k = Math.max(w / art.width, h / art.height);
-          ctx.drawImage(art, (w - art.width * k) / 2, (h - art.height * k) / 2, art.width * k, art.height * k);
-        }
-        return;
-      }
-      if (!album) return;
-      ctx.fillStyle = album.paper;
-      ctx.fillRect(0, 0, w, h);
-      if (fonts) drawAlbum(ctx, w, h, fonts, album, art);
-    },
-    [fonts, album, photo, art],
-  );
-  const { w, h, bar, ow, oh } = frame;
-  // origin at the bottom edge, so the frame stands on whatever it is placed on
-  return (
-    // turned to face where it is looked at from, then tipped back about its own bottom edge:
-    // done the other way round, the tip happens across the room's axis and one bottom corner
-    // sinks into whatever the frame stands on
-    <group position={position} rotation={[0, rotation[1], 0]}>
-      <group position={[0, (oh / 2) * Math.cos(rotation[0]), (oh / 2) * Math.sin(rotation[0])]} rotation={[rotation[0], 0, 0]}>
-        {(
-          [
-            [0, oh / 2 - bar / 2, ow, bar],
-            [0, -oh / 2 + bar / 2, ow, bar],
-            [-ow / 2 + bar / 2, 0, bar, oh - bar * 2],
-            [ow / 2 - bar / 2, 0, bar, oh - bar * 2],
-          ] as const
-        ).map(([x, y, bw, bh], i) => (
-          <mesh key={i} position={[x, y, 0]} castShadow>
-            <boxGeometry args={[bw, bh, 0.018]} />
-            <meshStandardMaterial color={wood} roughness={0.55} />
-          </mesh>
-        ))}
-        {/* backing board, mount and print */}
-        <mesh position={[0, 0, -0.006]} castShadow>
-          <boxGeometry args={[ow - 0.004, oh - 0.004, 0.006]} />
-          <meshStandardMaterial color="#8f8676" roughness={0.9} />
-        </mesh>
-        <mesh position={[0, 0, -0.0025]}>
-          <planeGeometry args={[w, h]} />
-          {photo ? (
-            <meshStandardMaterial ref={glow} map={tex} color="#d6d0c6" emissive="#ffffff" emissiveMap={tex} emissiveIntensity={0.1} roughness={0.55} />
-          ) : (
-            <meshStandardMaterial map={tex} color="#b8b2a8" roughness={0.55} />
-          )}
-        </mesh>
-        {/* the strut it leans on */}
-        <mesh position={[0, -oh * 0.1, -0.06]} rotation={[0.42, 0, 0]} castShadow>
-          <boxGeometry args={[0.03, oh * 0.66, 0.004]} />
-          <meshStandardMaterial color="#2a1f15" roughness={0.8} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
 /**
  * The photo of me and my family, in a small standing certificate-style frame.
  */
@@ -363,7 +242,7 @@ function Portrait() {
   }, [photo]);
   return (
     <Interactive target="portrait">
-      <group position={POS.deskPoster} rotation={[0, 0.5, 0]}>
+      <group position={POS.sillPhoto} rotation={[0, 0.5, 0]}>
         <group rotation={[-0.2, 0, 0]}>
           <group position={[0, 0.2355 * 0.3, 0]} scale={0.3}>
             <Model asset="hanging_picture_frame_01" scale={0.56} />
@@ -385,8 +264,6 @@ export function Posters() {
     <group>
       {/* the one strip of wall still in view, above the guitar */}
       <Poster album={OK_COMPUTER} seed={1997} position={POS.wallPoster} tilt={-0.025} fonts={fonts} />
-      {/* on the sill, leaning against the window, left of the TV */}
-      <FramedPoster album={DAMN} position={POS.sillPoster} rotation={[-0.16, 0.2, 0]} fonts={fonts} wood="#1c1613" />
       {/* at the left-hand end of the desk, turned towards the chair */}
       <Portrait />
     </group>

@@ -99,7 +99,7 @@ export function LampGlow() {
     <group position={BULB}>
       <mesh>
         <sphereGeometry args={[0.024, 16, 12]} />
-        <meshBasicMaterial color={[6, 3.8, 1.8]} toneMapped={false} fog={false} />
+        <meshBasicMaterial color={[5.6, 4.4, 2.8]} toneMapped={false} fog={false} />
       </mesh>
     </group>
   );

@@ -369,7 +369,7 @@ function Lights() {
       <pointLight
         ref={lamp}
         position={[POS.lamp[0] + 0.34, POS.lamp[1] + 0.6, POS.lamp[2] + 0.14]}
-        color="#ffc27a"
+        color="#ffd6b0"
         distance={8.5}
         decay={1.45}
         castShadow
@@ -378,7 +378,7 @@ function Lights() {
         shadow-radius={16}
       />
       {/* the lamp's light coming back off the room behind the chair */}
-      <pointLight position={[1.6, 1.8, 2.4]} color="#ffba82" intensity={0.7} distance={9} decay={1.45} />
+      <pointLight position={[1.6, 1.8, 2.4]} color="#ffcaa0" intensity={0.7} distance={9} decay={1.45} />
       {/* night through the glass, pulled towards the TV's cyan */}
       <pointLight position={[POS.window[0], POS.window[1] + 0.2, POS.window[2] + 0.45]} color="#7bb7dd" intensity={0.75} distance={5.5} decay={1.7} />
       {/* a blue edge from the far side, so shapes separate from the dark */}
@@ -419,6 +419,30 @@ const gradeFrag = /* glsl */ `
 
 function Grade() {
   const effect = useMemo(() => new Effect("TealAmberGrade", gradeFrag), []);
+  useEffect(() => () => effect.dispose(), [effect]);
+  return <primitive object={effect} />;
+}
+
+// A soft focus that falls away from the middle, so the frame dissolves at its rim.
+const featherFrag = /* glsl */ `
+  void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    float edge = smoothstep(0.3, 0.72, length(uv - 0.5));
+    float r = edge * 0.006;
+    vec4 blurred = inputColor * 0.25;
+    blurred += texture2D(inputBuffer, uv + vec2(r, 0.0)) * 0.125;
+    blurred += texture2D(inputBuffer, uv - vec2(r, 0.0)) * 0.125;
+    blurred += texture2D(inputBuffer, uv + vec2(0.0, r)) * 0.125;
+    blurred += texture2D(inputBuffer, uv - vec2(0.0, r)) * 0.125;
+    blurred += texture2D(inputBuffer, uv + vec2(r, r)) * 0.0625;
+    blurred += texture2D(inputBuffer, uv + vec2(r, -r)) * 0.0625;
+    blurred += texture2D(inputBuffer, uv + vec2(-r, r)) * 0.0625;
+    blurred += texture2D(inputBuffer, uv - vec2(r, r)) * 0.0625;
+    outputColor = mix(inputColor, blurred, edge);
+  }
+`;
+
+function FeatherBlur() {
+  const effect = useMemo(() => new Effect("FeatherBlur", featherFrag), []);
   useEffect(() => () => effect.dispose(), [effect]);
   return <primitive object={effect} />;
 }
@@ -490,6 +514,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
         <Bloom intensity={LOW_POWER ? 0.45 : 0.6} luminanceThreshold={0.92} luminanceSmoothing={0.25} radius={0.7} mipmapBlur />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         <Grade />
+        <FeatherBlur />
         {!LOW_POWER && <SMAA preset={SMAAPreset.ULTRA} />}
         <Vignette offset={0.25} darkness={0.8} />
         {!LOW_POWER && <Noise opacity={0.025} />}

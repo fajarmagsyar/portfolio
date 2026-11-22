@@ -32,7 +32,9 @@ function usePbr(id: string, repeatX: number, repeatY: number) {
   }, [maps, repeatX, repeatY]);
 }
 
-const ROOM = { w: 6.4, h: 2.9, depth: 5 };
+const ROOM = { left: -2.25, right: 3.2, h: 2.9, depth: 5 };
+const ROOM_W = ROOM.right - ROOM.left;
+const ROOM_X = (ROOM.left + ROOM.right) / 2;
 
 // The view outside is a photograph: a crop of Poly Haven's "Vignaioli Night" panorama
 // (CC0), a small Italian square on a wet night. The crop covers these angles, so each
@@ -516,10 +518,10 @@ function Walls() {
   const wall = useMemo(() => {
     // back wall with a hole cut for the window, so the glass sits inside it
     const s = new THREE.Shape();
-    s.moveTo(-ROOM.w / 2, 0);
-    s.lineTo(ROOM.w / 2, 0);
-    s.lineTo(ROOM.w / 2, ROOM.h);
-    s.lineTo(-ROOM.w / 2, ROOM.h);
+    s.moveTo(ROOM.left, 0);
+    s.lineTo(ROOM.right, 0);
+    s.lineTo(ROOM.right, ROOM.h);
+    s.lineTo(ROOM.left, ROOM.h);
     s.closePath();
     const hole = new THREE.Path();
     hole.moveTo(WIN.x - WIN.w / 2, WIN.y - WIN.h / 2);
@@ -546,17 +548,17 @@ function Walls() {
         <meshStandardMaterial color="#a78c6a" side={THREE.BackSide} roughness={0.9} />
       </mesh>
       {/* side walls */}
-      <mesh position={[-ROOM.w / 2, ROOM.h / 2, ROOM.depth / 2 + WALL_Z]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+      <mesh position={[ROOM.left, ROOM.h / 2, ROOM.depth / 2 + WALL_Z]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[ROOM.depth, ROOM.h]} />
         <meshStandardMaterial color={wallColor} roughness={0.95} />
       </mesh>
-      <mesh position={[ROOM.w / 2, ROOM.h / 2, ROOM.depth / 2 + WALL_Z]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
+      <mesh position={[ROOM.right, ROOM.h / 2, ROOM.depth / 2 + WALL_Z]} rotation={[0, -Math.PI / 2, 0]} receiveShadow>
         <planeGeometry args={[ROOM.depth, ROOM.h]} />
         <meshStandardMaterial color={wallColor} roughness={0.95} />
       </mesh>
       {/* skirting board */}
-      <mesh position={[0, 0.05, WALL_Z + 0.012]} receiveShadow>
-        <boxGeometry args={[ROOM.w, 0.1, 0.024]} />
+      <mesh position={[ROOM_X, 0.05, WALL_Z + 0.012]} receiveShadow>
+        <boxGeometry args={[ROOM_W, 0.1, 0.024]} />
         <meshStandardMaterial color="#6a4a30" roughness={0.6} />
       </mesh>
     </group>
@@ -566,8 +568,8 @@ function Walls() {
 function Floor() {
   const wood = usePbr("wood_floor", 4, 3);
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, ROOM.depth / 2 + WALL_Z]} receiveShadow>
-      <planeGeometry args={[ROOM.w, ROOM.depth]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[ROOM_X, 0, ROOM.depth / 2 + WALL_Z]} receiveShadow>
+      <planeGeometry args={[ROOM_W, ROOM.depth]} />
       <meshStandardMaterial {...wood} color="#b08a66" roughness={0.75} />
     </mesh>
   );
