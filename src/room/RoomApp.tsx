@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import * as THREE from "three";
-import { asset } from "@/asset";
 import { blip } from "@/audio/sfx";
 import { useRestoreLang } from "@/state/lang";
 import Room from "./Room";
@@ -10,10 +8,6 @@ import { PLANETS } from "./planets";
 import { FOCUS_ORDER, useRoom, type FocusId } from "./store";
 import { Boot } from "./ui/Boot";
 import { Hud } from "./ui/Hud";
-
-// Everything the 3D side loads (models, their textures, pictures) is asked for by a path from
-// the site's root; with the site in a sub-folder every such request is given the base path.
-if (typeof window !== "undefined") THREE.DefaultLoadingManager.setURLModifier((url) => asset(url));
 
 /** The hi-fi version: the 3D room plus every 2D layer drawn over it. */
 export default function RoomApp() {

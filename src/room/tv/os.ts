@@ -1,3 +1,4 @@
+import { asset } from "@/asset";
 import { blip } from "@/audio/sfx";
 import { jobs, jobYears, profile, type Lang } from "@/content/data";
 import { useRoom } from "../store";
@@ -555,7 +556,7 @@ function getImg(id: ImgId) {
   if (id === "recycle") src = os.trash.length ? "/icons/recycle-bin-filled.png" : "/icons/recycle-bin-empty.png";
   if (!src || typeof Image === "undefined") return null;
   let img = IMG_CACHE[src];
-  if (!img) { img = new Image(); img.src = src; IMG_CACHE[src] = img; }
+  if (!img) { img = new Image(); img.src = asset(src) ?? ""; IMG_CACHE[src] = img; }
   return img.complete && img.naturalWidth ? img : null;
 }
 

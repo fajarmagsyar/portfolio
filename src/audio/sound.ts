@@ -1,5 +1,7 @@
 "use client";
 
+import { asset } from "@/asset";
+
 // Whether the room makes any sound at all. The visitor chooses on the way in, and can change
 // it afterwards. Everything that makes sound asks here, or is told when it changes.
 
@@ -11,7 +13,7 @@ function syncBgm() {
   if (typeof window === "undefined") return;
   if (!on) { bgm?.pause(); return; }
   if (!bgm) {
-    bgm = new Audio("/music/bgm-rain.mp3");
+    bgm = new Audio(asset("/music/bgm-rain.mp3"));
     bgm.loop = true;
     bgm.volume = 0.28;
     bgm.preload = "auto";

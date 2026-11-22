@@ -534,7 +534,7 @@ function Desk() {
   return <primitive object={table} position={[(DESK.x0 + DESK.x1) / 2, 0, (DESK.z0 + DESK.z1) / 2]} rotation={[0, Math.PI / 2, 0]} scale={scale} />;
 }
 useGLTF.preload(TABLE);
-useTexture.preload(["/textures/oak_veneer_01/diff.jpg", "/textures/oak_veneer_01/rough.jpg"]);
+useTexture.preload([asset("/textures/oak_veneer_01/diff.jpg"), asset("/textures/oak_veneer_01/rough.jpg")]);
 
 export function Shell() {
   return (
