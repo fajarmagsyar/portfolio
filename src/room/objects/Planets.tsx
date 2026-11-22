@@ -12,7 +12,7 @@ import { hint } from "../hint";
 import { orbit } from "../orbit";
 import { PLANETS, type PlanetId } from "../planets";
 import { useRoom } from "../store";
-import { tap } from "../touch";
+import { holdCancel, holdMove, holdStart, tap } from "../touch";
 
 // Model: "Saturn Desk Lamp" by MooseMannequin (Sketchfab Standard licence). See CREDITS.md.
 // The file is in metres and 35 cm tall; on this desk it is a smaller one (SATURN_SCALE).
@@ -271,6 +271,13 @@ function Globe({ index, map, turn }: { index: number; map: THREE.Texture; turn: 
           {/* it is the light, so it casts no shadow of its own */}
           <mesh
             ref={ball}
+            onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+              if (!pick) return;
+              holdStart(`planet-${info.id}`, info.about, e.nativeEvent.clientX, e.nativeEvent.clientY);
+            }}
+            onPointerMove={(e: ThreeEvent<PointerEvent>) => holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY)}
+            onPointerUp={holdCancel}
+            onPointerCancel={holdCancel}
             onClick={(e: ThreeEvent<MouseEvent>) => {
               if (!pick) return;
               e.stopPropagation();

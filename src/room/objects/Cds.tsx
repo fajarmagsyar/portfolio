@@ -14,7 +14,7 @@ import { Interactive } from "../Interactive";
 import { POS, SHELF } from "../layout";
 import { hint } from "../hint";
 import { useRoom } from "../store";
-import { tap } from "../touch";
+import { holdCancel, holdMove, holdStart, tap } from "../touch";
 import { canvasTexture, paper, rng, useCanvasTexture, useFonts, wrap, type Fonts } from "../textures";
 import { useClone } from "./Guitar";
 import { HitBox } from "./Props";
@@ -498,7 +498,6 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
   );
   const focus = useRoom((s) => s.focus);
   const selected = useRoom((s) => s.selectedCd === project.id);
-  const selectCd = useRoom((s) => s.selectCd);
   const hovered = useRef(false);
   /** each 0 to 1: out of the shelf and facing the chair; lid open; leaflet up and unfolded */
   const at = useRef({ out: 0, lid: 0, leaf: 0 });
@@ -609,6 +608,18 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
       ref={ref}
       position={rest}
       quaternion={SHELVED}
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        if (!(focus === "tapes" || live)) return;
+        holdStart(
+          focus === "tapes" ? "rack-cds" : `cd-${project.id}`,
+          focus === "tapes" ? "rack_cds_tip" : selected ? "tip_put_back" : "card_take_tip",
+          e.nativeEvent.clientX,
+          e.nativeEvent.clientY,
+        );
+      }}
+      onPointerMove={(e: ThreeEvent<PointerEvent>) => holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY)}
+      onPointerUp={holdCancel}
+      onPointerCancel={holdCancel}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         // looking at the other half of the rack, a click here comes over to this half
         if (focus === "tapes") {
@@ -622,8 +633,7 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
         if (!live) return;
         e.stopPropagation();
         tap(`cd-${project.id}`, selected ? "tip_put_back" : "card_take_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
-          click(selected ? 0.8 : 1.2);
-          selectCd(selected ? null : project.id);
+          useRoom.getState().selectCd(selected ? null : project.id);
         });
       }}
       onPointerOver={(e) => {

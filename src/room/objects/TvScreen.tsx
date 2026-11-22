@@ -11,7 +11,7 @@ import { hint } from "../hint";
 import { enterAnswer, enterPoint } from "../tv/program";
 import { useLang, useLangStore } from "@/state/lang";
 import { useRoom } from "../store";
-import { tap, touch } from "../touch";
+import { holdCancel, holdMove, holdStart, tap, touch } from "../touch";
 import { useFonts } from "../textures";
 import { BOOT_TIME, drawTv, tvKey, tvPointer, tvPointerOut, tvShow, tvWheel, TV_H, TV_W, type TvMode } from "../tv/program";
 
@@ -234,20 +234,8 @@ export function TvScreen({ url }: { url: string }) {
       geometry={geometry}
       // Before the visitor is in, the glass carries the two ways in: with sound, or without.
       // The click stops here, so it does not go on to pick up whatever is behind it.
-      onClick={(e: ThreeEvent<MouseEvent>) => {
-        if (booted || !e.uv) return;
-        e.stopPropagation();
-        const answer = enterAnswer(e.uv.x, e.uv.y);
-        if (!answer) return;
-        tap(`tv-enter-${answer}`, answer === "on" ? "sound_on_tip" : "sound_off_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
-          enterPoint(null);
-          hint(null);
-          useRoom.getState().setSound(answer === "on");
-          blip(880, 0.12);
-          useRoom.getState().setBooted();
-        });
-      }}
       onPointerMove={(e: ThreeEvent<PointerEvent>) => {
+        holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY);
         if (touch()) return;
         if (!booted && e.uv) {
           const answer = enterAnswer(e.uv.x, e.uv.y);
@@ -261,18 +249,40 @@ export function TvScreen({ url }: { url: string }) {
         // the desktop draws its own pointer on the glass, so the real one is hidden over it
         document.body.style.cursor = useRoom.getState().tvScreen === "game" ? "" : "none";
       }}
-      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
-        if (!live || !e.uv) return;
+      onClick={(e: ThreeEvent<MouseEvent>) => {
+        if (booted || !e.uv) return;
         e.stopPropagation();
+        const answer = enterAnswer(e.uv.x, e.uv.y);
+        if (!answer) return;
+        tap(`tv-enter-${answer}`, answer === "on" ? "sound_on_tip" : "sound_off_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+          enterPoint(null);
+          hint(null);
+          useRoom.getState().setSound(answer === "on");
+          blip(880, 0.12);
+          useRoom.getState().setBooted();
+        });
+      }}
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        if (!e.uv) return;
+        if (!booted) {
+          const answer = enterAnswer(e.uv.x, e.uv.y);
+          if (answer) holdStart(`tv-enter-${answer}`, answer === "on" ? "sound_on_tip" : "sound_off_tip", e.nativeEvent.clientX, e.nativeEvent.clientY);
+          return;
+        }
+        if (!live) return;
+        e.stopPropagation();
+        holdStart("tv-screen", "tv_touch", e.nativeEvent.clientX, e.nativeEvent.clientY);
         if (tap("tv-screen", "tv_touch", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) tvPointer(e.uv.x, e.uv.y, "down", lang);
       }}
       onPointerUp={(e: ThreeEvent<PointerEvent>) => {
+        holdCancel();
         if (!live || !e.uv) return;
         // handled here, on the glass, so the window's own listener does not also hide the pointer
         e.stopPropagation();
         e.nativeEvent.stopPropagation();
         tvPointer(e.uv.x, e.uv.y, "up", lang);
       }}
+      onPointerCancel={holdCancel}
       onWheel={(e: ThreeEvent<WheelEvent>) => {
         if (!live) return;
         e.stopPropagation();

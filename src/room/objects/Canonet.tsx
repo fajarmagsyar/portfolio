@@ -11,7 +11,7 @@ import { POS } from "../layout";
 import { hint } from "../hint";
 import { orbit } from "../orbit";
 import { useRoom } from "../store";
-import { tap } from "../touch";
+import { holdCancel, holdMove, holdStart, tap } from "../touch";
 import { useClone } from "./Guitar";
 import { HitBox } from "./Props";
 
@@ -99,6 +99,13 @@ export function Canonet() {
         onPointerOut={() => {
           if (useRoom.getState().tip === "canonet_about") hint(null);
         }}
+        onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+          if (!held) return;
+          holdStart("canonet-finder", "canonet_about", e.nativeEvent.clientX, e.nativeEvent.clientY);
+        }}
+        onPointerMove={(e: ThreeEvent<PointerEvent>) => holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY)}
+        onPointerUp={holdCancel}
+        onPointerCancel={holdCancel}
         onClick={(e: ThreeEvent<MouseEvent>) => {
           if (!held) return;
           e.stopPropagation();

@@ -10,7 +10,7 @@ import { hint } from "../hint";
 import { Interactive } from "../Interactive";
 import { POS } from "../layout";
 import { useRoom } from "../store";
-import { tap } from "../touch";
+import { holdCancel, holdMove, holdStart, tap } from "../touch";
 import { canvasTexture, rng } from "../textures";
 import { useClone } from "./Guitar";
 
@@ -73,9 +73,9 @@ export function Mouse() {
   useFrame(({ pointer }, dt) => {
     const g = ref.current;
     if (!g) return;
-    // only while sitting at the desk: close up on something else, it is left where it lies
+    // only while sitting at the desk with a mouse: on touch there is no cursor to follow
     const s = useRoom.getState();
-    const used = s.booted && s.focus === null;
+    const used = s.booted && s.focus === null && s.input !== "touch";
     const k = 1 - Math.exp(-dt * 14);
     g.position.x += (POS.mouse[0] + (used ? pointer.x * REACH.x : 0) - g.position.x) * k;
     g.position.z += (POS.mouse[2] - (used ? pointer.y * REACH.z : 0) - g.position.z) * k;
@@ -210,7 +210,8 @@ function settle(d: Die) {
  */
 export function Dice() {
   const shapes = useDice();
-  const live = useRoom((s) => s.focus === "dice");
+  const focus = useRoom((s) => s.focus);
+  const live = focus === "dice";
   const table = useRef<Die[] | null>(null);
   /** the dice as they are now; to begin with, as the file left them */
   const all = () =>
@@ -325,8 +326,15 @@ export function Dice() {
   return (
     <Interactive target="dice" position={POS.dice}>
       <group
+        onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+          if (focus !== "dice") return;
+          holdStart("dice-roll", "tip_dice", e.nativeEvent.clientX, e.nativeEvent.clientY);
+        }}
+        onPointerMove={(e: ThreeEvent<PointerEvent>) => holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY)}
+        onPointerUp={holdCancel}
+        onPointerCancel={holdCancel}
         onClick={(e: ThreeEvent<MouseEvent>) => {
-          if (!live) return;
+          if (focus !== "dice") return;
           e.stopPropagation();
           tap("dice-roll", "tip_dice", e.nativeEvent.clientX, e.nativeEvent.clientY, roll);
         }}

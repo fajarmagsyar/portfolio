@@ -10,7 +10,7 @@ import { Interactive } from "../Interactive";
 import { POS, SHELF, tapeHeld } from "../layout";
 import { hint } from "../hint";
 import { useRoom } from "../store";
-import { tap } from "../touch";
+import { holdCancel, holdMove, holdStart, tap } from "../touch";
 import { receiptOpen } from "./Pamphlet";
 import { paper, useCanvasTexture, useFonts } from "../textures";
 
@@ -125,6 +125,18 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
       ref={ref}
       position={rest}
       quaternion={SHELVED}
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        if (!(focus === "cds" || live)) return;
+        holdStart(
+          focus === "cds" ? "rack-tapes" : `tape-${job.id}`,
+          focus === "cds" ? "rack_tapes_tip" : selected ? "tip_put_back" : "card_take_tip",
+          e.nativeEvent.clientX,
+          e.nativeEvent.clientY,
+        );
+      }}
+      onPointerMove={(e: ThreeEvent<PointerEvent>) => holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY)}
+      onPointerUp={holdCancel}
+      onPointerCancel={holdCancel}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         // looking at the other half of the rack, a click here comes over to this half
         if (focus === "cds") {

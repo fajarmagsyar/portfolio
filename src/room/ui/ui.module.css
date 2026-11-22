@@ -140,24 +140,10 @@
 .hover[data-on="true"] {
   opacity: 1;
 }
-/* the touch version sits by the finger and waits for a second tap */
+/* the touch version is the same label, set by the finger where it was tapped */
 .hover[data-tap="true"] {
   max-width: min(320px, calc(100vw - 32px));
-  padding: 10px 14px;
-  border: 1px solid rgba(240, 164, 65, 0.55);
-  border-radius: 8px;
-  background: rgba(13, 10, 9, 0.92);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
   white-space: normal;
-}
-.hoverAgain {
-  display: block;
-  margin-top: 7px;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--accent);
 }
 
 

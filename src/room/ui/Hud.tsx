@@ -11,19 +11,20 @@ import { useLangStore, useT } from "@/state/lang";
 import { gameTouchKey } from "@/game/engine";
 import { finderCam, lookFinderCam, resetFinderCam } from "../finderCam";
 import { FOCUS_LABEL, useRoom } from "../store";
-import { tap, tapClick } from "../touch";
+import { holdCancel, holdMove, holdStart, tap, tapClick } from "../touch";
 import { tvBack } from "../tv/program";
 import { SidePanel } from "./Panels";
 import { TvOverlay } from "./TvOverlay";
 import s from "./ui.module.css";
 
-/** Name tag that follows the cursor, or sits by the finger after the first tap. */
+/** Name tag that follows the cursor, or flashes by the finger on a tap. */
 function HoverLabel() {
   const t = useT();
   const hover = useRoom((r) => r.hover);
   const tip = useRoom((r) => r.tip);
   const tapTip = useRoom((r) => r.tapTip);
   const input = useRoom((r) => r.input);
+  const showTip = tapTip ?? (input === "mouse" ? (tip ?? (hover ? FOCUS_LABEL[hover] : null)) : null);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const move = (e: PointerEvent) => {
@@ -39,8 +40,8 @@ function HoverLabel() {
     const y = Math.min(Math.max(12, tapTip.y + 18), window.innerHeight - el.offsetHeight - 12);
     el.style.transform = `translate(${x}px, ${y}px)`;
   }, [tapTip]);
-  const label: StringKey | null = tapTip?.text ?? (input === "touch" ? null : tip ?? (hover ? FOCUS_LABEL[hover] : null));
-  const lines = label ? (input === "touch" && !tapTip ? t(label) : t(label).split(" — ")[0]).split("\n") : [];
+  const label: StringKey | null = typeof showTip === "string" ? showTip : showTip?.text ?? null;
+  const lines = label ? (typeof showTip === "string" ? t(label).split(" — ")[0] : t(label)).split("\n") : [];
   return (
     <div ref={ref} className={s.hover} data-on={!!label} data-tap={!!tapTip} role="status" aria-live="polite">
       {/* a name; and for some things a few lines under it */}
@@ -50,18 +51,23 @@ function HoverLabel() {
           {line}
         </span>
       ))}
-      {tapTip && (
-        <span className={s.hoverAgain}>
-          ↳ {t("tap_again")}
-        </span>
-      )}
     </div>
   );
 }
 
-/** A button that explains itself on the first touch and runs on the second. */
+/** A button that runs on the first tap; long press shows the tooltip only. */
 function TipButton({ id, tip, onClick, ...rest }: { id: string; tip: StringKey; onClick: () => void } & ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button {...rest} onClick={tapClick(id, tip, onClick)} />;
+  return (
+    <button
+      {...rest}
+      onPointerDown={(e) => holdStart(id, tip, e.clientX, e.clientY)}
+      onPointerMove={(e) => holdMove(e.clientX, e.clientY)}
+      onPointerUp={holdCancel}
+      onPointerCancel={holdCancel}
+      onPointerLeave={holdCancel}
+      onClick={tapClick(id, tip, onClick)}
+    />
+  );
 }
 
 function LangPill() {
@@ -141,7 +147,14 @@ function ChordWheel() {
               key={i}
               className={s.wedge}
               data-on={slot === i}
-              onPointerDown={(e) => tap(`chord-${i}`, "tip_finger", e.clientX, e.clientY, () => setSlot(i))}
+              onPointerDown={(e) => {
+                holdStart(`chord-${i}`, "tip_finger", e.clientX, e.clientY);
+                tap(`chord-${i}`, "tip_finger", e.clientX, e.clientY, () => setSlot(i));
+              }}
+              onPointerMove={(e) => holdMove(e.clientX, e.clientY)}
+              onPointerUp={holdCancel}
+              onPointerCancel={holdCancel}
+              onPointerLeave={holdCancel}
               onDoubleClick={() => {
                 if (useRoom.getState().input === "mouse") resetChord(i);
               }}
@@ -165,24 +178,33 @@ function ChordWheel() {
   );
 }
 
-/** One key of an on-screen pad. Held to move, explained on the first touch. */
+/** One key of an on-screen pad. Held to move; long press shows tooltip only. */
 function PadKey({ id, tip, label, on, off, className }: { id: string; tip: StringKey; label: string; on: () => void; off?: () => void; className?: string }) {
   return (
     <button
       className={`${s.padKey} ${className ?? ""}`}
       onPointerDown={(e: ReactPointerEvent<HTMLButtonElement>) => {
         e.stopPropagation();
+        holdStart(id, tip, e.clientX, e.clientY);
         tap(id, tip, e.clientX, e.clientY, () => {
           e.currentTarget.setPointerCapture(e.pointerId);
           on();
         });
       }}
+      onPointerMove={(e) => holdMove(e.clientX, e.clientY)}
       onPointerUp={(e: ReactPointerEvent<HTMLButtonElement>) => {
         e.stopPropagation();
+        holdCancel();
         off?.();
       }}
-      onPointerCancel={() => off?.()}
-      onLostPointerCapture={() => off?.()}
+      onPointerCancel={() => {
+        holdCancel();
+        off?.();
+      }}
+      onLostPointerCapture={() => {
+        holdCancel();
+        off?.();
+      }}
     >
       {label}
     </button>
@@ -350,11 +372,11 @@ export function Hud() {
   return (
     <div className={s.hud}>
       <header className={s.top}>
-        <TipButton id="brand" tip="back" className={s.brand} onClick={() => setFocus(null)}>
+        <button className={s.brand} onClick={() => setFocus(null)}>
           {/* eslint-disable-next-line @next/next/no-img-element -- a small fixed mark */}
           <img className={s.mark} src={asset("/logo.png")} alt="" />
           {profile.name}
-        </TipButton>
+        </button>
       </header>
 
       <HoverLabel />
@@ -371,9 +393,9 @@ export function Hud() {
             {t("enter")}
           </p>
         ) : focus ? (
-          <TipButton id="back" tip="back" className={s.leave} onClick={() => (focus === "tv" ? tvBack() : finder ? useRoom.getState().setFinder(false) : zoomed ? useRoom.getState().setZoomed(null) : setFocus(null))}>
+          <button className={s.leave} onClick={() => (focus === "tv" ? tvBack() : finder ? useRoom.getState().setFinder(false) : zoomed ? useRoom.getState().setZoomed(null) : setFocus(null))}>
             ← {t("back")} {input === "mouse" && <kbd>Esc</kbd>}
-          </TipButton>
+          </button>
         ) : (
           <span />
         )}
@@ -391,22 +413,15 @@ export function Hud() {
           )}
           {booted && (
             <div className={s.pill}>
-              <TipButton id="sound" tip={sound ? "sound_on_tip" : "sound_off_tip"} aria-pressed={sound} onClick={() => setSound(!sound)}>
+              <button aria-pressed={sound} onClick={() => setSound(!sound)}>
                 {t("sound")}
-              </TipButton>
+              </button>
             </div>
           )}
           <LangPill />
           {/* while the guitar is being played the corner belongs to its two switches */}
           {focus !== "guitar" && (
-            <Link
-              className={s.pill}
-              href="/lite"
-              title={t("lofi_tip")}
-              onClick={(e) => {
-                if (!tap("lofi", "lofi_tip", e.clientX, e.clientY, () => {})) e.preventDefault();
-              }}
-            >
+            <Link className={s.pill} href="/lite" title={t("lofi_tip")}>
               <svg viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <rect x="1.6" y="0.6" width="8.8" height="10.8" rx="1" />
                 <path d="M3.8 3.6h4.4M3.8 6h4.4M3.8 8.4h2.6" />

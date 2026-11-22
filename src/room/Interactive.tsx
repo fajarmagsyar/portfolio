@@ -3,7 +3,7 @@
 import type { ThreeElements, ThreeEvent } from "@react-three/fiber";
 import type * as THREE from "three";
 import { FOCUS_LABEL, useRoom, type FocusId } from "./store";
-import { tap } from "./touch";
+import { holdCancel, holdMove, holdStart, tap } from "./touch";
 
 /**
  * Wraps an object in the room. From the wide view, hovering shows its name and clicking
@@ -24,19 +24,25 @@ export function Interactive({ target, children, ...props }: { target: FocusId } 
       // (Claiming the hover outright with stopPropagation would be remembered for as long as
       // the cursor stayed on the object, and after a click into the close-up it would go on
       // swallowing the pointer before the object's own controls saw it.)
+
+      onPointerOut={() => {
+        if (live && useRoom.getState().hover === target) setHover(null);
+      }}
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        if (!live) return;
+        holdStart(target, FOCUS_LABEL[target], e.nativeEvent.clientX, e.nativeEvent.clientY);
+      }}
       onPointerMove={(e: ThreeEvent<PointerEvent>) => {
         if (!live) return;
-        // (the nearest hit may be reported for a part of this thing that has handlers of its
-        // own, such as a CD in the rack or the strings of the guitar: that still counts as this thing)
+        holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY);
         let part: THREE.Object3D | null = e.intersections[0]?.eventObject ?? null;
         while (part && part !== e.eventObject) part = part.parent;
         const nearest = part === e.eventObject;
         if (nearest) setHover(target);
         else if (useRoom.getState().hover === target) setHover(null);
       }}
-      onPointerOut={() => {
-        if (live && useRoom.getState().hover === target) setHover(null);
-      }}
+      onPointerUp={holdCancel}
+      onPointerCancel={holdCancel}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         if (!live) return;
         e.stopPropagation();

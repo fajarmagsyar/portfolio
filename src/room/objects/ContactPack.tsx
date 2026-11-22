@@ -14,7 +14,7 @@ import { Interactive } from "../Interactive";
 import { CARDS_HELD, POS } from "../layout";
 import { orbit, resetOrbit } from "../orbit";
 import { useRoom } from "../store";
-import { tap } from "../touch";
+import { holdCancel, holdMove, holdStart, tap } from "../touch";
 import { canvasTexture, paper, rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
 
 // Contact, as a pack of trading cards. It lies sealed on the desk. Looked at, it is held up:
@@ -599,6 +599,14 @@ function Card({ card, index, fonts, back, bind }: { card: CardInfo; index: numbe
     <group
       ref={bind}
       visible={false}
+      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        if (!ready()) return;
+        const held = place() === "held";
+        holdStart(`card-${index}`, held ? "card_open_tip" : "card_take_tip", e.nativeEvent.clientX, e.nativeEvent.clientY);
+      }}
+      onPointerMove={(e: ThreeEvent<PointerEvent>) => holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY)}
+      onPointerUp={holdCancel}
+      onPointerCancel={holdCancel}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         if (!ready()) return;
         e.stopPropagation();
@@ -868,6 +876,7 @@ export function ContactPack() {
         onPointerDown={(e: ThreeEvent<PointerEvent>) => {
           if (!sealed()) return;
           e.stopPropagation();
+          holdStart("pack-cut", "pack_cut_tip", e.nativeEvent.clientX, e.nativeEvent.clientY);
           if (!tap("pack-cut", "pack_cut_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) return;
           (e.target as Element).setPointerCapture(e.pointerId);
           const x = blade(e);
@@ -876,6 +885,7 @@ export function ContactPack() {
           state.current.turn = { yaw: orbit.yaw, pitch: orbit.pitch };
         }}
         onPointerMove={(e: ThreeEvent<PointerEvent>) => {
+          holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY);
           if (!sealed()) return;
           e.stopPropagation();
           const x = blade(e);
@@ -905,7 +915,12 @@ export function ContactPack() {
           }
         }}
         onPointerUp={(e: ThreeEvent<PointerEvent>) => {
+          holdCancel();
           (e.target as Element).releasePointerCapture?.(e.pointerId);
+          state.current.cut = null;
+        }}
+        onPointerCancel={() => {
+          holdCancel();
           state.current.cut = null;
         }}
         onPointerOut={() => {
