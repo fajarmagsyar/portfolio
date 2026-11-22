@@ -150,7 +150,8 @@ export function TvScreen({ url }: { url: string }) {
   // the TV leaves the desktop as it was, and coming back does not start it again.
   const [phase, setPhase] = useState<"off" | "boot" | "on">("off");
   const bootAt = useRef(0);
-  if (phase === "off" && focus === "tv") setPhase("boot");
+  if (!booted && phase !== "off") setPhase("off");
+  if (phase === "off" && focus === "tv" && booted) setPhase("boot");
   const mode: TvMode = !booted ? "enter" : phase === "boot" ? "boot" : phase === "on" ? tvScreen : "idle";
 
   const { canvas, game, uniforms } = useMemo(() => {
@@ -178,19 +179,7 @@ export function TvScreen({ url }: { url: string }) {
     uniforms.uSince.value = 0;
   }, [mode, uniforms]);
 
-  // the game engine is only loaded, and only runs, while its screen is up
-  useEffect(() => {
-    if (mode !== "game") return;
-    let stop: (() => void) | null = null;
-    let alive = true;
-    import("@/game/engine").then((m) => {
-      if (alive) stop = m.startGame(game, () => useLangStore.getState().lang);
-    });
-    return () => {
-      alive = false;
-      stop?.();
-    };
-  }, [mode, game]);
+    void game;
 
   // a screen asked for by name (from the navigation) starts its program on the desktop
   useEffect(() => {
@@ -220,6 +209,7 @@ export function TvScreen({ url }: { url: string }) {
     uniforms.uTime.value = t;
     uniforms.uSince.value += dt;
     if (mode === "boot" && bootAt.current === 0) bootAt.current = t;
+    if (mode !== "boot") bootAt.current = 0;
     if (mode === "boot" && t - bootAt.current > BOOT_TIME) setPhase("on");
     // the idle card, and a desktop nobody is at, only need a few frames a second; a screen in use is redrawn every frame
     if ((mode === "idle" || mode === "enter" || (mode !== "boot" && focus !== "tv")) && t - last.current < 1 / 12) return;
@@ -247,7 +237,7 @@ export function TvScreen({ url }: { url: string }) {
         e.stopPropagation();
         tvPointer(e.uv.x, e.uv.y, "move", lang);
         // the desktop draws its own pointer on the glass, so the real one is hidden over it
-        document.body.style.cursor = useRoom.getState().tvScreen === "game" ? "" : "none";
+        document.body.style.cursor = "none";
       }}
       onClick={(e: ThreeEvent<MouseEvent>) => {
         if (booted || !e.uv) return;

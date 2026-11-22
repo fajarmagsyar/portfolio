@@ -8,6 +8,8 @@ import { Interactive } from "../Interactive";
 import { useRoom } from "../store";
 import { POS, WALL_Z } from "../layout";
 import { rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
+import { Glass } from "./Glass";
+import { Model } from "./Props";
 
 // Two favourite albums as posters (and a framed family photo, below): the cover at the top, and under it the title, the
 // artist, the year and the track list. The covers are the files in public/art/; the
@@ -260,6 +262,8 @@ function FramedPoster({
   fonts,
   wood = "#3a2a1c",
   lit = false,
+  frame = FRAME,
+  portrait = false,
 }: {
   album?: Album;
   /** a photograph under /public to show instead of an album's poster */
@@ -270,6 +274,8 @@ function FramedPoster({
   wood?: string;
   /** a photograph is lit up while it is looked at */
   lit?: boolean;
+  frame?: { w: number; h: number; bar: number; ow: number; oh: number };
+  portrait?: boolean;
 }) {
   const glow = useRef<THREE.MeshStandardMaterial>(null);
   useFrame((_, dt) => {
@@ -278,8 +284,8 @@ function FramedPoster({
   });
   const art = useImage(photo ?? album?.art ?? "");
   const tex = useCanvasTexture(
-    620,
-    874,
+    portrait ? 680 : 620,
+    portrait ? 840 : 874,
     (ctx, w, h) => {
       if (photo) {
         // the photograph fills the print, cropped to its shape
@@ -298,7 +304,7 @@ function FramedPoster({
     },
     [fonts, album, photo, art],
   );
-  const { w, h, bar, ow, oh } = FRAME;
+  const { w, h, bar, ow, oh } = frame;
   // origin at the bottom edge, so the frame stands on whatever it is placed on
   return (
     // turned to face where it is looked at from, then tipped back about its own bottom edge:
@@ -343,15 +349,32 @@ function FramedPoster({
 }
 
 /**
- * The photo of me and my family, in a standing frame at the left end of the desk. Focused, the
- * eye comes to it (see the camera rig) and the photograph is lit up a little, as the corner it
- * stands in is dark.
+ * The photo of me and my family, in a small standing certificate-style frame.
  */
-function Portrait({ fonts }: { fonts: Fonts | null }) {
-  const lit = useRoom((s) => s.focus === "portrait");
+function Portrait() {
+  const photo = useImage("/photos/portrait.jpg");
+  const tex = useCanvasTexture(680, 840, (ctx, w, h) => {
+    ctx.fillStyle = "#1a1512";
+    ctx.fillRect(0, 0, w, h);
+    if (photo) {
+      const k = Math.max(w / photo.width, h / photo.height);
+      ctx.drawImage(photo, (w - photo.width * k) / 2, (h - photo.height * k) / 2, photo.width * k, photo.height * k);
+    }
+  }, [photo]);
   return (
     <Interactive target="portrait">
-      <FramedPoster photo="/photos/portrait.jpg" position={POS.deskPoster} rotation={[-0.2, 0.5, 0]} fonts={fonts} lit={lit} />
+      <group position={POS.deskPoster} rotation={[0, 0.5, 0]}>
+        <group rotation={[-0.2, 0, 0]}>
+          <group position={[0, 0.2355 * 0.3, 0]} scale={0.3}>
+            <Model asset="hanging_picture_frame_01" scale={0.56} />
+            <mesh position={[0, 0, 0.0105]}>
+              <planeGeometry args={[0.268, 0.378]} />
+              <meshStandardMaterial map={tex} color="#ffffff" roughness={0.82} />
+            </mesh>
+            <Glass w={0.268} h={0.378} z={0.0112} opacity={0.012} glare={0} shade={0} />
+          </group>
+        </group>
+      </group>
     </Interactive>
   );
 }
@@ -365,7 +388,7 @@ export function Posters() {
       {/* on the sill, leaning against the window, left of the TV */}
       <FramedPoster album={DAMN} position={POS.sillPoster} rotation={[-0.16, 0.2, 0]} fonts={fonts} wood="#1c1613" />
       {/* at the left-hand end of the desk, turned towards the chair */}
-      <Portrait fonts={fonts} />
+      <Portrait />
     </group>
   );
 }

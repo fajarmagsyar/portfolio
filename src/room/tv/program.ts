@@ -86,7 +86,6 @@ function drawIdle(ctx: CanvasRenderingContext2D, f: Fonts, t: number) {
   ctx.font = `31px ${f.screen}`;
   ctx.fillStyle = "rgba(244,242,234,0.85)";
   ctx.fillText(`${profile.role.toUpperCase()}  ·  SBY`, 74, 450);
-  // a dotted orbit drawn across the lower half, with a four-point star riding it
   const cx = TV_W * 0.6;
   const cy = TV_H * 0.76;
   ctx.strokeStyle = "rgba(244,242,234,0.75)";
@@ -193,13 +192,7 @@ function drawEnter(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, t: numbe
 export function drawTv(ctx: CanvasRenderingContext2D, mode: TvMode, lang: Lang, fonts: Fonts | null, time: number, game: HTMLCanvasElement | null) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.textBaseline = "alphabetic";
-  if (mode === "game") {
-    ctx.fillStyle = "#0b0a12";
-    ctx.fillRect(0, 0, TV_W, TV_H);
-    // a console picture is stretched to fill a 4:3 tube
-    if (game) ctx.drawImage(game, 0, 0, TV_W, TV_H);
-    return;
-  }
+  void game;
   if (mode === "boot") return drawBoot(ctx, fonts, time);
   if (mode !== "enter" && mode !== "idle") return drawOs(ctx, lang, fonts);
   if (!fonts) {
@@ -220,20 +213,13 @@ export function tvShow(screen: TvScreen) {
   else if (screen === "memory") launch("work");
 }
 
-/** Steps back: out of the game to the desktop, otherwise the front window shuts, and from the bare desktop back to the room. */
+/** Steps back: the front window shuts, and from the bare desktop back to the room. */
 export function tvBack() {
-  const { tvScreen, setTvScreen } = useRoom.getState();
-  if (tvScreen === "game") return setTvScreen("menu");
   osBack();
 }
 
-/** Keyboard for the TV. Returns true when the key was used. The game reads its own keys, except Escape. */
+/** Keyboard for the TV. Returns true when the key was used. */
 export function tvKey(e: KeyboardEvent, lang: Lang): boolean {
-  if (useRoom.getState().tvScreen === "game") {
-    if (e.key !== "Escape") return false;
-    tvBack();
-    return true;
-  }
   return osKey(e, lang);
 }
 
@@ -242,7 +228,6 @@ export function tvKey(e: KeyboardEvent, lang: Lang): boolean {
  * Returns true when the pointer is over something that can be pressed.
  */
 export function tvPointer(u: number, v: number, kind: "move" | "down" | "up", lang: Lang): boolean {
-  if (useRoom.getState().tvScreen === "game") return false;
   return osPointer(u * TV_W, (1 - v) * TV_H, kind, lang);
 }
 
@@ -251,8 +236,7 @@ export const tvWheel = osWheel;
 
 /** Plain-text version of what the tube shows, for screen readers. */
 export function tvText(screen: TvScreen, lang: Lang): string {
-  const t = strings[lang];
-  if (screen === "game") return `${t.game_title}. ${t.game_controls}`;
+  void screen;
   const about = [profile.hello[lang], ...profile.about[lang], profile.likes[lang]].join(" ");
   const work = jobs.map((j) => `${jobYears(j, lang)}, ${j.company}, ${j.title}. ${j.body[lang]}`).join(" ");
   return `${osText(lang)} ${about} ${work}`;

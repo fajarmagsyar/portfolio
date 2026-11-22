@@ -25,14 +25,14 @@ export default function RoomApp() {
   useEffect(() => {
     document.documentElement.classList.add("will-room");
     // Development helpers: /?room=1&noboot=1&focus=guitar jumps straight to an object;
-    // add &tv=memory|game|about together with focus=tv to open a TV screen,
+    // add &tv=memory|about together with focus=tv to open a TV screen,
     // or &planet=earth to change the globe of the lamp (focus=saturn).
     const p = new URLSearchParams(location.search);
     if (p.get("noboot") === "1") useRoom.getState().setBooted();
     const f = p.get("focus") as FocusId | null;
     if (f && FOCUS_ORDER.includes(f)) useRoom.getState().setFocus(f);
     const tv = p.get("tv");
-    if (tv === "memory" || tv === "game" || tv === "about") useRoom.getState().setTvScreen(tv);
+    if (tv === "memory" || tv === "about") useRoom.getState().setTvScreen(tv);
     // &guitar=rhythm starts the guitar in rhythm playing (focus=guitar)
     if (p.get("guitar") === "rhythm") useRoom.getState().setGuitarMode("rhythm");
     // &pack=open cuts the contact pack open, &pack=2 also takes that many cards (focus=cards)

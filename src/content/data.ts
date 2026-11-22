@@ -30,8 +30,8 @@ export const profile = {
     ],
   } satisfies Record<Lang, string[]>,
   likes: {
-    id: "Di luar kerjaan: game lawas, kaset dan CD, dan gitar.",
-    en: "Off the clock: old games, cassettes and CDs, and guitar.",
+    id: "Di luar kerja, saya suka ngulik hal-hal kecil dan bikin project personal.",
+    en: "Outside work, I like tinkering with small ideas and building personal projects.",
   } satisfies L10n,
 };
 

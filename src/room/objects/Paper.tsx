@@ -4,8 +4,9 @@ import { asset } from "@/asset";
 import { certifications, education, skills, type Lang } from "@/content/data";
 import { strings, type StringKey } from "@/content/strings";
 import { useLang } from "@/state/lang";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ThreeEvent } from "@react-three/fiber";
+import * as THREE from "three";
 import { hint } from "../hint";
 import { Interactive } from "../Interactive";
 import { POS } from "../layout";
@@ -138,23 +139,33 @@ function drawCerts(ctx: CanvasRenderingContext2D, w: number, h: number, lang: La
   });
 }
 
+const framePhotoViews: Record<"cert" | "degree", { pos: [number, number, number]; look: [number, number, number] }> = {
+  cert: { pos: [0.58, 1.05, 0.34], look: [0.78, 0.94, -0.4] },
+  degree: { pos: [0.5, 1.0, 0.36], look: [0.66, 0.9, -0.36] },
+};
+export function framePhotoView(which: "cert" | "degree") {
+  return framePhotoViews[which];
+}
+
 /** From across the room each frame is named for what is in it, rather than both as "frames". */
-const named = (tip: StringKey) => ({
-  // on every move, not only on arriving: the pointer can come onto one frame straight off the
-  // other, where they overlap, and the name has to follow it
+const named = (tip: StringKey, which: "cert" | "degree") => ({
   onPointerMove: (e: ThreeEvent<PointerEvent>) => {
     const s = useRoom.getState();
-    if (!s.booted || s.focus !== null) return;
-    // the frame in front is the one being pointed at
+    if (!s.booted) return;
     e.stopPropagation();
-    hint(tip);
-    s.setHover("frames");
+    hint(tip, "zoom-in");
+    if (s.focus === null) s.setHover("frames");
+  },
+  onClick: (e: ThreeEvent<MouseEvent>) => {
+    const s = useRoom.getState();
+    if (!s.booted) return;
+    e.stopPropagation();
+    if (s.focus !== "frames") s.setFocus("frames");
+    s.setFrameZoom(s.frameZoom === which ? null : which);
   },
   onPointerOut: () => {
     const s = useRoom.getState();
     if (s.tip === tip) hint(null);
-    // the move above stops the event, so the wrapper never hears of the pointer leaving: it is
-    // cleared here, or the name would stay on and follow the pointer about the room
     if (s.hover === "frames") s.setHover(null);
   },
 });
@@ -165,6 +176,32 @@ export function Frames() {
   const logo = useImage("/art/diploma/unsy-logo.webp");
   const diploma = useCanvasTexture(1440, 891, (c, w, h) => drawDiploma(c, w, h, lang, fonts, logo), [lang, fonts, logo]);
   const certs = useCanvasTexture(640, 900, (c, w, h) => drawCerts(c, w, h, lang, fonts), [lang, fonts]);
+  useEffect(() => {
+    const group = new THREE.Group();
+    group.position.set(...POS.frames);
+    group.scale.setScalar(0.62);
+    const make = (which: "cert" | "degree", pos: [number, number, number], rot: [number, number, number], tilt: [number, number, number], center: [number, number, number]) => {
+      const g = new THREE.Group();
+      g.position.set(...pos);
+      g.rotation.set(...rot);
+      const inner = new THREE.Group();
+      inner.rotation.set(...tilt);
+      const face = new THREE.Object3D();
+      face.position.set(center[0], center[1], center[2] + 0.02);
+      inner.add(face);
+      g.add(inner);
+      group.add(g);
+      group.updateMatrixWorld(true);
+      const look = new THREE.Vector3();
+      const out = new THREE.Vector3();
+      face.getWorldPosition(look);
+      face.getWorldQuaternion(new THREE.Quaternion());
+      face.getWorldDirection(out);
+      framePhotoViews[which] = { look: look.toArray() as [number, number, number], pos: look.clone().addScaledVector(out, 0.42).toArray() as [number, number, number] };
+    };
+    make("cert", [0.2, 0, -0.03], [0, -0.22, 0], [-0.11, 0, 0], [0, 0.2355, 0]);
+    make("degree", [-0.17, 0, 0.06], [0, 0.1, 0], [-0.14, 0, 0], [0, 0.151, 0]);
+  }, []);
   // Both stand on the desk, each on its own bottom edge and tipped back a little: the tall
   // one behind and to the right, the wide one in front of it and to the left, overlapping.
   // Positions are in the group's own space (it is drawn at 0.62 of the models' size); the
@@ -172,7 +209,7 @@ export function Frames() {
   return (
     <Interactive target="frames" position={POS.frames} scale={0.62}>
       {/* portrait frame: certificates. The model is 0.594 x 0.84 m before scaling. */}
-      <group position={[0.2, 0, -0.03]} rotation={[0, -0.22, 0]} {...named("tip_certs")}>
+      <group position={[0.2, 0, -0.03]} rotation={[0, -0.22, 0]} {...named("tip_certs", "cert")}>
         <group rotation={[-0.11, 0, 0]}>
           <group position={[0, 0.2355, 0]}>
             <Model asset="hanging_picture_frame_01" scale={0.56} />
@@ -185,7 +222,7 @@ export function Frames() {
         </group>
       </group>
       {/* landscape frame: degree. The model's opening is 0.75 x 0.5 m before scaling. */}
-      <group position={[-0.17, 0, 0.06]} rotation={[0, 0.1, 0]} {...named("tip_degree")}>
+      <group position={[-0.17, 0, 0.06]} rotation={[0, 0.1, 0]} {...named("tip_degree", "degree")}>
         <group rotation={[-0.14, 0, 0]}>
           <group position={[0, 0.151, 0]}>
             <Model asset="hanging_picture_frame_02" scale={0.6} position={[0, 0.017, 0]} />

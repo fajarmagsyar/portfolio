@@ -8,7 +8,7 @@ import { arrow, bevel, button, clamp, drawMark, inside, K, TV_H, TV_W, type Rect
 export { TV_H, TV_W };
 
 // ---------------------------------------------------------------------------------------
-// KAMAR 3.1: the TV's own little operating system, in the manner of the 16-bit desktops of
+// DawnOS 3.1: the TV's own little operating system, in the manner of the 16-bit desktops of
 // the early nineties, with the Start button and taskbar that came a few years after.
 //
 // It is a real, if small, window manager: programs open in windows that can be dragged by
@@ -20,34 +20,34 @@ export { TV_H, TV_W };
 
 /* ---------- the programs ---------- */
 
-type Built = "about" | "work" | "calc";
-export type App = Built | ExtraId | "game";
+type Built = "about" | "work" | "calc" | "recycle";
+export type App = Built | ExtraId;
 // the order they stand in on the desktop (down the columns) and in the Start menu
-const APPS: App[] = ["about", "work", "term", "notes", "paint", "calc", "clock", "mines", "snake", "ttt", "typing", "game"];
-/** where the Start menu draws a line: after the documents, and after the accessories */
-const GROUP_ENDS: App[] = ["work", "clock"];
+const APPS: App[] = ["term", "notes", "paint", "calc", "clock", "mines", "snake", "galaga", "ttt", "typing", "about", "work"];
+/** where the Start menu draws a line: after apps and after games */
+const GROUP_ENDS: App[] = ["clock", "typing"];
 
 const NAMES: Record<App, { icon: Record<Lang, string>; title: Record<Lang, string>; menus: Record<Lang, string[]> }> = {
   ...EXTRA_NAMES,
   about: {
     icon: { id: "TENTANG.TXT", en: "ABOUT.TXT" },
-    title: { id: "Catatan - TENTANG.TXT", en: "Notepad - ABOUT.TXT" },
+    title: { id: "Notepad - TENTANG.TXT", en: "Notepad - ABOUT.TXT" },
     menus: { id: ["Berkas", "Sunting", "Cari", "Bantuan"], en: ["File", "Edit", "Search", "Help"] },
   },
   work: {
     icon: { id: "KERJA.DOC", en: "WORK.DOC" },
-    title: { id: "Tulis - KERJA.DOC", en: "Write - WORK.DOC" },
+    title: { id: "Write - KERJA.DOC", en: "Write - WORK.DOC" },
     menus: { id: ["Berkas", "Sunting", "Huruf", "Paragraf", "Bantuan"], en: ["File", "Edit", "Character", "Paragraph", "Help"] },
   },
   calc: {
-    icon: { id: "Kalkulator", en: "Calculator" },
-    title: { id: "Kalkulator", en: "Calculator" },
+    icon: { id: "Calculator", en: "Calculator" },
+    title: { id: "Calculator", en: "Calculator" },
     menus: { id: ["Sunting", "Lihat", "Bantuan"], en: ["Edit", "View", "Help"] },
   },
-  game: {
-    icon: { id: "Main Game", en: "Play Game" },
-    title: { id: "Game", en: "Game" },
-    menus: { id: [], en: [] },
+  recycle: {
+    icon: { id: "Recycle Bin", en: "Recycle Bin" },
+    title: { id: "Recycle Bin", en: "Recycle Bin" },
+    menus: { id: ["File"], en: ["File"] },
   },
 };
 
@@ -65,6 +65,7 @@ const HOME: Record<Built, Rect> = {
   about: { x: 150, y: 46, w: 540, h: 400 },
   work: { x: 96, y: 18, w: 640, h: 500 },
   calc: { x: 470, y: 120, w: 268, h: 356 },
+  recycle: { x: 180, y: 70, w: 520, h: 420 },
 };
 const isExtra = (app: App): app is ExtraId => app in EXTRA;
 /** Where a program's window first opens: the built-in ones have their places, the rest open about the middle. */
@@ -74,17 +75,68 @@ function home(app: Win["app"]): Rect {
   return { x: Math.round((TV_W - w) / 2 + 70), y: Math.round((TV_H - BAR - h) / 2), w, h };
 }
 
+const DESKTOP_ICONS: { app: App; x: number; y: number }[] = [
+  { app: "term", x: 28, y: 18 },
+  { app: "notes", x: 28, y: 128 },
+  { app: "paint", x: 28, y: 238 },
+  { app: "calc", x: 28, y: 348 },
+  { app: "clock", x: 28, y: 458 },
+  { app: "mines", x: 148, y: 18 },
+  { app: "snake", x: 148, y: 128 },
+  { app: "galaga", x: 148, y: 238 },
+  { app: "ttt", x: 148, y: 348 },
+  { app: "typing", x: 148, y: 458 },
+  { app: "about", x: 682, y: 56 },
+  { app: "work", x: 596, y: 196 },
+  { app: "recycle", x: 704, y: 430 },
+];
+
+type TrashItem = { id: number; app: App; label: Record<Lang, string>; x: number; y: number };
+
+const rand = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+function makeEquation() {
+  const pick = rand(0, 3);
+  if (pick === 0) {
+    const sq = rand(13, 47) ** 2, cb = rand(4, 18) ** 3, p10 = 10 ** rand(3, 6);
+    const a = rand(7, 29), b = rand(11, 39), c = rand(13, 57);
+    const ans = Math.round(Math.sqrt(sq)) * a + Math.round(Math.log10(p10)) * b + Math.round(Math.cbrt(cb)) - c;
+    return { q: `√(${sq})×${a} + log₁₀(${p10})×${b} + ∛(${cb}) - ${c} = ?`, a: ans };
+  }
+  if (pick === 1) {
+    const sq = rand(11, 39) ** 2, cb = rand(5, 16) ** 3, p2 = 2 ** rand(5, 11);
+    const a = rand(3, 13), b = rand(5, 23);
+    const ans = Math.round(Math.log2(p2)) * Math.round(Math.sqrt(sq)) + a * Math.round(Math.cbrt(cb)) - b * b;
+    return { q: `log₂(${p2})×√(${sq}) + ${a}×∛(${cb}) - ${b}² = ?`, a: ans };
+  }
+  if (pick === 2) {
+    const sq = rand(12, 35) ** 2, cb = rand(4, 15) ** 3, p10 = 10 ** rand(2, 5);
+    const a = rand(6, 19), b = rand(7, 23), c = rand(11, 44);
+    const ans = (Math.round(Math.sqrt(sq)) + Math.round(Math.cbrt(cb))) * Math.round(Math.log10(p10)) - a * b + c;
+    return { q: `(√(${sq})+∛(${cb}))×log₁₀(${p10}) - ${a}×${b} + ${c} = ?`, a: ans };
+  }
+  const sq = rand(14, 41) ** 2, p2 = 2 ** rand(6, 12), p10 = 10 ** rand(3, 5);
+  const a = rand(5, 17), b = rand(3, 11), c = rand(17, 53);
+  const ans = Math.round(Math.sqrt(sq)) * Math.round(Math.log2(p2)) - Math.round(Math.log10(p10)) * a + b * b * b - c;
+  return { q: `√(${sq})×log₂(${p2}) - log₁₀(${p10})×${a} + ${b}³ - ${c} = ?`, a: ans };
+}
+
 const os = {
   /** open windows, back to front */
   wins: [] as Win[],
-  // five to a column, down the left of the desktop
-  icons: APPS.map((app, i) => ({ app, x: 26 + Math.floor(i / 5) * 104, y: 16 + (i % 5) * 104 })),
-  picked: 0 as number | null,
+  icons: DESKTOP_ICONS.map((it) => ({ ...it })),
+  picked: new Set<number>(),
+  marquee: null as null | { x: number; y: number },
+  trash: [] as TrashItem[],
+  trashSel: -1,
+  trashPrompt: null as null | { q: string; a: number; input: string; err: boolean },
+  deleting: null as null | { start: number; until: number },
+  crash: null as null | { until: number },
+  nextTrash: 1,
   menu: false,
   menuAt: -1,
   mx: -1,
   my: -1,
-  drag: null as null | { kind: "win"; win: Win; dx: number; dy: number } | { kind: "app"; win: Win } | { kind: "icon"; i: number; dx: number; dy: number; moved: boolean; fromX: number; fromY: number },
+  drag: null as null | { kind: "win"; win: Win; dx: number; dy: number } | { kind: "app"; win: Win } | { kind: "icon"; i: number; dx: number; dy: number; moved: boolean; fromX: number; fromY: number } | { kind: "marquee"; fromX: number; fromY: number; base: Set<number> },
   lastDown: { i: -1, at: 0 },
   calc: { shown: "0", acc: null as number | null, op: null as string | null, fresh: true },
 };
@@ -104,7 +156,6 @@ function focus(w: Win) {
 export function launch(app: App) {
   os.menu = false;
   blip(880, 0.08);
-  if (app === "game") return useRoom.getState().setTvScreen("game");
   const running = os.wins.find((w) => w.app === app);
   if (running) return focus(running);
   // each new window opens a little down and across from the last, as they used to
@@ -297,7 +348,7 @@ function aboutLines(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, width: 
 /** The work history, set out as a word-processor document: a heading, then an entry per workplace. */
 function workLines(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, width: number) {
   return layout(ctx, `work|${lang}`, width, (add) => {
-    add(lang === "id" ? "PENGALAMAN KERJA" : "WORK EXPERIENCE", `700 27px ${f.body}`, K.ink, 40);
+    add("WORK EXPERIENCE", `700 27px ${f.body}`, K.ink, 40);
     add(`${profile.name}  ·  ${profile.role}`, `700 17px ${f.body}`, K.dim, 26);
     add("", "", "", 16, true);
     for (const job of jobs) {
@@ -449,14 +500,16 @@ const ICONS: Record<App | "exit" | "logo", (p: Brush) => void> = {
     p(5, 3, 6, 3, "#9fd0a0");
     for (let y = 7; y < 13; y += 2) for (let x = 5; x < 11; x += 2) p(x, y, 1, 1, x === 9 ? "#a01818" : "#000");
   },
-  // a joystick on its base
-  game: (p) => {
-    p(2, 11, 12, 4, "#000");
-    p(3, 12, 10, 2, "#868a8e");
-    p(7, 4, 2, 8, "#000");
-    p(6, 1, 4, 4, "#000");
-    p(7, 2, 2, 2, "#d8362a");
-    p(11, 12, 2, 1, "#d8362a");
+  // a bin with crumpled paper
+  recycle: (p) => {
+    p(3, 2, 10, 1, "#000");
+    p(2, 3, 12, 1, "#000");
+    p(3, 4, 10, 11, "#000");
+    p(4, 5, 8, 9, "#dfe3e7");
+    p(5, 6, 1, 7, "#9aa0a6");
+    p(8, 6, 1, 7, "#9aa0a6");
+    p(11, 6, 1, 7, "#9aa0a6");
+    p(6, 1, 4, 1, "#000");
   },
   // a door standing open, with an arrow out of it
   exit: (p) => {
@@ -479,7 +532,41 @@ const ICONS: Record<App | "exit" | "logo", (p: Brush) => void> = {
   },
 };
 
+type ImgId = App | "exit" | "logo";
+const IMG_SRC: Partial<Record<ImgId, string>> = {
+  about: "/icons/text.png",
+  work: "/icons/word.png",
+  term: "/icons/prompt.png",
+  notes: "/icons/notepad.png",
+  paint: "/icons/paint.png",
+  calc: "/icons/calculator.png",
+  clock: "/icons/clock.png",
+  mines: "/icons/minesweeper.png",
+  snake: "/icons/snake.png",
+  galaga: "/icons/galaga.png",
+  ttt: "/icons/tictactoe.png",
+  typing: "/icons/lomba-ketik.png",
+  recycle: "/icons/recycle-bin-empty.png",
+  exit: "/icons/shutdown.png",
+};
+const IMG_CACHE: Record<string, HTMLImageElement> = {};
+function getImg(id: ImgId) {
+  let src = IMG_SRC[id];
+  if (id === "recycle") src = os.trash.length ? "/icons/recycle-bin-filled.png" : "/icons/recycle-bin-empty.png";
+  if (!src || typeof Image === "undefined") return null;
+  let img = IMG_CACHE[src];
+  if (!img) { img = new Image(); img.src = src; IMG_CACHE[src] = img; }
+  return img.complete && img.naturalWidth ? img : null;
+}
+
 function icon(ctx: CanvasRenderingContext2D, id: keyof typeof ICONS, x: number, y: number, size: number) {
+  const img = getImg(id as ImgId);
+  if (img) {
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, Math.round(x), Math.round(y), Math.round(size), Math.round(size));
+    ctx.imageSmoothingEnabled = true;
+    return;
+  }
   const u = size / 16;
   ICONS[id]((px, py, w, h, c) => {
     ctx.fillStyle = c;
@@ -487,8 +574,8 @@ function icon(ctx: CanvasRenderingContext2D, id: keyof typeof ICONS, x: number, 
   });
 }
 
-const ICON = 56;
-const iconRect = (i: { x: number; y: number }): Rect => ({ x: i.x - 26, y: i.y - 4, w: ICON + 52, h: ICON + 44 });
+const ICON = 72;
+const iconRect = (i: { x: number; y: number }): Rect => ({ x: i.x - 24, y: i.y - 4, w: ICON + 48, h: ICON + 48 });
 
 /* ---------- the Start menu and the taskbar ---------- */
 
@@ -500,12 +587,12 @@ const MENU: Entry[] = [
   }),
   null,
   {
-    label: { id: "Kembali ke kamar", en: "Back to the room" },
+    label: { id: "Shut down", en: "Shut down" },
     icon: "exit",
     run: () => {
       os.menu = false;
       blip(330, 0.08);
-      useRoom.getState().setFocus(null);
+      useRoom.getState().shutdown();
     },
   },
 ];
@@ -534,7 +621,7 @@ const taskRect = (i: number): Rect => {
   return { x: x0 + i * each, y: START.y, w: each - 6, h: START.h };
 };
 /** windows in the order they were opened, which is the order of their buttons on the taskbar */
-const tasks = () => APPS.map((app) => os.wins.find((w) => w.app === app)).filter((w): w is Win => !!w);
+const tasks = () => os.wins;
 
 function drawBar(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts) {
   const y = TV_H - BAR;
@@ -551,7 +638,7 @@ function drawBar(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts) {
       ctx.font = `700 18px ${f.body}`;
       ctx.textAlign = "left";
       ctx.fillStyle = K.ink;
-      ctx.fillText(lang === "id" ? "Mulai" : "Start", cx - 12, cy + 1);
+      ctx.fillText("Start", cx - 12, cy + 1);
     },
     os.menu,
   );
@@ -601,7 +688,7 @@ function drawMenu(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts) {
   ctx.fillStyle = K.titleText;
   ctx.font = `700 19px ${f.body}`;
   ctx.textAlign = "left";
-  ctx.fillText("KAMAR 3.1", 0, 0);
+  ctx.fillText("DawnOS 3.1", 0, 0);
   ctx.restore();
   let y = r.y + 4;
   ctx.textBaseline = "middle";
@@ -631,6 +718,101 @@ function drawMenu(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts) {
 
 /* ---------- the whole picture ---------- */
 
+function recycleRows(b: Rect) {
+  const top = b.y + 74;
+  return { top, rowH: 30, list: { x: b.x + 12, y: top, w: b.w - 24, h: b.h - 86 } as Rect };
+}
+function recycleActionAt(x: number, y: number, b: Rect) {
+  const restore: Rect = { x: b.x + 12, y: b.y + 10, w: 110, h: 28 };
+  const empty: Rect = { x: b.x + 130, y: b.y + 10, w: 150, h: 28 };
+  if (inside(restore, x, y)) return "restore";
+  if (inside(empty, x, y)) return "empty";
+  return null;
+}
+function recycleRowAt(x: number, y: number, b: Rect) {
+  const { top, rowH, list } = recycleRows(b);
+  if (!inside(list, x, y) || y < top) return -1;
+  const i = Math.floor((y - top) / rowH);
+  return i >= 0 && i < os.trash.length ? i : -1;
+}
+function restoreTrash(i = os.trashSel) {
+  const item = os.trash[i];
+  if (!item) return;
+  os.trash.splice(i, 1);
+  os.icons.push({ app: item.app, x: clamp(item.x, 4, TV_W - ICON - 4), y: clamp(item.y, 4, TV_H - BAR - ICON - 30) });
+  os.trashSel = Math.min(os.trashSel, os.trash.length - 1);
+  blip(660, 0.06);
+}
+function drawRecycle(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, b: Rect) {
+  ctx.fillStyle = K.page;
+  ctx.fillRect(b.x, b.y, b.w, b.h);
+  const restore: Rect = { x: b.x + 12, y: b.y + 10, w: 110, h: 28 };
+  const empty: Rect = { x: b.x + 130, y: b.y + 10, w: 150, h: 28 };
+  void lang;
+  button(ctx, restore, (cx, cy) => { ctx.font = `700 15px ${f.body}`; ctx.textAlign = "center"; ctx.fillStyle = os.trashSel >= 0 ? K.ink : K.dim; ctx.fillText("Restore", cx, cy + 1); });
+  button(ctx, empty, (cx, cy) => { ctx.font = `700 15px ${f.body}`; ctx.textAlign = "center"; ctx.fillStyle = os.trash.length ? "#a01818" : K.dim; ctx.fillText("Empty Bin", cx, cy + 1); });
+  const { top, rowH, list } = recycleRows(b);
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(list.x, list.y, list.w, list.h);
+  bevel(ctx, list, false, 1);
+  ctx.fillStyle = K.frame;
+  ctx.fillRect(list.x + 1, top - 24, list.w - 2, 23);
+  ctx.fillStyle = K.ink; ctx.textAlign = "left"; ctx.font = `700 14px ${f.body}`;
+  ctx.fillText("Name", list.x + 10, top - 8);
+  ctx.fillText("Original", list.x + list.w - 170, top - 8);
+  if (!os.trash.length) {
+    ctx.fillStyle = K.dim; ctx.textAlign = "center"; ctx.font = `700 16px ${f.body}`;
+    ctx.fillText("Recycle Bin is empty.", list.x + list.w / 2, top + 40);
+  }
+  os.trash.forEach((it, i) => {
+    const y = top + i * rowH;
+    if (y + rowH > list.y + list.h - 2) return;
+    if (os.trashSel === i) { ctx.fillStyle = K.pick; ctx.fillRect(list.x + 2, y, list.w - 4, rowH - 1); }
+    icon(ctx, it.app, list.x + 8, y + 3, 22);
+    ctx.fillStyle = os.trashSel === i ? K.titleText : K.ink;
+    ctx.textAlign = "left"; ctx.font = `700 15px ${f.body}`;
+    ctx.fillText(it.label[lang], list.x + 38, y + 20, list.w - 220);
+    ctx.fillStyle = os.trashSel === i ? "#d6def8" : K.dim;
+    ctx.fillText("Desktop", list.x + list.w - 170, y + 20);
+  });
+  if (os.trashPrompt) {
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    const p: Rect = { x: b.x + 20, y: b.y + 60, w: b.w - 40, h: 230 };
+    ctx.fillStyle = K.frame; ctx.fillRect(p.x, p.y, p.w, p.h); bevel(ctx, p);
+    ctx.fillStyle = K.title; ctx.fillRect(p.x + 3, p.y + 3, p.w - 6, 28);
+    ctx.fillStyle = K.titleText; ctx.textAlign = "left"; ctx.font = `700 16px ${f.body}`;
+    ctx.fillText("Confirm Empty", p.x + 10, p.y + 22);
+    ctx.fillStyle = K.ink; ctx.font = `700 14px ${f.body}`;
+    ctx.fillText("Solve this to permanently delete:", p.x + 16, p.y + 56, p.w - 32);
+    ctx.font = `700 18px ${f.body}`;
+    const q = os.trashPrompt.q;
+    ctx.fillText(q.length > 48 ? q.slice(0, 48) : q, p.x + 16, p.y + 88, p.w - 32);
+    if (q.length > 48) ctx.fillText(q.slice(48), p.x + 16, p.y + 112, p.w - 32);
+    const inp: Rect = { x: p.x + 16, y: p.y + 128, w: p.w - 32, h: 34 };
+    ctx.fillStyle = "#fff"; ctx.fillRect(inp.x, inp.y, inp.w, inp.h); bevel(ctx, inp, false, 1);
+    ctx.fillStyle = K.ink; ctx.font = `700 20px ${f.body}`; ctx.fillText(os.trashPrompt.input + "_", inp.x + 10, inp.y + 23);
+    if (os.trashPrompt.err) { ctx.fillStyle = "#a01818"; ctx.font = `700 14px ${f.body}`; ctx.fillText("Wrong. Try again.", p.x + 16, p.y + 180); }
+    const ok: Rect = { x: p.x + p.w - 210, y: p.y + p.h - 40, w: 90, h: 28 };
+    const cancel: Rect = { x: p.x + p.w - 110, y: p.y + p.h - 40, w: 90, h: 28 };
+    button(ctx, ok, (cx, cy) => { ctx.font = `700 15px ${f.body}`; ctx.textAlign = "center"; ctx.fillStyle = K.ink; ctx.fillText("OK", cx, cy + 1); });
+    button(ctx, cancel, (cx, cy) => { ctx.font = `700 15px ${f.body}`; ctx.textAlign = "center"; ctx.fillStyle = K.ink; ctx.fillText("Cancel", cx, cy + 1); });
+  }
+  if (os.deleting) {
+    const now = performance.now();
+    const t = Math.min(1, (now - os.deleting.start) / Math.max(1, os.deleting.until - os.deleting.start));
+    ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.fillRect(b.x, b.y, b.w, b.h);
+    const p: Rect = { x: b.x + 60, y: b.y + 140, w: b.w - 120, h: 96 };
+    ctx.fillStyle = K.frame; ctx.fillRect(p.x, p.y, p.w, p.h); bevel(ctx, p);
+    ctx.fillStyle = K.ink; ctx.textAlign = "left"; ctx.font = `700 16px ${f.body}`;
+    ctx.fillText("Deleting files...", p.x + 16, p.y + 32);
+    const bar: Rect = { x: p.x + 16, y: p.y + 52, w: p.w - 32, h: 22 };
+    ctx.fillStyle = "#fff"; ctx.fillRect(bar.x, bar.y, bar.w, bar.h); bevel(ctx, bar, false, 1);
+    ctx.fillStyle = K.title; ctx.fillRect(bar.x + 2, bar.y + 2, (bar.w - 4) * t, bar.h - 4);
+  }
+  ctx.textBaseline = "alphabetic";
+}
+
 function drawWin(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, w: Win, active: boolean) {
   const r = rectOf(w);
   const names = NAMES[w.app];
@@ -642,6 +824,7 @@ function drawWin(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, w: Win, ac
   ctx.clip();
   if (isExtra(w.app)) EXTRA[w.app].draw(ctx, f, b, lang, active);
   else if (w.app === "calc") drawCalc(ctx, f, b);
+  else if (w.app === "recycle") drawRecycle(ctx, lang, f, b);
   else if (w.app === "about") page(ctx, w, b, aboutLines(ctx, lang, f, b.w - SB - 40), 20, K.page);
   else {
     // the word processor shows its ruler, then the page
@@ -675,7 +858,39 @@ function drawPointer(ctx: CanvasRenderingContext2D) {
   ctx.stroke();
 }
 
+function crashAndRestart() {
+  os.crash = { until: performance.now() + 2600 };
+  os.deleting = null;
+  os.trash = [];
+  os.trashSel = -1;
+  os.trashPrompt = null;
+  os.wins = [];
+  os.menu = false;
+  os.picked.clear();
+  os.drag = null;
+  os.icons = DESKTOP_ICONS.map((it) => ({ ...it }));
+  blip(90, 0.2);
+}
+
 export function drawOs(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts | null) {
+  if (os.deleting && performance.now() >= os.deleting.until) crashAndRestart();
+  if (os.crash) {
+    ctx.fillStyle = "#000082";
+    ctx.fillRect(0, 0, TV_W, TV_H);
+    ctx.fillStyle = "#fff";
+    ctx.font = "700 28px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("A fatal exception 0E has occurred at 0028:C0011E36", 48, 110);
+    ctx.fillText("in VXD VMM(01) + 00010E36.", 48, 150);
+    ctx.fillText("The current application will be terminated.", 48, 210);
+    ctx.fillText("*  Press any key to restart the current application.", 48, 270);
+    ctx.fillText("*  Press CTRL+ALT+DEL to restart your computer.", 48, 310);
+    ctx.fillText("You will lose any unsaved information in all applications.", 48, 370);
+    ctx.textAlign = "center";
+    ctx.fillText("Press any key to continue _", TV_W / 2, 470);
+    if (performance.now() >= os.crash.until) os.crash = null;
+    return;
+  }
   ctx.fillStyle = K.desk;
   ctx.fillRect(0, 0, TV_W, TV_H);
   if (!f) return;
@@ -687,14 +902,20 @@ export function drawOs(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts | nul
     ctx.textAlign = "center";
     const w = ctx.measureText(label).width + 10;
     const cx = it.x + ICON / 2;
-    const ly = it.y + ICON + 6;
-    if (os.picked === i) {
+    const ly = it.y + ICON - 8;
+    if (os.picked.has(i)) {
       ctx.fillStyle = K.pick;
       ctx.fillRect(cx - w / 2, ly, w, 22);
     }
     ctx.fillStyle = K.titleText;
     ctx.fillText(label, cx, ly + 17);
   });
+  if (os.drag?.kind === "marquee" && os.marquee) {
+    const x = Math.min(os.drag.fromX, os.mx), y = Math.min(os.drag.fromY, os.my);
+    const w = Math.abs(os.mx - os.drag.fromX), h = Math.abs(os.my - os.drag.fromY);
+    ctx.fillStyle = "rgba(0,10,123,0.18)"; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w, h);
+  }
   const front = top();
   for (const w of os.wins) if (!w.min) drawWin(ctx, lang, f, w, w === front);
   drawBar(ctx, lang, f);
@@ -774,6 +995,33 @@ function target(x: number, y: number, lang: Lang): null | (() => void) {
         prog.down?.(x, y, b);
       };
     }
+    if (w.app === "recycle") {
+      if (!inside(b, x, y)) return w === top() ? null : () => focus(w);
+      return () => {
+        focus(w);
+        if (os.trashPrompt) {
+          const p: Rect = { x: b.x + 40, y: b.y + 90, w: b.w - 80, h: 190 };
+          const ok: Rect = { x: p.x + p.w - 210, y: p.y + p.h - 40, w: 90, h: 28 };
+          const cancel: Rect = { x: p.x + p.w - 110, y: p.y + p.h - 40, w: 90, h: 28 };
+          if (inside(ok, x, y)) {
+            const val = Number(os.trashPrompt.input.trim());
+            if (val === os.trashPrompt.a) { os.trashPrompt = null; os.deleting = { start: performance.now(), until: performance.now() + 2400 }; blip(520, 0.06); }
+            else { os.trashPrompt.err = true; os.trashPrompt.input = ""; blip(120, 0.1); }
+          } else if (inside(cancel, x, y)) os.trashPrompt = null;
+          return;
+        }
+        const act = recycleActionAt(x, y, b);
+        if (act === "restore") return restoreTrash();
+        if (act === "empty") {
+          if (os.trash.length) os.trashPrompt = { ...makeEquation(), input: "", err: false };
+          return;
+        }
+        const row = recycleRowAt(x, y, b);
+        os.trashSel = row;
+        if (row >= 0 && os.lastDown.i === row + 10000 && performance.now() - os.lastDown.at < 480) { os.lastDown.i = -1; restoreTrash(row); }
+        else if (row >= 0) os.lastDown = { i: row + 10000, at: performance.now() };
+      };
+    }
     if (w.app === "calc") {
       const i = CALC_KEYS.findIndex((key, k) => key && inside(calcKeyRect(b, k), x, y));
       if (i >= 0)
@@ -798,24 +1046,26 @@ function target(x: number, y: number, lang: Lang): null | (() => void) {
   }
   const i = os.icons.findIndex((it) => inside(iconRect(it), x, y));
   if (i >= 0)
-    return     () => {
+    return () => {
       const it = os.icons[i];
       const now = performance.now();
-      // touch already spends its first tap on the tooltip, so the second one opens the icon
       if (useRoom.getState().input === "touch") {
         os.lastDown.i = -1;
         return launch(it.app);
       }
-      // a second press soon after the first opens it; a single press picks it up
       if (os.lastDown.i === i && now - os.lastDown.at < 480) {
         os.lastDown.i = -1;
         return launch(it.app);
       }
       os.lastDown = { i, at: now };
-      os.picked = i;
+      if (!os.picked.has(i)) { os.picked.clear(); os.picked.add(i); }
       os.drag = { kind: "icon", i, dx: x - it.x, dy: y - it.y, moved: false, fromX: x, fromY: y };
       blip(520, 0.04);
     };
+  if (y < TV_H - BAR) return () => {
+    os.picked.clear();
+    os.drag = { kind: "marquee", fromX: x, fromY: y, base: new Set() };
+  };
   return null;
 }
 
@@ -827,7 +1077,24 @@ export function osPointer(x: number, y: number, kind: "move" | "down" | "up", la
   os.mx = x;
   os.my = y;
   if (kind === "up") {
-    if (os.drag?.kind === "app" && isExtra(os.drag.win.app)) EXTRA[os.drag.win.app].up?.();
+    const d = os.drag;
+    if (d?.kind === "app" && isExtra(d.win.app)) EXTRA[d.win.app].up?.();
+    if (d?.kind === "icon" && d.moved) {
+      const cx = os.icons[d.i].x + ICON / 2, cy = os.icons[d.i].y + ICON / 2;
+      const bin = os.icons.find((it) => it.app === "recycle");
+      if (bin && inside(iconRect(bin), cx, cy)) {
+        const moving = [...os.picked].sort((a, b) => b - a);
+        for (const idx of moving) {
+          const it = os.icons[idx];
+          if (it.app === "recycle") continue;
+          os.trash.push({ id: os.nextTrash++, app: it.app, label: NAMES[it.app].icon, x: it.x, y: it.y });
+          os.icons.splice(idx, 1);
+        }
+        os.picked.clear();
+        blip(220, 0.08);
+      }
+    }
+    if (d?.kind === "marquee") os.marquee = null;
     os.drag = null;
     pressedKey = -1;
     return target(x, y, lang) !== null;
@@ -841,12 +1108,25 @@ export function osPointer(x: number, y: number, kind: "move" | "down" | "up", la
       // it can be pushed part way off the screen, but its title bar stays within reach
       d.win.x = clamp(x - d.dx, 60 - d.win.w, TV_W - 60);
       d.win.y = clamp(y - d.dy, 0, TV_H - BAR - TITLE - EDGE);
+    } else if (d.kind === "marquee") {
+      os.marquee = { x, y };
+      const r: Rect = { x: Math.min(d.fromX, x), y: Math.min(d.fromY, y), w: Math.abs(x - d.fromX), h: Math.abs(y - d.fromY) };
+      os.picked = new Set(os.icons.flatMap((it, i) => (inside(r, it.x + ICON / 2, it.y + ICON / 2) ? [i] : [])));
+      return true;
     } else {
       if (!d.moved && Math.hypot(x - d.fromX, y - d.fromY) < 6) return true;
+      const first = !d.moved;
       d.moved = true;
       const it = os.icons[d.i];
-      it.x = clamp(x - d.dx, 4, TV_W - ICON - 4);
-      it.y = clamp(y - d.dy, 4, TV_H - BAR - ICON - 30);
+      const nx = clamp(x - d.dx, 4, TV_W - ICON - 4);
+      const ny = clamp(y - d.dy, 4, TV_H - BAR - ICON - 30);
+      const dx = nx - it.x, dy = ny - it.y;
+      if (first && !os.picked.has(d.i)) { os.picked.clear(); os.picked.add(d.i); }
+      for (const idx of os.picked) {
+        const ic = os.icons[idx];
+        ic.x = clamp(ic.x + dx, 4, TV_W - ICON - 4);
+        ic.y = clamp(ic.y + dy, 4, TV_H - BAR - ICON - 30);
+      }
     }
     return true;
   }
@@ -856,7 +1136,7 @@ export function osPointer(x: number, y: number, kind: "move" | "down" | "up", la
     if (act) act();
     else {
       // a press on the bare desktop lets go of whatever was picked
-      os.picked = null;
+      os.picked.clear();
     }
     // a press anywhere but the menu and its button puts the menu away
     if (os.menu && !inside(menuRect(), x, y) && !inside(START, x, y)) os.menu = false;
@@ -878,6 +1158,22 @@ export function osPointerOut() {
 export function osKey(e: KeyboardEvent, lang: Lang): boolean {
   const k = e.key;
   void lang;
+  if (os.crash) { os.crash = null; return true; }
+  if (os.deleting) return true;
+  if (os.trashPrompt) {
+    if (k === "Escape") { os.trashPrompt = null; return true; }
+    if (k === "Enter" || e.code === "NumpadEnter") {
+      const val = Number(os.trashPrompt.input.trim());
+      if (val === os.trashPrompt.a) { os.trashPrompt = null; os.deleting = { start: performance.now(), until: performance.now() + 2400 }; blip(520, 0.06); }
+      else { os.trashPrompt.err = true; os.trashPrompt.input = ""; blip(120, 0.1); }
+      return true;
+    }
+    if (k === "Backspace") { os.trashPrompt.input = os.trashPrompt.input.slice(0, -1); return true; }
+    const digit = /^[0-9]$/.test(k) ? k : /^Numpad[0-9]$/.test(e.code) ? e.code.slice(6) : /^Digit[0-9]$/.test(e.code) ? e.code.slice(5) : "";
+    if (digit && os.trashPrompt.input.length < 12) { os.trashPrompt.input += digit; return true; }
+    if ((k === "-" || k === "Subtract" || e.code === "Minus" || e.code === "NumpadSubtract") && os.trashPrompt.input.length < 12 && !os.trashPrompt.input.startsWith("-")) { os.trashPrompt.input = "-" + os.trashPrompt.input; return true; }
+    return true;
+  }
   if (k === "Escape") {
     osBack();
     return true;
@@ -894,8 +1190,15 @@ export function osKey(e: KeyboardEvent, lang: Lang): boolean {
   }
   const w = top();
   if (w && isExtra(w.app)) return EXTRA[w.app].key?.(e) ?? false;
+  if (w?.app === "recycle") {
+    if (k === "Delete" && os.trash.length) { os.trashPrompt = { ...makeEquation(), input: "", err: false }; return true; }
+    if ((k === "Enter" || k === "r") && os.trashSel >= 0) { restoreTrash(); return true; }
+    if (k === "ArrowDown") { os.trashSel = Math.min(os.trash.length - 1, os.trashSel + 1); return true; }
+    if (k === "ArrowUp") { os.trashSel = Math.max(0, os.trashSel - 1); return true; }
+    return false;
+  }
   if (w?.app === "calc") {
-    const key = /^[0-9.+\-*/=]$/.test(k) ? k : k === "Enter" ? "=" : k === "Backspace" ? "←" : k === "Delete" || k.toLowerCase() === "c" ? "C" : k === "," ? "." : "";
+    const key = /^[0-9.+\-*/=]$/.test(k) ? k : k === "Enter" ? "=" : k === "Backspace" ? "⌫" : k === "Delete" || k.toLowerCase() === "c" ? "C" : k === "," ? "." : "";
     if (!key) return false;
     calcPress(key);
     return true;
@@ -912,9 +1215,9 @@ export function osKey(e: KeyboardEvent, lang: Lang): boolean {
   }
   // nothing open: the keys walk the icons on the desktop
   const n = os.icons.length;
-  const at = os.picked ?? -1;
-  if (k === "ArrowDown" || k === "ArrowRight" || k === "Tab") os.picked = (at + 1) % n;
-  else if (k === "ArrowUp" || k === "ArrowLeft") os.picked = (at + n - 1 + (at < 0 ? 1 : 0)) % n;
+  const at = os.picked.size === 1 ? [...os.picked][0] : -1;
+  if (k === "ArrowDown" || k === "ArrowRight" || k === "Tab") { os.picked.clear(); os.picked.add((at + 1) % n); }
+  else if (k === "ArrowUp" || k === "ArrowLeft") { os.picked.clear(); os.picked.add((at + n - 1 + (at < 0 ? 1 : 0)) % n); }
   else if (k === "Enter" && at >= 0) {
     launch(os.icons[at].app);
     return true;
@@ -927,7 +1230,7 @@ export function osKey(e: KeyboardEvent, lang: Lang): boolean {
 export function osText(lang: Lang): string {
   const open = os.wins.map((w) => NAMES[w.app].title[lang]);
   const programs = APPS.map((a) => NAMES[a].icon[lang]).join(", ");
-  return `KAMAR 3.1. ${programs}.${open.length ? ` ${open.join(", ")}.` : ""}`;
+  return `DawnOS 3.1. ${programs}.${open.length ? ` ${open.join(", ")}.` : ""}`;
 }
 
 /** Whether the typing test is the front window: the camera draws back to show the keyboard. */

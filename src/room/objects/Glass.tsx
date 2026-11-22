@@ -9,7 +9,7 @@ import { useCanvasTexture } from "../textures";
  * sheen across the pane, soft slanted streaks of reflection, and the glass itself, which only
  * shows as what it mirrors. `w` and `h` are the opening, `z` is the paper's depth.
  */
-export function Glass({ w, h, z }: { w: number; h: number; z: number }) {
+export function Glass({ w, h, z, opacity = 0.035, glare: glareOpacity = 0.45, shade: shadeOpacity = 1 }: { w: number; h: number; z: number; opacity?: number; glare?: number; shade?: number }) {
   const px = 512;
   const py = Math.round((px * h) / w);
   const shade = useCanvasTexture(
@@ -60,16 +60,16 @@ export function Glass({ w, h, z }: { w: number; h: number; z: number }) {
     <>
       <mesh position={[0, 0, z]}>
         <planeGeometry args={[w, h]} />
-        <meshBasicMaterial map={shade} transparent depthWrite={false} />
+        <meshBasicMaterial map={shade} transparent opacity={shadeOpacity} depthWrite={false} />
       </mesh>
       {/* the pane, a hair in front: clear, and polished enough to mirror the room */}
       <mesh position={[0, 0, z + 0.006]}>
         <planeGeometry args={[w, h]} />
-        <meshPhysicalMaterial color="#f4fbfc" transparent opacity={0.035} roughness={0.01} metalness={0} clearcoat={1} clearcoatRoughness={0.015} envMapIntensity={1.1} depthWrite={false} />
+        <meshPhysicalMaterial color="#f4fbfc" transparent opacity={opacity} roughness={0.01} metalness={0} clearcoat={1} clearcoatRoughness={0.015} envMapIntensity={1.1} depthWrite={false} />
       </mesh>
       <mesh position={[0, 0, z + 0.007]}>
         <planeGeometry args={[w, h]} />
-        <meshBasicMaterial map={glare} transparent opacity={0.45} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+        <meshBasicMaterial map={glare} transparent opacity={glareOpacity} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
     </>
   );

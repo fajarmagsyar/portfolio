@@ -7,6 +7,7 @@ import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { Interactive } from "../Interactive";
 import { POS, WALL_Z } from "../layout";
+import { useRoom } from "../store";
 import { Clock } from "./Clock";
 import { Model } from "./Props";
 
@@ -55,7 +56,24 @@ export function Furniture() {
       <pointLight ref={flame} position={FLAME} color="#ffb060" distance={3.2} decay={1.8} />
       {/* and a clock on the back wall beside the window, where a glance from the desk finds it. Both clocks keep the real time. */}
       <Interactive target="clock" position={POS.clock}>
-        <Clock scale={0.8} />
+        <group
+          onPointerMove={(e) => {
+            if (useRoom.getState().focus !== "clock") return;
+            e.stopPropagation();
+            document.body.style.cursor = "crosshair";
+          }}
+          onPointerOut={() => {
+            if (document.body.style.cursor === "crosshair") document.body.style.cursor = "";
+          }}
+          onClick={(e) => {
+            const s = useRoom.getState();
+            if (s.focus !== "clock") return;
+            e.stopPropagation();
+            s.nudgeClock();
+          }}
+        >
+          <Clock scale={0.8} />
+        </group>
       </Interactive>
     </group>
   );

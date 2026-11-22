@@ -33,6 +33,7 @@ function restAngle(hand: THREE.Object3D) {
 /** A wall clock showing the time it really is. */
 export function Clock(props: ThreeElements["group"]) {
   const scene = useClone(CLOCK);
+  const root = useRef<THREE.Group>(null);
   // once the lettering can be drawn, every part of the clock that uses the dial's picture is given the renamed one
   const hands = useMemo(() => {
     const find = (name: string) => {
@@ -49,8 +50,9 @@ export function Clock(props: ThreeElements["group"]) {
     const s = sec + now.getMilliseconds() / 1000;
     const m = now.getMinutes() + s / 60;
     const h = (now.getHours() % 12) + m / 60;
+    const rs = useRoom.getState();
     if (last.current !== sec) {
-      if (last.current !== -1 && useRoom.getState().sound) tick(sec);
+      if (last.current !== -1 && rs.sound && !rs.clockMuted) tick(sec);
       last.current = sec;
     }
     // twelve o'clock is straight up, and the hands go round clockwise
@@ -63,10 +65,16 @@ export function Clock(props: ThreeElements["group"]) {
     const whole = Math.floor(s);
     const landing = Math.min(1, (s - whole) / 0.12);
     point(hands.seconds, (whole + landing + Math.sin(landing * Math.PI) * 0.12 - 1) / 60);
+    if (root.current) {
+      const t = (performance.now() - rs.clockNudge) / 1000;
+      const nudge = t >= 0 && t < 0.45 ? Math.sin(t * Math.PI * 7) * Math.exp(-t * 9) * 0.045 : 0;
+      root.current.rotation.z = nudge;
+      root.current.position.x = nudge * 0.12;
+    }
   });
 
   return (
-    <group {...props}>
+    <group ref={root} {...props}>
       <primitive object={scene} />
     </group>
   );

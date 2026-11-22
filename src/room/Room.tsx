@@ -17,7 +17,7 @@ import { CdPlayer, CdStack } from "./objects/Cds";
 import { Guitar } from "./objects/Guitar";
 import { finderCam, stepFinderCam } from "./finderCam";
 import { guitarView } from "./guitarView";
-import { Frames, Notes } from "./objects/Paper";
+import { Frames, Notes, framePhotoView } from "./objects/Paper";
 import { ContactPack } from "./objects/ContactPack";
 import { Receipt } from "./objects/Receipt";
 import { receiptRange } from "./receipt";
@@ -190,6 +190,7 @@ function CameraRig() {
   const focus = useRoom((s) => s.focus);
   const booted = useRoom((s) => s.booted);
   const zoomed = useRoom((s) => s.zoomed);
+  const frameZoom = useRoom((s) => s.frameZoom);
   // the view stays on a CD that has been put back until its case has shut
   const cdOut = useRoom((s) => s.selectedCd !== null || s.cdOpen !== null);
   const finder = useRoom((s) => s.finder);
@@ -201,7 +202,7 @@ function CameraRig() {
   const hand = useRef({ yaw: 0, pitch: 0, zoom: 1 });
   useOrbitInput();
   // every view starts square on; what was dialled in for the last one is dropped
-  useEffect(() => resetOrbit(), [focus, booted, zoomed, finder, tapeOpen]);
+  useEffect(() => resetOrbit(), [focus, booted, zoomed, frameZoom, finder, tapeOpen]);
 
   useFrame((state, dt) => {
     glideOrbit(dt, orbitLimits());
@@ -214,7 +215,7 @@ function CameraRig() {
     const playing = booted && focus === "guitar" ? guitarView(aspect) : null;
     // through the Canonet's viewfinder: the room as it is seen from the chair
     const peeking = booted && focus === "canonet" && finder;
-    const view = !booted ? ENTER_VIEW : peeking ? HOME_VIEW : playing ? playing : focus === "album" && zoomed !== null ? albumPhotoView(zoomed) : focus === "cds" && cdOut ? CD_OPEN_VIEW : focus === "tv" && typingFront() ? TYPING_VIEW : focus ? VIEWS[focus] : HOME_VIEW;
+    const view = !booted ? ENTER_VIEW : peeking ? HOME_VIEW : playing ? playing : focus === "album" && zoomed !== null ? albumPhotoView(zoomed) : focus === "frames" && frameZoom ? framePhotoView(frameZoom) : focus === "cds" && cdOut ? CD_OPEN_VIEW : focus === "tv" && typingFront() ? TYPING_VIEW : focus ? VIEWS[focus] : HOME_VIEW;
     tmpLook.set(...view.look);
     tmpPos.set(...view.pos);
     tmpUp.set(...(playing ? playing.up : LEVEL));
@@ -283,7 +284,7 @@ function CameraRig() {
     const inlay = focus === "tapes" && tapeOpen && aspect > 1.05;
     // slide the picture left while a side panel is open (the TV takes the whole screen instead)
     // nor for the Discman, the planet lamp, the guitar or the card pack, which have no panel: their controls are in the room
-    const goal = inlay ? 0.14 : focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && zoomed === null ? 0.19 : 0;
+    const goal = inlay ? 0.14 : focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && zoomed === null ? 0.19 : 0;
     shift.current += (goal - shift.current) * (1 - Math.exp(-dt * 3.2));
     if (Math.abs(shift.current) > 0.0005) camera.setViewOffset(size.width, size.height, shift.current * size.width, 0, size.width, size.height);
     else camera.clearViewOffset();

@@ -11,48 +11,53 @@ import { bevel, button, clamp, inside, K, type Program, type Rect } from "./os-k
 // a paintbrush, a clock) and three games (mines, a snake, noughts and crosses). Each keeps
 // its own state here and paints itself into the window it is given.
 
-export type ExtraId = "term" | "notes" | "paint" | "clock" | "mines" | "snake" | "ttt" | "typing";
+export type ExtraId = "term" | "notes" | "paint" | "clock" | "mines" | "snake" | "galaga" | "ttt" | "typing";
 
 type Names = { icon: Record<Lang, string>; title: Record<Lang, string>; menus: Record<Lang, string[]> };
 export const EXTRA_NAMES: Record<ExtraId, Names> = {
   term: {
     icon: { id: "Prompt", en: "Prompt" },
-    title: { id: "Prompt Perintah", en: "Command Prompt" },
+    title: { id: "Command Prompt", en: "Command Prompt" },
     menus: { id: [], en: [] },
   },
   notes: {
-    icon: { id: "Catatan", en: "Notepad" },
-    title: { id: "Catatan - (TANPA JUDUL)", en: "Notepad - (UNTITLED)" },
+    icon: { id: "Notepad", en: "Notepad" },
+    title: { id: "Notepad - (TANPA JUDUL)", en: "Notepad - (UNTITLED)" },
     menus: { id: ["Berkas", "Sunting", "Bantuan"], en: ["File", "Edit", "Help"] },
   },
   paint: {
-    icon: { id: "Kuas", en: "Paintbrush" },
-    title: { id: "Kuas - (TANPA JUDUL)", en: "Paintbrush - (UNTITLED)" },
+    icon: { id: "Paint", en: "Paint" },
+    title: { id: "Paint - (TANPA JUDUL)", en: "Paint - (UNTITLED)" },
     menus: { id: ["Berkas", "Sunting", "Bantuan"], en: ["File", "Edit", "Help"] },
   },
   clock: {
-    icon: { id: "Jam", en: "Clock" },
-    title: { id: "Jam", en: "Clock" },
+    icon: { id: "Clock", en: "Clock" },
+    title: { id: "Clock", en: "Clock" },
     menus: { id: ["Setelan"], en: ["Settings"] },
   },
   mines: {
-    icon: { id: "Ranjau", en: "Mines" },
-    title: { id: "Ranjau", en: "Mines" },
+    icon: { id: "Minesweeper", en: "Minesweeper" },
+    title: { id: "Minesweeper", en: "Minesweeper" },
     menus: { id: ["Permainan", "Bantuan"], en: ["Game", "Help"] },
   },
   snake: {
-    icon: { id: "Ular", en: "Snake" },
-    title: { id: "Ular", en: "Snake" },
+    icon: { id: "Snake", en: "Snake" },
+    title: { id: "Snake", en: "Snake" },
+    menus: { id: ["Permainan", "Bantuan"], en: ["Game", "Help"] },
+  },
+  galaga: {
+    icon: { id: "Galaga", en: "Galaga" },
+    title: { id: "Galaga", en: "Galaga" },
     menus: { id: ["Permainan", "Bantuan"], en: ["Game", "Help"] },
   },
   ttt: {
-    icon: { id: "Tiga Sejajar", en: "Noughts" },
-    title: { id: "Tiga Sejajar", en: "Noughts & Crosses" },
+    icon: { id: "Tic Tac Toe", en: "Tic Tac Toe" },
+    title: { id: "Tic Tac Toe", en: "Tic Tac Toe" },
     menus: { id: ["Permainan", "Bantuan"], en: ["Game", "Help"] },
   },
   typing: {
-    icon: { id: "Ketik", en: "Typing" },
-    title: { id: "Kecepatan Mengetik", en: "Typing Speed" },
+    icon: { id: "Lomba Ketik", en: "Typing Race" },
+    title: { id: "Lomba Ketik", en: "Typing Race" },
     menus: { id: [], en: [] },
   },
 };
@@ -120,6 +125,16 @@ export const EXTRA_ICONS: Record<ExtraId, (p: Brush) => void> = {
     p(10, 3, 1, 1, "#000");
     p(12, 11, 3, 3, "#d8362a");
     p(13, 10, 1, 1, "#2f8f4a");
+  },
+  galaga: (p) => {
+    p(7, 2, 2, 2, "#f7efe0");
+    p(6, 4, 4, 2, "#2f8f4a");
+    p(5, 6, 6, 2, "#2f8f4a");
+    p(7, 8, 2, 2, "#f0b45c");
+    p(2, 10, 2, 2, "#d8362a");
+    p(7, 11, 2, 2, "#d8362a");
+    p(12, 10, 2, 2, "#d8362a");
+    p(7, 13, 2, 2, "#8fe8f0");
   },
   // the grid, with a nought and a cross
   ttt: (p) => {
@@ -541,9 +556,9 @@ function newRun() {
 function step() {
   run.dir = run.next;
   const [hx, hy] = run.body[0];
-  const head: [number, number] = [hx + run.dir[0], hy + run.dir[1]];
-  // the walls and its own tail both end the run
-  if (head[0] < 0 || head[0] >= COLS || head[1] < 0 || head[1] >= ROWS || run.body.some(([x, y]) => x === head[0] && y === head[1])) {
+  const head: [number, number] = [(hx + run.dir[0] + COLS) % COLS, (hy + run.dir[1] + ROWS) % ROWS];
+  // only its own tail ends the run; borders wrap
+  if (run.body.some(([x, y]) => x === head[0] && y === head[1])) {
     run.state = "over";
     run.best = Math.max(run.best, run.score);
     return blip(140, 0.25);
@@ -616,6 +631,111 @@ const snake: Program = {
     return true;
   },
 };
+
+/* ---------- Galaga ---------- */
+
+type Alien = { x: number; y: number; alive: boolean; kind: number };
+type Shot = { x: number; y: number; vy: number };
+const G = { w: 320, h: 280, cols: 8, rows: 4 };
+const ga = {
+  state: "ready" as "ready" | "on" | "over" | "won",
+  ship: G.w / 2,
+  left: false,
+  right: false,
+  fire: false,
+  shots: [] as Shot[],
+  enemyShots: [] as Shot[],
+  aliens: [] as Alien[],
+  dir: 1,
+  stepAt: 0,
+  fireAt: 0,
+  score: 0,
+  best: 0,
+  lives: 3,
+};
+function newGalaga() {
+  ga.aliens = [];
+  for (let r = 0; r < G.rows; r++) for (let c = 0; c < G.cols; c++) ga.aliens.push({ x: 34 + c * 32, y: 38 + r * 28, alive: true, kind: r < 1 ? 2 : r < 2 ? 1 : 0 });
+  ga.ship = G.w / 2; ga.shots = []; ga.enemyShots = []; ga.dir = 1; ga.stepAt = performance.now(); ga.fireAt = 0; ga.score = 0; ga.lives = 3; ga.state = "on"; ga.left = ga.right = ga.fire = false;
+}
+function galagaStep() {
+  const now = performance.now();
+  const alive = ga.aliens.filter((a) => a.alive);
+  if (!alive.length) { ga.state = "won"; ga.best = Math.max(ga.best, ga.score); return blip(880, 0.2); }
+  const speed = 2.2 + (1 - alive.length / (G.cols * G.rows)) * 2.6;
+  if (ga.left) ga.ship = clamp(ga.ship - speed * 2.2, 18, G.w - 18);
+  if (ga.right) ga.ship = clamp(ga.ship + speed * 2.2, 18, G.w - 18);
+  if (ga.fire && now - ga.fireAt > 260) { ga.shots.push({ x: ga.ship, y: G.h - 34, vy: -6.5 }); ga.fireAt = now; beep(900); }
+  ga.shots.forEach((s) => (s.y += s.vy));
+  ga.enemyShots.forEach((s) => (s.y += s.vy));
+  ga.shots = ga.shots.filter((s) => s.y > -10);
+  ga.enemyShots = ga.enemyShots.filter((s) => s.y < G.h + 10);
+  if (now - ga.stepAt > Math.max(120, 520 - (G.cols * G.rows - alive.length) * 12)) {
+    ga.stepAt = now;
+    const edge = alive.some((a) => (ga.dir > 0 ? a.x > G.w - 24 : a.x < 24));
+    if (edge) { ga.dir *= -1; ga.aliens.forEach((a) => { if (a.alive) a.y += 12; }); }
+    else ga.aliens.forEach((a) => { if (a.alive) a.x += ga.dir * 10; });
+    if (Math.random() < 0.45) {
+      const shooter = alive[Math.floor(Math.random() * alive.length)];
+      ga.enemyShots.push({ x: shooter.x, y: shooter.y + 10, vy: 3.2 + Math.random() * 1.5 });
+    }
+  }
+  for (const s of ga.shots) for (const a of ga.aliens) {
+    if (!a.alive || Math.abs(s.x - a.x) > 11 || Math.abs(s.y - a.y) > 9) continue;
+    a.alive = false; s.y = -999; ga.score += a.kind === 2 ? 150 : a.kind === 1 ? 100 : 80; beep(520); break;
+  }
+  for (const s of ga.enemyShots) if (Math.abs(s.x - ga.ship) < 12 && Math.abs(s.y - (G.h - 20)) < 10) {
+    s.y = 999; ga.lives--; blip(160, 0.18);
+    if (ga.lives <= 0) { ga.state = "over"; ga.best = Math.max(ga.best, ga.score); }
+  }
+  if (alive.some((a) => a.y > G.h - 44)) { ga.state = "over"; ga.best = Math.max(ga.best, ga.score); blip(140, 0.25); }
+}
+const galaga: Program = {
+  size: [420, 390],
+  draw(ctx, f, b, lang, front) {
+    ctx.fillStyle = K.frame; ctx.fillRect(b.x, b.y, b.w, b.h);
+    const cellW = Math.floor((b.w - 20) / G.w * G.w);
+    const scale = (b.w - 20) / G.w;
+    const g: Rect = { x: b.x + 10, y: b.y + 34, w: G.w * scale, h: G.h * scale };
+    ctx.font = `700 16px ${f.body}`; ctx.textAlign = "left"; ctx.fillStyle = K.ink;
+    ctx.fillText(`${lang === "id" ? "Skor" : "Score"} ${ga.score}`, g.x, b.y + 23);
+    ctx.textAlign = "right"; ctx.fillText(`${lang === "id" ? "Nyawa" : "Lives"} ${ga.lives}   Best ${ga.best}`, g.x + g.w, b.y + 23);
+    if (ga.state === "on" && front) galagaStep(); else ga.stepAt = performance.now();
+    ctx.fillStyle = "#050816"; ctx.fillRect(g.x, g.y, g.w, g.h);
+    ctx.save(); ctx.translate(g.x, g.y); ctx.scale(scale, scale);
+    ctx.fillStyle = "rgba(255,255,255,0.5)"; for (let i = 0; i < 40; i++) ctx.fillRect((i * 53) % G.w, (i * 97 + Math.floor(performance.now()/40)) % G.h, 2, 2);
+    ga.aliens.forEach((a) => { if (!a.alive) return; ctx.fillStyle = a.kind === 2 ? "#8fe8f0" : a.kind === 1 ? "#f0b45c" : "#d8362a"; ctx.fillRect(a.x - 10, a.y - 7, 20, 14); ctx.fillStyle = "#fff"; ctx.fillRect(a.x - 4, a.y - 2, 2, 2); ctx.fillRect(a.x + 2, a.y - 2, 2, 2); });
+    ctx.fillStyle = "#f7efe0"; ctx.fillRect(ga.ship - 12, G.h - 24, 24, 8); ctx.fillRect(ga.ship - 3, G.h - 32, 6, 8);
+    ctx.fillStyle = "#8fe8f0"; ga.shots.forEach((s) => ctx.fillRect(s.x - 2, s.y - 8, 4, 10));
+    ctx.fillStyle = "#ff8a7a"; ga.enemyShots.forEach((s) => ctx.fillRect(s.x - 2, s.y, 4, 10));
+    ctx.restore();
+    if (ga.state !== "on") {
+      ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(g.x, g.y, g.w, g.h);
+      ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.font = `700 22px ${f.body}`;
+      const msg = ga.state === "won" ? (lang === "id" ? "Menang!" : "You win!") : ga.state === "over" ? (lang === "id" ? "Selesai!" : "Game over!") : "Galaga";
+      ctx.fillText(msg, g.x + g.w / 2, g.y + g.h / 2 - 8);
+      ctx.font = `700 15px ${f.body}`; ctx.fillText(lang === "id" ? "Enter mulai • panah gerak • Spasi tembak" : "Enter start • arrows move • Space fire", g.x + g.w / 2, g.y + g.h / 2 + 20);
+    }
+    void cellW;
+  },
+  down() { if (ga.state !== "on") newGalaga(); },
+  key(e) {
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    if (ga.state !== "on") { if (k === "Enter" || k === " ") { newGalaga(); return true; } return false; }
+    if (k === "ArrowLeft" || k === "a") { ga.left = true; return true; }
+    if (k === "ArrowRight" || k === "d") { ga.right = true; return true; }
+    if (k === " " || k === "Spacebar") { ga.fire = true; return true; }
+    return false;
+  },
+  up() { ga.left = ga.right = ga.fire = false; },
+};
+const galagaKeyUp = (e: KeyboardEvent) => {
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (k === "ArrowLeft" || k === "a") ga.left = false;
+  if (k === "ArrowRight" || k === "d") ga.right = false;
+  if (k === " " || k === "Spacebar") ga.fire = false;
+};
+if (typeof window !== "undefined") window.addEventListener("keyup", galagaKeyUp);
 
 /* ---------- Noughts and crosses, against the machine ---------- */
 
@@ -1118,4 +1238,4 @@ const typing: Program = {
   },
 };
 
-export const EXTRA: Record<ExtraId, Program> = { term, notes, paint, clock, mines, snake, ttt, typing };
+export const EXTRA: Record<ExtraId, Program> = { term, notes, paint, clock, mines, snake, galaga, ttt, typing };

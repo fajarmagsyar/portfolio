@@ -7,7 +7,7 @@ import type { StringKey } from "@/content/strings";
 import type { PlanetId } from "./planets";
 
 export type FocusId = "tv" | "tapes" | "cds" | "cd" | "guitar" | "frames" | "notes" | "cards" | "canonet" | "album" | "saturn" | "dice" | "receipt" | "clock" | "portrait";
-export type TvScreen = "menu" | "memory" | "game" | "about";
+export type TvScreen = "menu" | "memory" | "about";
 /** A tooltip raised by the first tap on a touch screen, waiting for the second one. */
 export type TapTip = { id: string; text: StringKey; x: number; y: number };
 
@@ -93,10 +93,17 @@ type RoomState = {
   albumTurned: number;
   /** index of the album photo the camera has moved in on */
   zoomed: number | null;
+  /** which framed document the camera has moved in on */
+  frameZoom: "cert" | "degree" | null;
+  /** clock nudge animation timestamp */
+  clockNudge: number;
+  /** mute clock ticking */
+  clockMuted: boolean;
   /** which planet the globe of the Saturn lamp is showing */
   planet: PlanetId;
   setPlanet: (planet: PlanetId) => void;
   setBooted: () => void;
+  shutdown: () => void;
   setFocus: (focus: FocusId | null) => void;
   setHover: (hover: FocusId | null) => void;
   setTip: (tip: StringKey | null) => void;
@@ -106,6 +113,8 @@ type RoomState = {
   markPluck: (string: number, at: number) => void;
   setAlbumTurned: (n: number) => void;
   setZoomed: (z: number | null) => void;
+  setFrameZoom: (z: "cert" | "degree" | null) => void;
+  nudgeClock: () => void;
 };
 
 const SHOT_KEY = "canonet-shot";
@@ -163,6 +172,7 @@ export const useRoom = create<RoomState>((set) => ({
   setCdOpen: (cdOpen) => set({ cdOpen }),
   plucks: [-10, -10, -10, -10, -10, -10],
   setBooted: () => set({ booted: true, tapTip: null }),
+  shutdown: () => set({ booted: false, focus: null, tvScreen: "menu", tapTip: null, tip: null, hover: null, finder: false, zoomed: null, frameZoom: null }),
   guitarMode: "lead",
   chords: savedChords(),
   slot: 5,
@@ -204,11 +214,16 @@ export const useRoom = create<RoomState>((set) => ({
     })),
   albumTurned: 0,
   zoomed: null,
+  frameZoom: null,
+  clockNudge: 0,
+  clockMuted: false,
   planet: "venus",
   setPlanet: (planet) => set({ planet }),
-  setFocus: (focus) => set({ focus, hover: null, tip: null, tapTip: null, tvScreen: "menu", zoomed: null, selectedCd: null, selectedTape: null, finder: false }),
+  setFocus: (focus) => set((s) => ({ focus, hover: null, tip: null, tapTip: null, tvScreen: focus === "tv" ? "menu" : s.tvScreen, zoomed: null, frameZoom: null, selectedCd: null, selectedTape: null, finder: false })),
   setAlbumTurned: (albumTurned) => set({ albumTurned, tapTip: null }),
   setZoomed: (zoomed) => set({ zoomed, tapTip: null }),
+  setFrameZoom: (frameZoom) => set({ frameZoom, tapTip: null }),
+  nudgeClock: () => set((s) => ({ clockNudge: performance.now(), clockMuted: !s.clockMuted })),
   input: typeof window !== "undefined" && matchMedia("(pointer: coarse)").matches ? "touch" : "mouse",
   setInput: (input) => set((s) => (s.input === input ? s : { input, tapTip: s.input === input ? s.tapTip : null })),
   tapTip: null,

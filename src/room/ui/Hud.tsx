@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { asset } from "@/asset";
 import Link from "next/link";
@@ -8,7 +8,6 @@ import { click } from "@/audio/sfx";
 import { profile } from "@/content/data";
 import type { StringKey } from "@/content/strings";
 import { useLangStore, useT } from "@/state/lang";
-import { gameTouchKey } from "@/game/engine";
 import { finderCam, lookFinderCam, resetFinderCam } from "../finderCam";
 import { FOCUS_LABEL, useRoom } from "../store";
 import { holdCancel, holdMove, holdStart, tap, tapClick } from "../touch";
@@ -41,7 +40,7 @@ function HoverLabel() {
     el.style.transform = `translate(${x}px, ${y}px)`;
   }, [tapTip]);
   const label: StringKey | null = typeof showTip === "string" ? showTip : showTip?.text ?? null;
-  const lines = label ? (typeof showTip === "string" ? t(label).split(" — ")[0] : t(label)).split("\n") : [];
+  const lines = label ? (typeof showTip === "string" ? t(label).split(" â€” ")[0] : t(label)).split("\n") : [];
   return (
     <div ref={ref} className={s.hover} data-on={!!label} data-tap={!!tapTip} role="status" aria-live="polite">
       {/* a name; and for some things a few lines under it */}
@@ -302,12 +301,12 @@ function Viewfinder() {
         </p>
       )}
       {input === "touch" && (
-        <div className={s.pad} aria-label={t("game_touch")}>
+        <div className={s.pad} aria-label={t("finder_touch")}>
           <div className={s.padKeys}>
-            <PadKey id="finder-up" tip="finder_touch" className={s.padUp} label="▲" on={() => finderCam.keys.add("KeyE")} off={() => finderCam.keys.delete("KeyE")} />
-            <PadKey id="finder-left" tip="finder_touch" className={s.padLeft} label="◀" on={() => finderCam.keys.add("KeyA")} off={() => finderCam.keys.delete("KeyA")} />
-            <PadKey id="finder-down" tip="finder_touch" className={s.padDown} label="▼" on={() => finderCam.keys.add("KeyQ")} off={() => finderCam.keys.delete("KeyQ")} />
-            <PadKey id="finder-right" tip="finder_touch" className={s.padRight} label="▶" on={() => finderCam.keys.add("KeyD")} off={() => finderCam.keys.delete("KeyD")} />
+            <PadKey id="finder-up" tip="finder_touch" className={s.padUp} label="â–²" on={() => finderCam.keys.add("KeyE")} off={() => finderCam.keys.delete("KeyE")} />
+            <PadKey id="finder-left" tip="finder_touch" className={s.padLeft} label="â—€" on={() => finderCam.keys.add("KeyA")} off={() => finderCam.keys.delete("KeyA")} />
+            <PadKey id="finder-down" tip="finder_touch" className={s.padDown} label="â–¼" on={() => finderCam.keys.add("KeyQ")} off={() => finderCam.keys.delete("KeyQ")} />
+            <PadKey id="finder-right" tip="finder_touch" className={s.padRight} label="â–¶" on={() => finderCam.keys.add("KeyD")} off={() => finderCam.keys.delete("KeyD")} />
           </div>
           <div className={s.padActions}>
             <PadKey id="finder-walk" tip="finder_touch" label={t("walk")} on={() => finderCam.keys.add("KeyW")} off={() => finderCam.keys.delete("KeyW")} />
@@ -319,35 +318,13 @@ function Viewfinder() {
   );
 }
 
-/** The TV's little game has no keyboard on a phone: these keys go straight into its engine. */
-function GamePad() {
-  const t = useT();
-  useEffect(
-    () => () => {
-      for (const key of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) gameTouchKey(key, false);
-    },
-    [],
-  );
-  return (
-    <div className={`${s.pad} ${s.gamePad}`} aria-label={t("game_touch")}>
-      <div className={s.padKeys}>
-        <PadKey id="game-up" tip="game_move_touch" className={s.padUp} label="▲" on={() => gameTouchKey("ArrowUp", true)} off={() => gameTouchKey("ArrowUp", false)} />
-        <PadKey id="game-left" tip="game_move_touch" className={s.padLeft} label="◀" on={() => gameTouchKey("ArrowLeft", true)} off={() => gameTouchKey("ArrowLeft", false)} />
-        <PadKey id="game-down" tip="game_move_touch" className={s.padDown} label="▼" on={() => gameTouchKey("ArrowDown", true)} off={() => gameTouchKey("ArrowDown", false)} />
-        <PadKey id="game-right" tip="game_move_touch" className={s.padRight} label="▶" on={() => gameTouchKey("ArrowRight", true)} off={() => gameTouchKey("ArrowRight", false)} />
-      </div>
-      <PadKey id="game-action" tip="game_action_touch" className={s.padShutter} label="●" on={() => gameTouchKey("Enter", true)} off={() => gameTouchKey("Enter", false)} />
-    </div>
-  );
-}
-
 /** Everything drawn over the 3D room. Before the visitor has entered, that is only the name. */
 export function Hud() {
   const t = useT();
   const booted = useRoom((r) => r.booted);
   const focus = useRoom((r) => r.focus);
   const zoomed = useRoom((r) => r.zoomed !== null);
-  const tvScreen = useRoom((r) => r.tvScreen);
+  const frameZoom = useRoom((r) => r.frameZoom !== null);
   const input = useRoom((r) => r.input);
   const setFocus = useRoom((r) => r.setFocus);
   const finder = useRoom((r) => r.finder);
@@ -358,6 +335,7 @@ export function Hud() {
     const onKey = (e: KeyboardEvent) => {
       // close in on a photo, Escape steps back to the open album first
       if (e.key === "Escape" && useRoom.getState().zoomed !== null) return useRoom.getState().setZoomed(null);
+      if (e.key === "Escape" && useRoom.getState().frameZoom !== null) return useRoom.getState().setFrameZoom(null);
       // from the viewfinder, Escape takes the eye away from the camera first
       if (e.key === "Escape" && useRoom.getState().finder) return useRoom.getState().setFinder(false);
       // a CD that is out goes back in its place before the view leaves the shelf
@@ -382,17 +360,16 @@ export function Hud() {
       <HoverLabel />
 
       {focus === "tv" && <TvOverlay />}
-      {focus === "tv" && tvScreen === "game" && input === "touch" && <GamePad />}
       {focus === "guitar" && <ChordWheel />}
       {focus === "canonet" && finder && <Viewfinder />}
-      {focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && !zoomed && <SidePanel key={focus} focus={focus} />}
+      {focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && !zoomed && <SidePanel key={focus} focus={focus} />}
 
       <footer className={s.foot}>
         {!booted ? (
           <span />
         ) : focus ? (
-          <button className={s.leave} onClick={() => (focus === "tv" ? tvBack() : finder ? useRoom.getState().setFinder(false) : zoomed ? useRoom.getState().setZoomed(null) : setFocus(null))}>
-            ← {t("back")} {input === "mouse" && <kbd>Esc</kbd>}
+          <button className={s.leave} onClick={() => (focus === "tv" ? tvBack() : finder ? useRoom.getState().setFinder(false) : zoomed ? useRoom.getState().setZoomed(null) : frameZoom ? useRoom.getState().setFrameZoom(null) : setFocus(null))}>
+            â† {t("back")} {input === "mouse" && <kbd>Esc</kbd>}
           </button>
         ) : (
           <span />
@@ -432,3 +409,4 @@ export function Hud() {
     </div>
   );
 }
+
