@@ -1,9 +1,11 @@
 "use client";
 
 import { asset } from "@/asset";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useFrame, type ThreeElements } from "@react-three/fiber";
 import * as THREE from "three";
+import { tick } from "@/audio/sfx";
+import { useRoom } from "../store";
 import { useClone } from "./Guitar";
 
 // Poly Haven "Wall Clock" (CC0). Its three hands are separate pieces that turn about the
@@ -39,12 +41,18 @@ export function Clock(props: ThreeElements["group"]) {
     };
     return { hours: find("wall_clock_hours_hand"), minutes: find("wall_clock_minute_hand"), seconds: find("wall_clock_second_hand") };
   }, [scene]);
+  const last = useRef(-1);
 
   useFrame(() => {
     const now = new Date();
-    const s = now.getSeconds() + now.getMilliseconds() / 1000;
+    const sec = now.getSeconds();
+    const s = sec + now.getMilliseconds() / 1000;
     const m = now.getMinutes() + s / 60;
     const h = (now.getHours() % 12) + m / 60;
+    if (last.current !== sec) {
+      if (last.current !== -1 && useRoom.getState().sound) tick(sec);
+      last.current = sec;
+    }
     // twelve o'clock is straight up, and the hands go round clockwise
     const point = (part: typeof hands.hours, turn: number) => {
       if (part) part.hand.rotation.z = Math.PI / 2 - turn * Math.PI * 2 - part.rest;

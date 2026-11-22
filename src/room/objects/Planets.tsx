@@ -393,7 +393,7 @@ export function SaturnLamp() {
     t.pitch += ((held ? orbit.pitch : 0) - t.pitch) * (1 - Math.exp(-dt * 10));
     if (light.current) {
       // a slow breath, barely there
-      light.current.intensity = 0.85 + Math.sin(clock.elapsedTime * 0.7) * 0.04;
+      light.current.intensity = 0.42 + Math.sin(clock.elapsedTime * 0.7) * 0.02;
       light.current.color.lerp(lightColour, 1 - Math.exp(-dt * 4));
     }
   });
@@ -405,7 +405,7 @@ export function SaturnLamp() {
         const map = got[p.id];
         return map ? <Globe key={p.id} index={i} map={map} turn={turn} /> : null;
       })}
-      <pointLight ref={light} position={HOME} color={PLANETS.find((p) => p.id === "mars")!.light} distance={4} decay={1.7} />
+      <pointLight ref={light} position={HOME} color={PLANETS.find((p) => p.id === "venus")!.light} distance={4} decay={1.7} />
     </Interactive>
   );
 }

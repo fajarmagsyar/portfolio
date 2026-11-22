@@ -43,15 +43,19 @@ export function HitBox({ size, ...props }: { size: [number, number, number] } & 
 }
 
 function Television() {
-  const light = useRef<THREE.PointLight>(null);
+  const light = useRef<THREE.SpotLight>(null);
+  const target = useMemo(() => new THREE.Object3D(), []);
   useFrame(({ clock }) => {
-    if (light.current) light.current.intensity = 2.6 + Math.sin(clock.elapsedTime * 9) * 0.1 + Math.sin(clock.elapsedTime * 2.3) * 0.22;
+    if (light.current) light.current.intensity = 1.15 + Math.sin(clock.elapsedTime * 9) * 0.02 + Math.sin(clock.elapsedTime * 2.3) * 0.04;
   });
+  const x = (TUBE.x0 + TUBE.x1) / 2;
+  const y = (TUBE.y0 + TUBE.y1) / 2;
   return (
     <Interactive target="tv" position={POS.tv} rotation={[0, 0.08, 0]}>
       <Model asset="Television_01" />
       <TvScreen url={path("Television_01")} />
-      <pointLight ref={light} position={[(TUBE.x0 + TUBE.x1) / 2, (TUBE.y0 + TUBE.y1) / 2, 0.5]} color="#3fdcff" distance={5.5} decay={1.7} />
+      <primitive object={target} position={[x, y, 2.4]} />
+      <spotLight ref={light} target={target} position={[x, y, 0.42]} color="#2e9eff" distance={4.6} decay={1.9} angle={0.78} penumbra={1} />
     </Interactive>
   );
 }

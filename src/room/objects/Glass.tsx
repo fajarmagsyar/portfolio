@@ -24,10 +24,10 @@ export function Glass({ w, h, z }: { w: number; h: number; z: number }) {
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, cw, ch);
       };
-      edge(0, 0, 0, ch * 0.07, 0.5); // top
-      edge(0, 0, cw * 0.05, 0, 0.42); // left
-      edge(0, ch, 0, ch * 0.95, 0.22); // bottom
-      edge(cw, 0, cw * 0.95, 0, 0.22); // right
+      edge(0, 0, 0, ch * 0.07, 0.32); // top
+      edge(0, 0, cw * 0.05, 0, 0.26); // left
+      edge(0, ch, 0, ch * 0.95, 0.12); // bottom
+      edge(cw, 0, cw * 0.95, 0, 0.12); // right
     },
     [],
   );
@@ -37,8 +37,8 @@ export function Glass({ w, h, z }: { w: number; h: number; z: number }) {
     (ctx, cw, ch) => {
       ctx.clearRect(0, 0, cw, ch);
       const sheen = ctx.createLinearGradient(0, 0, cw, ch);
-      sheen.addColorStop(0, "rgba(255,244,228,0.10)");
-      sheen.addColorStop(0.6, "rgba(255,244,228,0.015)");
+      sheen.addColorStop(0, "rgba(255,244,228,0.05)");
+      sheen.addColorStop(0.6, "rgba(255,244,228,0.008)");
       sheen.addColorStop(1, "rgba(255,244,228,0)");
       ctx.fillStyle = sheen;
       ctx.fillRect(0, 0, cw, ch);
@@ -51,8 +51,8 @@ export function Glass({ w, h, z }: { w: number; h: number; z: number }) {
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, cw, ch);
       };
-      band(0.18, 0.1, 0.2);
-      band(0.46, 0.035, 0.12);
+      band(0.18, 0.1, 0.08);
+      band(0.46, 0.035, 0.05);
     },
     [],
   );
@@ -65,11 +65,11 @@ export function Glass({ w, h, z }: { w: number; h: number; z: number }) {
       {/* the pane, a hair in front: clear, and polished enough to mirror the room */}
       <mesh position={[0, 0, z + 0.006]}>
         <planeGeometry args={[w, h]} />
-        <meshPhysicalMaterial color="#e6f2f4" transparent opacity={0.07} roughness={0.02} metalness={0} clearcoat={1} clearcoatRoughness={0.02} envMapIntensity={2.2} depthWrite={false} />
+        <meshPhysicalMaterial color="#f4fbfc" transparent opacity={0.035} roughness={0.01} metalness={0} clearcoat={1} clearcoatRoughness={0.015} envMapIntensity={1.1} depthWrite={false} />
       </mesh>
       <mesh position={[0, 0, z + 0.007]}>
         <planeGeometry args={[w, h]} />
-        <meshBasicMaterial map={glare} transparent blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+        <meshBasicMaterial map={glare} transparent opacity={0.45} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
       </mesh>
     </>
   );

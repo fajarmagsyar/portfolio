@@ -101,12 +101,12 @@ const coneFrag = /* glsl */ `
   uniform float uTime;
   ${noise}
   void main() {
-    float h = 0.5 - vPos.y / 0.66; // 0 at the bulb, 1 where the light meets the desk
+    float h = 0.5 - vPos.y / 0.84; // 0 at the bulb, 1 where the light meets the desk
     // seen edge-on the cone is thin air; face-on you look through its full depth
     float facing = abs(dot(normalize(vNormal), normalize(vView)));
-    float a = pow(1.0 - h, 1.7) * pow(facing, 1.6);
+    float a = pow(1.0 - h, 1.5) * pow(facing, 1.45);
     a *= 0.75 + 0.25 * noise(vec2(vPos.x * 9.0 + uTime * 0.05, vPos.y * 7.0 - uTime * 0.03));
-    gl_FragColor = vec4(vec3(1.0, 0.72, 0.42) * a * 0.2, 1.0);
+    gl_FragColor = vec4(vec3(1.0, 0.72, 0.42) * a * 0.12, 1.0);
   }
 `;
 
@@ -124,9 +124,9 @@ export function LampGlow() {
       </mesh>
       {/* the cone hangs from the bulb, leaning the way the shade points */}
       <group rotation={[0.12, 0, 0.32]}>
-        <mesh position={[0, -0.33, 0]}>
+        <mesh position={[0, -0.42, 0]}>
           {/* as wide as the shade's mouth where it leaves it, opening out to the pool of light on the desk */}
-          <cylinderGeometry args={[0.055, 0.2, 0.66, 40, 1, true]} />
+          <cylinderGeometry args={[0.075, 0.34, 0.84, 40, 1, true]} />
           <shaderMaterial
             vertexShader={plainVert}
             fragmentShader={coneFrag}

@@ -64,3 +64,4 @@ export function Furniture() {
 for (const id of ["wooden_bookshelf_worn", "book_encyclopedia_set_01", "boombox", "mid_century_lounge_chair", "side_table_01", "vintage_wooden_drawer_01", "wall_clock", "potted_plant_04", "ceramic_vase_03", "vintage_oil_lamp"]) {
   useGLTF.preload(asset(`/models/${id}/${id}.gltf`));
 }
+

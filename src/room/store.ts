@@ -204,7 +204,7 @@ export const useRoom = create<RoomState>((set) => ({
     })),
   albumTurned: 0,
   zoomed: null,
-  planet: "mars",
+  planet: "venus",
   setPlanet: (planet) => set({ planet }),
   setFocus: (focus) => set({ focus, hover: null, tip: null, tapTip: null, tvScreen: "menu", zoomed: null, selectedCd: null, selectedTape: null, finder: false }),
   setAlbumTurned: (albumTurned) => set({ albumTurned, tapTip: null }),

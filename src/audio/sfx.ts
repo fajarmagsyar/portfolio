@@ -91,3 +91,22 @@ export function blip(freq = 660, seconds = 0.06) {
   o.start();
   o.stop(a.currentTime + seconds + 0.02);
 }
+
+let lastTick = -1;
+
+/** A quiet clock tick for the passing second. */
+export function tick(sec: number) {
+  if (sec === lastTick) return;
+  lastTick = sec;
+  const a = ac();
+  if (!a) return;
+  const src = noise(a, 0.025);
+  const f = a.createBiquadFilter();
+  f.type = "highpass";
+  f.frequency.value = 4200;
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.2, a.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.025);
+  src.connect(f).connect(g).connect(a.destination);
+  src.start();
+}

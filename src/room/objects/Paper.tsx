@@ -178,7 +178,7 @@ export function Frames() {
             <Model asset="hanging_picture_frame_01" scale={0.56} />
             <mesh position={[0, 0, 0.0105]}>
               <planeGeometry args={[0.268, 0.378]} />
-              <meshStandardMaterial map={certs} color="#a9a297" roughness={0.9} />
+              <meshStandardMaterial map={certs} color="#d8d3ca" roughness={0.85} />
             </mesh>
             <Glass w={0.268} h={0.378} z={0.0112} />
           </group>
@@ -191,7 +191,7 @@ export function Frames() {
             <Model asset="hanging_picture_frame_02" scale={0.6} position={[0, 0.017, 0]} />
             <mesh position={[0, 0, 0.012]}>
               <planeGeometry args={[0.375, 0.232]} />
-              <meshStandardMaterial map={diploma} color="#b8b1a6" roughness={0.9} />
+              <meshStandardMaterial map={diploma} color="#ddd8ce" roughness={0.85} />
             </mesh>
             <Glass w={0.375} h={0.232} z={0.0127} />
           </group>

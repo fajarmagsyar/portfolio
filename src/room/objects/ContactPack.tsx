@@ -32,7 +32,7 @@ const PACK = asset("/models/sk/card_pack.glb");
 const CARDS = [
   { key: "email", title: "Email", art: "/art/cards/email.jpg", glyph: "@", value: links.email, href: `mailto:${links.email}`, ink: "#b3341f", glow: "#ffb38a", kind: "card_kind_mail", holo: false },
   { key: "github", title: "GitHub", art: "/art/cards/github.jpg", glyph: "</>", value: links.github.label, href: links.github.url, ink: "#2b2a33", glow: "#b9a8ff", kind: "card_kind_code", holo: false },
-  { key: "linkedin", title: "LinkedIn", art: "/art/cards/linkedin.png", glyph: "in/", value: links.linkedin.label, href: links.linkedin.url, ink: "#1f5f8f", glow: "#8fd0ff", kind: "card_kind_work", holo: false },
+  { key: "linkedin", title: "LinkedIn", art: "/art/cards/linkedin.jpg", glyph: "in/", value: links.linkedin.label, href: links.linkedin.url, ink: "#1f5f8f", glow: "#8fd0ff", kind: "card_kind_work", holo: false },
   // the rare one of the set: a foil card
   { key: "steam", title: "Steam", art: "/art/cards/steam.jpg", glyph: "GG", value: links.steam.label, href: links.steam.url, ink: "#1f6f66", glow: "#8ff0d0", kind: "card_kind_play", holo: true },
 ] as const satisfies readonly { key: string; title: string; art: string; glyph: string; value: string; href: string; ink: string; glow: string; kind: StringKey; holo: boolean }[];
