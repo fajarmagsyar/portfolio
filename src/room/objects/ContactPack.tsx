@@ -14,7 +14,7 @@ import { Interactive } from "../Interactive";
 import { CARDS_HELD, POS } from "../layout";
 import { orbit, resetOrbit } from "../orbit";
 import { useRoom } from "../store";
-import { canvasTexture, rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
+import { canvasTexture, paper, rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
 
 // Contact, as a pack of trading cards. It lies sealed on the desk. Looked at, it is held up:
 // drag across the top to cut it open (light spills out of the cut as it goes), and the cards
@@ -103,100 +103,63 @@ function useImage(src: string) {
   return img;
 }
 
-/** A small four-pointed star, the ornament the cards are set with. */
-function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+/** The owner's logo (black on clear) painted in one colour, `h` tall and centred on `cx`, `cy`. */
+function logoMark(ctx: CanvasRenderingContext2D, logo: HTMLImageElement | null, colour: string, cx: number, cy: number, h: number) {
+  if (!logo) return;
+  const k = h / logo.height;
+  const tint = document.createElement("canvas");
+  tint.width = logo.width;
+  tint.height = logo.height;
+  const t = tint.getContext("2d")!;
+  t.drawImage(logo, 0, 0);
+  t.globalCompositeOperation = "source-in";
+  t.fillStyle = colour;
+  t.fillRect(0, 0, tint.width, tint.height);
+  ctx.drawImage(tint, cx - (logo.width * k) / 2, cy - h / 2, logo.width * k, h);
+}
+
+/** A strip of saw-tooth roofs, as along the foot of the reference card. */
+function teeth(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, n: number) {
+  const step = w / n;
   ctx.beginPath();
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
-    const d = i % 2 ? r * 0.36 : r;
-    ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+  ctx.moveTo(x, y + h);
+  for (let i = 0; i < n; i++) {
+    ctx.lineTo(x + i * step, y);
+    ctx.lineTo(x + (i + 1) * step, y + h);
   }
   ctx.closePath();
   ctx.fill();
 }
 
-// The card is cut to its rounded shape, so the picture runs right to the edge of the sheet.
-// From the outside in: a border in the card's colour, engine-turned and edged with a gold
-// line; a name plate; the picture in a gold frame, with a ribbon across its foot saying what
-// kind of card it is; the address on a plate of its own; and whose card it is along the bottom.
-function drawFace(ctx: CanvasRenderingContext2D, w: number, h: number, card: CardInfo, index: number, lang: Lang, fonts: Fonts | null, art: HTMLImageElement | null) {
-  const t = strings[lang];
-  const gold = "#e8c27a";
-  const dark = "#14110f";
+// The faces are after a trading art card: a black card with a thin rim, a white sheet inside
+// it. The name of the card is set small at the top, the picture sits in a ruled box under it,
+// then the address in bold, and the small print along the foot.
+/** The card's corner, as a share of its width: the rim and the sheet inside it are cut to it, one inside the other. */
+const RIM = 11;
+const CORNER_PX = (CORNER / CW) * 512;
 
-  // the border
-  const edge = ctx.createLinearGradient(0, 0, w, h);
-  edge.addColorStop(0, card.glow);
-  edge.addColorStop(0.3, card.ink);
-  edge.addColorStop(1, dark);
-  ctx.fillStyle = edge;
+function drawFace(ctx: CanvasRenderingContext2D, w: number, h: number, card: CardInfo, index: number, lang: Lang, fonts: Fonts | null, art: HTMLImageElement | null, logo: HTMLImageElement | null) {
+  const t = strings[lang];
+  const ink = "#111112";
+  const m = 36; // side margin of everything on the sheet
+
+  // the rim, and the sheet inside it, its corners following the card's own
+  ctx.fillStyle = ink;
   ctx.fillRect(0, 0, w, h);
   ctx.save();
-  ctx.globalAlpha = 0.16;
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 1.5;
-  for (let i = -h; i < w; i += 9) {
-    ctx.beginPath();
-    ctx.moveTo(i, 0);
-    ctx.lineTo(i + h, h);
-    ctx.stroke();
-  }
-  ctx.restore();
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 2.5;
-  rounded(ctx, 12, 12, w - 24, h - 24, 20);
-  ctx.stroke();
-
-  // the body: warm board, with a faint pattern turned into it
-  const bx = 24;
-  const by = 24;
-  const bw = w - 48;
-  const bh = h - 48;
-  ctx.save();
-  rounded(ctx, bx, by, bw, bh, 14);
+  rounded(ctx, RIM, RIM, w - RIM * 2, h - RIM * 2, Math.max(2, CORNER_PX - RIM));
   ctx.clip();
-  const board = ctx.createLinearGradient(0, by, 0, by + bh);
-  board.addColorStop(0, "#f6eedd");
-  board.addColorStop(1, "#e6d9bf");
-  ctx.fillStyle = board;
-  ctx.fillRect(bx, by, bw, bh);
-  ctx.strokeStyle = "rgba(120,90,40,0.09)";
-  ctx.lineWidth = 1.5;
-  for (let i = 1; i < 30; i++) {
-    ctx.beginPath();
-    ctx.arc(w / 2, h * 1.02, i * 22, 0, Math.PI * 2);
-    ctx.stroke();
-  }
+  paper(ctx, w, h, "#f6f4ee", index + 3);
   ctx.restore();
-  ctx.strokeStyle = "rgba(60,40,20,0.5)";
-  ctx.lineWidth = 2;
-  rounded(ctx, bx, by, bw, bh, 14);
-  ctx.stroke();
 
-  // the name plate
-  const px = 38;
-  const py = 38;
-  const pw = w - 76;
-  const ph = 58;
-  const plate = ctx.createLinearGradient(0, py, 0, py + ph);
-  plate.addColorStop(0, card.ink);
-  plate.addColorStop(1, dark);
-  rounded(ctx, px, py, pw, ph, 10);
-  ctx.fillStyle = plate;
-  ctx.fill();
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = gold;
-  star(ctx, px + pw - 30, py + ph / 2, 13);
-
-  // the picture, in its frame
-  const ax = 44;
-  const ay = 112;
-  const aw = w - 88;
-  const ah = 306;
+  // the picture, in a ruled box
+  const ax = m;
+  const ay = 80;
+  const aw = w - m * 2;
+  const ah = 372;
   ctx.save();
-  rounded(ctx, ax, ay, aw, ah, 6);
+  ctx.beginPath();
+  ctx.rect(ax, ay, aw, ah);
   ctx.clip();
   const g = ctx.createRadialGradient(w / 2, ay + ah * 0.45, 10, w / 2, ay + ah * 0.45, aw * 0.75);
   g.addColorStop(0, card.glow);
@@ -205,159 +168,191 @@ function drawFace(ctx: CanvasRenderingContext2D, w: number, h: number, card: Car
   ctx.fillStyle = g;
   ctx.fillRect(ax, ay, aw, ah);
   if (art) {
-    // as much of it as fills the window; a cut-out one (with a clear background) is shown whole, on the glow
+    // as much of it as fills the box; a cut-out one (with a clear background) is shown whole, on the glow
     const cutOut = card.art.endsWith(".png");
     const k = cutOut ? Math.min(aw / art.width, ah / art.height) * 0.94 : Math.max(aw / art.width, ah / art.height);
     ctx.drawImage(art, ax + (aw - art.width * k) / 2, ay + (ah - art.height * k) / 2, art.width * k, art.height * k);
   }
-  // the frame throws a little shadow inwards, and the varnish a little light across
-  const shade = ctx.createLinearGradient(0, ay, 0, ay + ah);
-  shade.addColorStop(0, "rgba(0,0,0,0.3)");
-  shade.addColorStop(0.14, "rgba(0,0,0,0)");
-  shade.addColorStop(0.72, "rgba(0,0,0,0)");
-  shade.addColorStop(1, "rgba(0,0,0,0.55)");
-  ctx.fillStyle = shade;
-  ctx.fillRect(ax, ay, aw, ah);
-  sheen(ctx, w, ay + ah, index * 13 + 5, 0.6);
   ctx.restore();
-  ctx.strokeStyle = dark;
-  ctx.lineWidth = 9;
-  rounded(ctx, ax, ay, aw, ah, 6);
-  ctx.stroke();
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 3;
-  ctx.stroke();
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(ax - 2, ay - 2, aw + 4, ah + 4);
 
-  // the ribbon across the foot of the picture
-  const ry = ay + ah - 22;
-  const rw = 250;
-  ctx.fillStyle = dark;
-  ctx.beginPath();
-  ctx.moveTo(w / 2 - rw / 2 - 22, ry);
-  ctx.lineTo(w / 2 + rw / 2 + 22, ry);
-  ctx.lineTo(w / 2 + rw / 2 + 6, ry + 22);
-  ctx.lineTo(w / 2 + rw / 2 + 22, ry + 44);
-  ctx.lineTo(w / 2 - rw / 2 - 22, ry + 44);
-  ctx.lineTo(w / 2 - rw / 2 - 6, ry + 22);
-  ctx.closePath();
+  // the foot: whose cards these are
+  const fy = h - 96;
+  ctx.fillStyle = ink;
+  ctx.fillRect(m, fy - 24, w - m * 2, 2);
+  rounded(ctx, m, fy, 44, 44, 6);
   ctx.fill();
-  ctx.strokeStyle = gold;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // the plate the address is written on
-  const vy = ay + ah + 46;
-  const vh = 104;
-  rounded(ctx, 44, vy, w - 88, vh, 10);
-  ctx.fillStyle = "rgba(255,252,244,0.75)";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(60,40,20,0.35)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = card.ink;
-  star(ctx, 66, vy + vh / 2, 9);
-  star(ctx, w - 66, vy + vh / 2, 9);
-
-  // the foot: a rule with a star in the middle of it
-  const fy = h - 74;
-  ctx.fillStyle = "rgba(60,40,20,0.3)";
-  ctx.fillRect(60, fy, w / 2 - 84, 2);
-  ctx.fillRect(w / 2 + 24, fy, w / 2 - 84, 2);
-  ctx.fillStyle = card.ink;
-  star(ctx, w / 2, fy + 1, 9);
+  logoMark(ctx, logo, "#f6f4ee", m + 22, fy + 22, 30);
+  teeth(ctx, w - m - 118, fy + 28, 118, 16, 8);
   if (!fonts) return;
 
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+  ctx.fillStyle = ink;
+  ctx.letterSpacing = "1px";
+  ctx.font = `800 27px ${fonts.display}`;
+  ctx.fillText(card.title.toUpperCase(), m, 56, w - m * 2);
+
+  // the address, as large as the width allows
+  ctx.letterSpacing = "0px";
+  let size = 40;
+  ctx.font = `800 ${size}px ${fonts.display}`;
+  while (ctx.measureText(card.value).width > w - m * 2 && size > 18) {
+    size -= 2;
+    ctx.font = `800 ${size}px ${fonts.display}`;
+  }
+  ctx.fillText(card.value, m, ay + ah + 54);
+  ctx.fillStyle = "#3b3a3d";
+  ctx.font = `20px ${fonts.screen}`;
+  ctx.letterSpacing = "1px";
+  ctx.fillText(t.card_open.toUpperCase(), m, ay + ah + 90);
+
+  ctx.fillStyle = ink;
+  ctx.font = `800 14px ${fonts.display}`;
+  ctx.letterSpacing = "2px";
+  ctx.fillText(profile.name.toUpperCase(), m + 58, fy + 19);
+  ctx.font = `14px ${fonts.screen}`;
+  ctx.fillStyle = "#3b3a3d";
+  ctx.fillText(`${t.contact.toUpperCase()} ${t.pack_cards.toUpperCase()}`, m + 58, fy + 40);
+  ctx.letterSpacing = "0px";
+}
+
+/**
+ * The figure on the back of the card and on the pack: a large diamond, a triangle rising out of
+ * it, a circle with its rings and dial ticks, two squares laid across each other, and the owner's
+ * mark where the reference has its eye. `k` scales it about `cx`, `cy`; it is drawn in `colour` over `ground`.
+ */
+function emblem(ctx: CanvasRenderingContext2D, logo: HTMLImageElement | null, cx: number, cy: number, k: number, colour: string, ground: string) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(k, k);
+  ctx.strokeStyle = colour;
+  ctx.lineJoin = "miter";
+  // the large diamond, and the triangle rising out of it
+  const d = 188;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, -d);
+  ctx.lineTo(d, 0);
+  ctx.lineTo(0, d);
+  ctx.lineTo(-d, 0);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, -214);
+  ctx.lineTo(196, 120);
+  ctx.lineTo(-196, 120);
+  ctx.closePath();
+  ctx.stroke();
+  // the circle and its rings
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(0, 0, 126, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, 112, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([3, 7]);
+  ctx.beginPath();
+  ctx.arc(0, 0, 98, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // two squares across each other: an eight-pointed star
+  ctx.lineWidth = 2.5;
+  for (const turn of [0, Math.PI / 4]) {
+    ctx.save();
+    ctx.rotate(turn);
+    ctx.strokeRect(-84, -84, 168, 168);
+    ctx.restore();
+  }
+  // ticks round the ring, like the marks of a dial
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 48; i++) {
+    const an = (i / 48) * Math.PI * 2;
+    const r1 = i % 4 ? 134 : 144;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(an) * 126, Math.sin(an) * 126);
+    ctx.lineTo(Math.cos(an) * r1, Math.sin(an) * r1);
+    ctx.stroke();
+  }
+  // the owner's mark, on a ground of its own so the lines stop short of it
+  ctx.fillStyle = ground;
+  ctx.beginPath();
+  ctx.arc(0, 0, 62, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.restore();
+  logoMark(ctx, logo, colour, cx, cy, 86 * k);
+}
+
+/** The mark in a white square and the name of the set beside it: the head of the back, and of the pack. */
+function badge(ctx: CanvasRenderingContext2D, x: number, y: number, lang: Lang, fonts: Fonts | null, logo: HTMLImageElement | null, ground: string) {
+  const t = strings[lang];
+  ctx.fillStyle = "#f4f2ea";
+  ctx.fillRect(x, y, 52, 52);
+  logoMark(ctx, logo, ground, x + 26, y + 26, 38);
+  if (!fonts) return;
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  ctx.fillStyle = "#fff8ea";
-  ctx.font = `800 36px ${fonts.display}`;
-  ctx.letterSpacing = "1px";
-  ctx.fillText(card.title.toUpperCase(), px + 20, py + ph / 2 + 2, pw - 80);
-  ctx.textAlign = "center";
-  ctx.fillStyle = gold;
-  ctx.font = `700 19px ${fonts.display}`;
-  ctx.letterSpacing = "4px";
-  ctx.fillText(t[card.kind].toUpperCase(), w / 2 + 2, ry + 23, rw);
-  // the address, as large as the plate allows
-  ctx.fillStyle = dark;
-  ctx.letterSpacing = "0px";
-  let size = 46;
-  ctx.font = `700 ${size}px ${fonts.display}`;
-  while (ctx.measureText(card.value).width > w - 168 && size > 20) {
-    size -= 2;
-    ctx.font = `700 ${size}px ${fonts.display}`;
-  }
-  ctx.fillText(card.value, w / 2, vy + vh / 2 + 2);
-  ctx.fillStyle = "#5c4a33";
-  ctx.font = `600 16px ${fonts.display}`;
-  ctx.letterSpacing = "3px";
-  ctx.fillText(t.card_open.toUpperCase(), w / 2 + 1, fy - 22);
-  ctx.fillStyle = card.ink;
-  ctx.font = `800 20px ${fonts.display}`;
-  ctx.letterSpacing = "2px";
-  ctx.fillText(profile.name.toUpperCase(), w / 2 + 1, fy + 30);
+  ctx.font = `800 21px ${fonts.display}`;
+  ctx.letterSpacing = "1.5px";
+  ctx.fillText(t.contact.toUpperCase(), x + 70, y + 14);
+  ctx.fillText(t.pack_cards.toUpperCase(), x + 70, y + 40);
   ctx.letterSpacing = "0px";
 }
 
-function drawBack(ctx: CanvasRenderingContext2D, w: number, h: number, fonts: Fonts | null) {
-  const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, "#143f47");
-  g.addColorStop(1, "#0d2230");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-  ctx.save();
-  rounded(ctx, 26, 26, w - 52, h - 52, 14);
-  ctx.clip();
-  ctx.strokeStyle = "rgba(240,164,65,0.28)";
-  for (let i = 1; i < 14; i++) {
-    ctx.lineWidth = i % 2 ? 3 : 8;
+/** The roofs, three rings and the name along the foot of the back, and of the pack. */
+function footer(ctx: CanvasRenderingContext2D, cx: number, y: number, fonts: Fonts | null) {
+  ctx.fillStyle = "#f4f2ea";
+  ctx.strokeStyle = "#f4f2ea";
+  teeth(ctx, cx - 130, y, 150, 24, 7);
+  ctx.lineWidth = 2.5;
+  for (let i = 0; i < 3; i++) {
     ctx.beginPath();
-    ctx.arc(w / 2, h / 2, i * 38, 0, Math.PI * 2);
+    ctx.arc(cx + 58 + i * 20, y + 14, 11, 0, Math.PI * 2);
     ctx.stroke();
   }
-  ctx.restore();
-  ctx.strokeStyle = "#f0a441";
-  ctx.lineWidth = 4;
-  rounded(ctx, 26, 26, w - 52, h - 52, 14);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(w / 2, h / 2, 92, 0, Math.PI * 2);
-  ctx.fillStyle = "#0d1a22";
-  ctx.fill();
-  ctx.stroke();
   if (!fonts) return;
-  ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#f7cf8a";
-  ctx.font = `800 80px ${fonts.display}`;
-  ctx.fillText("FM", w / 2, h / 2 + 6);
+  ctx.textAlign = "center";
+  ctx.font = `800 25px ${fonts.display}`;
+  ctx.letterSpacing = "5px";
+  ctx.fillText(profile.name.toUpperCase(), cx + 2, y + 68, 440);
+  ctx.letterSpacing = "0px";
 }
 
-// The wrapper says what is inside: this is the pack of ways to get in touch.
-function drawPack(ctx: CanvasRenderingContext2D, w: number, h: number, lang: Lang, fonts: Fonts | null) {
-  const t = strings[lang];
-  const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, "#f0a441");
-  g.addColorStop(0.45, "#c9542c");
-  g.addColorStop(1, "#16535c");
-  ctx.fillStyle = g;
+// The back is the reference card's: black, the mark and the name of the set at the top, the
+// figure in the middle, and a row of roofs and rings above the name along the foot.
+function drawBack(ctx: CanvasRenderingContext2D, w: number, h: number, lang: Lang, fonts: Fonts | null, logo: HTMLImageElement | null) {
+  ctx.fillStyle = "#0b0b0c";
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = "rgba(255,255,255,0.13)";
-  for (let i = 1; i < 12; i++) {
-    ctx.lineWidth = i % 2 ? 4 : 12;
-    ctx.beginPath();
-    ctx.arc(w * 0.5, h * 0.52, i * 46, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  sheen(ctx, w, h, 11, 2.2);
+  badge(ctx, w / 2 - 128, 62, lang, fonts, logo, "#0b0b0c");
+  emblem(ctx, logo, w / 2, 350, 1, "#f4f2ea", "#0b0b0c");
+  footer(ctx, w / 2, 590, fonts);
+}
+
+// The wrapper is the back of the card made large: black, the same head, figure and foot, with
+// the crimped foil seals at both ends and the line to cut along under the top one.
+function drawPack(ctx: CanvasRenderingContext2D, w: number, h: number, lang: Lang, fonts: Fonts | null, logo: HTMLImageElement | null) {
+  ctx.fillStyle = "#0b0b0c";
+  ctx.fillRect(0, 0, w, h);
+  badge(ctx, w / 2 - 128, h * 0.2, lang, fonts, logo, "#0b0b0c");
+  emblem(ctx, logo, w / 2, h * 0.52, 1.06, "#f4f2ea", "#0b0b0c");
+  footer(ctx, w / 2, h * 0.8, fonts);
+  sheen(ctx, w, h, 11, 1.4);
   // the crimped seals, top and bottom: bare foil
   const seal = h * 0.082;
   for (const y of [0, h - seal]) {
-    const s = ctx.createLinearGradient(0, y, 0, y + seal);
-    s.addColorStop(0, "#d9d9de");
-    s.addColorStop(0.5, "#8d8d96");
-    s.addColorStop(1, "#c9c9d0");
-    ctx.fillStyle = s;
+    const g = ctx.createLinearGradient(0, y, 0, y + seal);
+    g.addColorStop(0, "#d9d9de");
+    g.addColorStop(0.5, "#8d8d96");
+    g.addColorStop(1, "#c9c9d0");
+    ctx.fillStyle = g;
     ctx.fillRect(0, y, w, seal);
     ctx.fillStyle = "rgba(255,255,255,0.35)";
     for (let x = 6; x < w; x += 14) ctx.fillRect(x, y + 6, 4, seal - 12);
@@ -372,72 +367,11 @@ function drawPack(ctx: CanvasRenderingContext2D, w: number, h: number, lang: Lan
   ctx.lineTo(w, cut);
   ctx.stroke();
   ctx.setLineDash([]);
-  // an envelope, large: what the pack is about
-  const ex = w * 0.5;
-  const ey = h * 0.33;
-  const ew = w * 0.5;
-  const eh = ew * 0.66;
-  ctx.save();
-  ctx.translate(ex, ey);
-  ctx.rotate(-0.1);
-  ctx.shadowColor = "rgba(0,0,0,0.35)";
-  ctx.shadowBlur = 18;
-  ctx.shadowOffsetY = 8;
-  rounded(ctx, -ew / 2, -eh / 2, ew, eh, 14);
-  ctx.fillStyle = "#fff6e2";
-  ctx.fill();
-  ctx.shadowColor = "transparent";
-  ctx.strokeStyle = "#b3341f";
-  ctx.lineWidth = 7;
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  ctx.moveTo(-ew / 2 + 8, -eh / 2 + 10);
-  ctx.lineTo(0, eh * 0.12);
-  ctx.lineTo(ew / 2 - 8, -eh / 2 + 10);
-  ctx.stroke();
-  // a round stamp with an @ in it, over its corner
-  ctx.beginPath();
-  ctx.arc(ew / 2 - 6, eh / 2 - 4, 44, 0, Math.PI * 2);
-  ctx.fillStyle = "#101014";
-  ctx.fill();
-  ctx.strokeStyle = "#f7cf8a";
-  ctx.lineWidth = 4;
-  ctx.stroke();
-  if (fonts) {
-    ctx.fillStyle = "#f7cf8a";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = `700 54px ${fonts.body}`;
-    ctx.fillText("@", ew / 2 - 6, eh / 2 - 6);
-  }
-  ctx.restore();
-  if (!fonts) return;
   ctx.fillStyle = "#fff";
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
   ctx.font = "34px sans-serif";
   ctx.fillText("✂", 10, cut + 2);
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(0,0,0,0.3)";
-  ctx.font = `800 96px ${fonts.display}`;
-  ctx.fillText(t.contact.toUpperCase(), w / 2 + 4, h * 0.57 + 5, w - 56);
-  ctx.fillStyle = "#fff8ea";
-  ctx.fillText(t.contact.toUpperCase(), w / 2, h * 0.57, w - 56);
-  ctx.font = `30px ${fonts.screen}`;
-  ctx.fillText(profile.name.toUpperCase(), w / 2, h * 0.57 + 74, w - 60);
-  // how many are inside, on a badge
-  ctx.beginPath();
-  ctx.arc(w / 2, h * 0.79, 70, 0, Math.PI * 2);
-  ctx.fillStyle = "#101014";
-  ctx.fill();
-  ctx.strokeStyle = "#f7cf8a";
-  ctx.lineWidth = 5;
-  ctx.stroke();
-  ctx.fillStyle = "#f7cf8a";
-  ctx.font = `700 72px ${fonts.body}`;
-  ctx.fillText(String(CARDS.length), w / 2, h * 0.79 - 10);
-  ctx.font = `21px ${fonts.screen}`;
-  ctx.fillText(t.pack_cards.toUpperCase(), w / 2, h * 0.79 + 38);
 }
 
 // Uncoated board, as on the back of a card: a fine even grain, read as relief and as roughness.
@@ -647,7 +581,8 @@ const now = () => performance.now() / 1000;
 function Card({ card, index, fonts, back, bind }: { card: CardInfo; index: number; fonts: Fonts | null; back: THREE.Texture; bind: (g: THREE.Group | null) => void }) {
   const lang = useLang();
   const art = useImage(card.art);
-  const face = useCanvasTexture(512, 716, (ctx, w, h) => drawFace(ctx, w, h, card, index, lang, fonts, art), [card, index, lang, fonts, art]);
+  const logo = useImage("/logo.png");
+  const face = useCanvasTexture(512, 716, (ctx, w, h) => drawFace(ctx, w, h, card, index, lang, fonts, art, logo), [card, index, lang, fonts, art, logo]);
 
   /** in the hand, on the stack, or among those already taken */
   const place = () => {
@@ -714,7 +649,7 @@ function Card({ card, index, fonts, back, bind }: { card: CardInfo; index: numbe
       )}
       {/* the back: plain uncoated board, matt, with the tooth of the paper in it */}
       <mesh geometry={cardFace} position={[0, 0, -CT / 2 - 0.00004]} rotation={[0, Math.PI, 0]}>
-        <meshStandardMaterial map={back} emissiveMap={back} emissive="#ffffff" emissiveIntensity={0.3} color="#8a8a8a" roughness={1} roughnessMap={board()} bumpMap={board()} bumpScale={0.6} envMapIntensity={0.25} />
+        <meshStandardMaterial map={back} emissiveMap={back} emissive="#ffffff" emissiveIntensity={0.5} color="#8a8a8a" roughness={1} roughnessMap={board()} bumpMap={board()} bumpScale={0.6} envMapIntensity={0.25} />
       </mesh>
     </group>
   );
@@ -725,8 +660,9 @@ function Card({ card, index, fonts, back, bind }: { card: CardInfo; index: numbe
 export function ContactPack() {
   const lang = useLang();
   const fonts = useFonts();
-  const wrap = useCanvasTexture(512, 976, (ctx, w, h) => drawPack(ctx, w, h, lang, fonts), [lang, fonts]);
-  const back = useCanvasTexture(512, 716, (ctx, w, h) => drawBack(ctx, w, h, fonts), [fonts]);
+  const logo = useImage("/logo.png");
+  const wrap = useCanvasTexture(512, 976, (ctx, w, h) => drawPack(ctx, w, h, lang, fonts, logo), [lang, fonts, logo]);
+  const back = useCanvasTexture(512, 716, (ctx, w, h) => drawBack(ctx, w, h, lang, fonts, logo), [lang, fonts, logo]);
   const parts = usePack();
 
   const pack = useRef<THREE.Group>(null);

@@ -140,7 +140,7 @@ export const VIEWS: Record<FocusId, { pos: V3; look: V3 }> = {
   receipt: { pos: [RECEIPT_HELD[0], 1.02, 0.5], look: RECEIPT_HELD },
   clock: { pos: [POS.clock[0], POS.clock[1], 0.28], look: [POS.clock[0], POS.clock[1], WALL_Z] },
   // square on to the framed photo where it stands, from the way it faces, close enough to see the faces
-  portrait: { pos: [-0.54, 1.03, 0.53], look: [-0.83, 0.93, 0.0] },
+  portrait: { pos: [-0.395, 1.08, 0.795], look: [-0.83, 0.93, 0.0] },
   // down on the dice from in front, with room for them to fly
   dice: { pos: [POS.dice[0], 1.04, 0.52], look: [POS.dice[0], DESK.y + 0.03, POS.dice[2] - 0.01] },
   // the lamp with room above it, where the planets line up to be picked
