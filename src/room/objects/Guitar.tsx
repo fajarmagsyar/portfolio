@@ -158,7 +158,7 @@ function Telecaster() {
     const s = stringNear(p.x, p.y);
     const rhythm = useRoom.getState().guitarMode === "rhythm";
     const onNeck = rhythm && s >= 0 && p.y > FRET_Y[FRETS] && p.y < NUT_Y + 0.02;
-    const tip = rhythm ? (onNeck ? "tip_finger" : "tip_strum") : "tip_lead";
+    const tip = rhythm ? (onNeck ? "tip_finger" : "tip_strum") : null;
     // the first touch on a string explains it; the next one plays it
     if (!tap(onNeck ? "guitar-neck" : "guitar-strum", tip, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) return;
     (e.target as Element).setPointerCapture(e.pointerId);
@@ -194,7 +194,7 @@ function Telecaster() {
       // not pressed: say what pressing here would do
       const onStrings = stringNear(p.x, p.y) >= 0 && p.y > SADDLE_Y - 0.012 && p.y < NUT_Y + 0.02;
       const onNeck = p.y > FRET_Y[FRETS];
-      hint(!onStrings ? null : useRoom.getState().guitarMode === "lead" ? "tip_lead" : onNeck ? "tip_finger" : "tip_strum");
+      hint(!onStrings || useRoom.getState().guitarMode === "lead" ? null : onNeck ? "tip_finger" : "tip_strum");
       return;
     }
     e.stopPropagation();

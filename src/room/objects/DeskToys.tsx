@@ -6,11 +6,10 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { click } from "@/audio/sfx";
-import { hint } from "../hint";
 import { Interactive } from "../Interactive";
 import { POS } from "../layout";
 import { useRoom } from "../store";
-import { holdCancel, holdMove, holdStart, tap } from "../touch";
+import { tap } from "../touch";
 import { canvasTexture, rng } from "../textures";
 import { useClone } from "./Guitar";
 
@@ -326,23 +325,10 @@ export function Dice() {
   return (
     <Interactive target="dice" position={POS.dice}>
       <group
-        onPointerDown={(e: ThreeEvent<PointerEvent>) => {
-          if (focus !== "dice") return;
-          holdStart("dice-roll", "tip_dice", e.nativeEvent.clientX, e.nativeEvent.clientY);
-        }}
-        onPointerMove={(e: ThreeEvent<PointerEvent>) => holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY)}
-        onPointerUp={holdCancel}
-        onPointerCancel={holdCancel}
         onClick={(e: ThreeEvent<MouseEvent>) => {
           if (focus !== "dice") return;
           e.stopPropagation();
-          tap("dice-roll", "tip_dice", e.nativeEvent.clientX, e.nativeEvent.clientY, roll);
-        }}
-        onPointerOver={() => {
-          if (live) hint("tip_dice");
-        }}
-        onPointerOut={() => {
-          if (live) hint(null);
+          tap("dice-roll", null, e.nativeEvent.clientX, e.nativeEvent.clientY, roll);
         }}
       >
         {shapes.map((d, i) => (

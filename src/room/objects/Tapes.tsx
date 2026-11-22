@@ -129,7 +129,7 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
         if (!(focus === "cds" || live)) return;
         holdStart(
           focus === "cds" ? "rack-tapes" : `tape-${job.id}`,
-          focus === "cds" ? "rack_tapes_tip" : selected ? "tip_put_back" : "card_take_tip",
+          focus === "cds" ? "rack_tapes_tip" : selected ? "tip_put_back" : null,
           e.nativeEvent.clientX,
           e.nativeEvent.clientY,
         );
@@ -149,7 +149,7 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
         }
         if (!live) return;
         e.stopPropagation();
-        tap(`tape-${job.id}`, selected ? "tip_put_back" : "card_take_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => selectTape(selected ? null : job.id));
+        tap(`tape-${job.id}`, selected ? "tip_put_back" : null, e.nativeEvent.clientX, e.nativeEvent.clientY, () => selectTape(selected ? null : job.id));
       }}
       onPointerOver={(e) => {
         if (focus === "cds") {
@@ -160,7 +160,7 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
         if (!live) return;
         e.stopPropagation();
         hovered.current = true;
-        hint(selected ? "tip_put_back" : "card_take_tip");
+        hint(selected ? "tip_put_back" : null);
       }}
       onPointerOut={() => {
         hovered.current = false;

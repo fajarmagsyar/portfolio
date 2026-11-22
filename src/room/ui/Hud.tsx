@@ -324,7 +324,6 @@ export function Hud() {
   const booted = useRoom((r) => r.booted);
   const focus = useRoom((r) => r.focus);
   const zoomed = useRoom((r) => r.zoomed !== null);
-  const frameZoom = useRoom((r) => r.frameZoom !== null);
   const input = useRoom((r) => r.input);
   const setFocus = useRoom((r) => r.setFocus);
   const finder = useRoom((r) => r.finder);
@@ -335,7 +334,7 @@ export function Hud() {
     const onKey = (e: KeyboardEvent) => {
       // close in on a photo, Escape steps back to the open album first
       if (e.key === "Escape" && useRoom.getState().zoomed !== null) return useRoom.getState().setZoomed(null);
-      if (e.key === "Escape" && useRoom.getState().frameZoom !== null) return useRoom.getState().setFrameZoom(null);
+      if (e.key === "Escape" && useRoom.getState().frameZoom !== null) return setFocus(null);
       // from the viewfinder, Escape takes the eye away from the camera first
       if (e.key === "Escape" && useRoom.getState().finder) return useRoom.getState().setFinder(false);
       // a CD that is out goes back in its place before the view leaves the shelf
@@ -362,14 +361,14 @@ export function Hud() {
       {focus === "tv" && <TvOverlay />}
       {focus === "guitar" && <ChordWheel />}
       {focus === "canonet" && finder && <Viewfinder />}
-      {focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && !zoomed && <SidePanel key={focus} focus={focus} />}
+      {focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && focus !== "notes" && !zoomed && <SidePanel key={focus} focus={focus} />}
 
       <footer className={s.foot}>
         {!booted ? (
           <span />
         ) : focus ? (
-          <button className={s.leave} onClick={() => (focus === "tv" ? tvBack() : finder ? useRoom.getState().setFinder(false) : zoomed ? useRoom.getState().setZoomed(null) : frameZoom ? useRoom.getState().setFrameZoom(null) : setFocus(null))}>
-            â† {t("back")} {input === "mouse" && <kbd>Esc</kbd>}
+          <button className={s.leave} onClick={() => (focus === "tv" ? tvBack() : finder ? useRoom.getState().setFinder(false) : zoomed ? useRoom.getState().setZoomed(null) : setFocus(null))}>
+            {t("back")} {input === "mouse" && <kbd>Esc</kbd>}
           </button>
         ) : (
           <span />

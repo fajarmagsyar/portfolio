@@ -612,7 +612,7 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
         if (!(focus === "tapes" || live)) return;
         holdStart(
           focus === "tapes" ? "rack-cds" : `cd-${project.id}`,
-          focus === "tapes" ? "rack_cds_tip" : selected ? "tip_put_back" : "card_take_tip",
+          focus === "tapes" ? "rack_cds_tip" : selected ? "tip_put_back" : null,
           e.nativeEvent.clientX,
           e.nativeEvent.clientY,
         );
@@ -632,7 +632,7 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
         }
         if (!live) return;
         e.stopPropagation();
-        tap(`cd-${project.id}`, selected ? "tip_put_back" : "card_take_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+        tap(`cd-${project.id}`, selected ? "tip_put_back" : null, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
           useRoom.getState().selectCd(selected ? null : project.id);
         });
       }}
@@ -645,7 +645,7 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
         if (!live) return;
         e.stopPropagation();
         hovered.current = true;
-        hint(selected ? "tip_put_back" : "card_take_tip");
+        hint(selected ? "tip_put_back" : null);
       }}
       onPointerOut={() => {
         hovered.current = false;

@@ -151,14 +151,14 @@ export function framePhotoView(which: "cert" | "degree") {
 const named = (tip: StringKey, which: "cert" | "degree") => ({
   onPointerMove: (e: ThreeEvent<PointerEvent>) => {
     const s = useRoom.getState();
-    if (!s.booted) return;
+    if (!s.booted || (s.focus !== null && s.focus !== "frames")) return;
     e.stopPropagation();
     hint(tip, "zoom-in");
     if (s.focus === null) s.setHover("frames");
   },
   onClick: (e: ThreeEvent<MouseEvent>) => {
     const s = useRoom.getState();
-    if (!s.booted) return;
+    if (!s.booted || (s.focus !== null && s.focus !== "frames")) return;
     e.stopPropagation();
     if (s.focus !== "frames") s.setFocus("frames");
     s.setFrameZoom(s.frameZoom === which ? null : which);

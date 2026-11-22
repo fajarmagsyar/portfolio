@@ -34,15 +34,16 @@ export function clearTapTip() {
   useRoom.getState().clearTapTip();
 }
 
-function showTip(id: string, text: StringKey, x: number, y: number, ms = 1800) {
+function showTip(id: string, text: StringKey | null, x: number, y: number, ms = 1800) {
+  if (!text) return;
   useRoom.getState().showTapTip({ id, text, x, y });
   if (dismiss) clearTimeout(dismiss);
   dismiss = setTimeout(clearTapTip, ms);
 }
 
 /** On touch, holding shows the tooltip and marks this id so the following tap is ignored. */
-export function holdStart(id: string, text: StringKey, x: number, y: number) {
-  if (!touch()) return;
+export function holdStart(id: string, text: StringKey | null, x: number, y: number) {
+  if (!touch() || !text) return;
   holdCancel();
   hold = {
     id,
@@ -67,7 +68,7 @@ export function holdCancel() {
 }
 
 /** Runs `action` on click/tap. A completed long press shows tooltip only. */
-export function tap(id: string, text: StringKey, x: number, y: number, action: () => void): boolean {
+export function tap(id: string, text: StringKey | null, x: number, y: number, action: () => void): boolean {
   if (touch()) {
     if (hold?.id === id) holdCancel();
     if (held?.id === id && performance.now() < held.until) {
@@ -81,7 +82,7 @@ export function tap(id: string, text: StringKey, x: number, y: number, action: (
 }
 
 /** The handler for a React button. */
-export function tapClick(id: string, text: StringKey, action: () => void) {
+export function tapClick(id: string, text: StringKey | null, action: () => void) {
   return (e: ReactMouseEvent) => {
     e.preventDefault();
     tap(id, text, e.clientX, e.clientY, action);
@@ -89,7 +90,7 @@ export function tapClick(id: string, text: StringKey, action: () => void) {
 }
 
 /** For controls that act on pointer down (pads, strings, pages). */
-export function tapDown(id: string, text: StringKey, action: (e: ReactPointerEvent) => void) {
+export function tapDown(id: string, text: StringKey | null, action: (e: ReactPointerEvent) => void) {
   return (e: ReactPointerEvent) => {
     if (tap(id, text, e.clientX, e.clientY, () => action(e))) e.stopPropagation();
   };

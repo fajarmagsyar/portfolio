@@ -14,7 +14,7 @@ import { Interactive } from "../Interactive";
 import { CARDS_HELD, POS } from "../layout";
 import { orbit, resetOrbit } from "../orbit";
 import { useRoom } from "../store";
-import { holdCancel, holdMove, holdStart, tap } from "../touch";
+import { holdCancel, holdMove, tap } from "../touch";
 import { canvasTexture, paper, rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
 
 // Contact, as a pack of trading cards. It lies sealed on the desk. Looked at, it is held up:
@@ -599,11 +599,6 @@ function Card({ card, index, fonts, back, bind }: { card: CardInfo; index: numbe
     <group
       ref={bind}
       visible={false}
-      onPointerDown={(e: ThreeEvent<PointerEvent>) => {
-        if (!ready()) return;
-        const held = place() === "held";
-        holdStart(`card-${index}`, held ? "card_open_tip" : "card_take_tip", e.nativeEvent.clientX, e.nativeEvent.clientY);
-      }}
       onPointerMove={(e: ThreeEvent<PointerEvent>) => holdMove(e.nativeEvent.clientX, e.nativeEvent.clientY)}
       onPointerUp={holdCancel}
       onPointerCancel={holdCancel}
@@ -611,7 +606,7 @@ function Card({ card, index, fonts, back, bind }: { card: CardInfo; index: numbe
         if (!ready()) return;
         e.stopPropagation();
         const held = place() === "held";
-        tap(`card-${index}`, held ? "card_open_tip" : "card_take_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+        tap(`card-${index}`, null, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
           const s = useRoom.getState();
           if (held) {
             // mail opens the visitor's own mail program; everything else, a new tab
@@ -629,7 +624,7 @@ function Card({ card, index, fonts, back, bind }: { card: CardInfo; index: numbe
       onPointerOver={(e: ThreeEvent<PointerEvent>) => {
         if (!ready()) return;
         e.stopPropagation();
-        hint(place() === "held" ? "card_open_tip" : "card_take_tip");
+        hint(null);
       }}
       onPointerOut={() => {
         if (ready()) hint(null);
@@ -876,8 +871,7 @@ export function ContactPack() {
         onPointerDown={(e: ThreeEvent<PointerEvent>) => {
           if (!sealed()) return;
           e.stopPropagation();
-          holdStart("pack-cut", "pack_cut_tip", e.nativeEvent.clientX, e.nativeEvent.clientY);
-          if (!tap("pack-cut", "pack_cut_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) return;
+          if (!tap("pack-cut", null, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) return;
           (e.target as Element).setPointerCapture(e.pointerId);
           const x = blade(e);
           state.current.cut = x === null ? null : { from: x, to: x };
@@ -889,9 +883,7 @@ export function ContactPack() {
           if (!sealed()) return;
           e.stopPropagation();
           const x = blade(e);
-          // by the line it is cut; anywhere else on it, a drag turns it over
-          if (x !== null || state.current.cut) hint("pack_cut_tip", SCISSORS);
-          else hint("tip_turn", "grab");
+          document.body.style.cursor = x !== null || state.current.cut ? SCISSORS : "grab";
           // the cut only counts while the button is down and the blade is on the line
           if (!(e.buttons & 1) || x === null) return;
           const st = state.current;
