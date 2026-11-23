@@ -3,11 +3,11 @@
 import { useEffect } from "react";
 import { useThree } from "@react-three/fiber";
 
-/** The frame rate the room is held to. Override with ?fps=60 (or any number); 0 or 60+ leaves it free. */
+/** The frame rate the room is held to: 60 leaves it free. Try ?fps=30 for a steady half rate. */
 const CAP = (() => {
-  if (typeof window === "undefined") return 30;
+  if (typeof window === "undefined") return 60;
   const q = Number(new URLSearchParams(location.search).get("fps"));
-  return Number.isFinite(q) && q > 0 ? q : 30;
+  return Number.isFinite(q) && q > 0 ? q : 60;
 })();
 
 /**
