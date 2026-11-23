@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
-import { Bloom, DepthOfField, EffectComposer, Noise, ToneMapping, Vignette } from "@react-three/postprocessing";
-import { type DepthOfFieldEffect, Effect, ToneMappingMode } from "postprocessing";
+import { Bloom, DepthOfField, EffectComposer, Noise, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
+import { type DepthOfFieldEffect, Effect, SMAAPreset, ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
 import { CD_OPEN_VIEW, ENTER_VIEW, LAMP_LIGHT_OFFSET, TYPING_VIEW, FINDER_FOV, FOCUS_FOV, HOME_FOV, HOME_VIEW, POS, VIEWS, WALL_Z } from "./layout";
 import { glideOrbit, orbit, resetOrbit, type OrbitLimits } from "./orbit";
@@ -463,7 +463,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
     <Canvas
       flat
       shadows={LOW_POWER ? false : "soft"}
-      dpr={flags.lowres ? 0.75 : 1}
+      dpr={flags.lowres ? 0.75 : LOW_POWER ? [1, 1.5] : [1.5, 2]}
       camera={{ fov: HOME_FOV, near: 0.05, far: 40, position: HOME_VIEW.pos }}
       gl={{ antialias: !LOW_POWER, powerPreference: "high-performance" }}
       onCreated={({ scene }) => {
@@ -509,8 +509,8 @@ export default function Room({ onReady }: { onReady?: () => void }) {
         <Ready onReady={onReady} />
       </Suspense>
       {/* The scene is drawn into the composer's buffer, not the canvas, so the canvas's own
-          antialiasing never reaches it. Multisampling that buffer renders the frame black on
-          Intel/Mesa, and SMAA was dropped for speed, so edges are left unsmoothed. */}
+          antialiasing never reaches it. Multisampling that buffer is the obvious fix, but on
+          Intel/Mesa it renders the frame black, so edges are smoothed by SMAA after tone mapping. */}
       {flags.composer && (
         <EffectComposer multisampling={0}>
           {!LOW_POWER && flags.focus && <FocusBlur />}
@@ -518,6 +518,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
           {flags.tonemap && <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />}
           {flags.grade && <Grade />}
           {flags.soft && <SoftFocus />}
+          {!LOW_POWER && <SMAA preset={SMAAPreset.ULTRA} />}
           {flags.vignette && <Vignette offset={0.25} darkness={0.5} />}
           {!LOW_POWER && flags.noise && <Noise opacity={0.025} />}
         </EffectComposer>
