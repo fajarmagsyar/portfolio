@@ -49,6 +49,7 @@ export function PerfProbe() {
     s.t0 = now;
     if (s.prev) s.worst = Math.max(s.worst, now - s.prev);
     s.prev = now;
+    (window as unknown as { __ft?: number[] }).__ft?.push(now); // frame start times, for pacing tests
     gl.info.reset();
     const x = ext.current;
     if (!x) return;

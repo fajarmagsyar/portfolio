@@ -10,6 +10,7 @@ import { CD_OPEN_VIEW, ENTER_VIEW, LAMP_LIGHT_OFFSET, TYPING_VIEW, FINDER_FOV, F
 import { glideOrbit, orbit, resetOrbit, type OrbitLimits } from "./orbit";
 import { useRoom, type FocusId } from "./store";
 import { DEBUG_PERF, usePerf } from "./perf";
+import { FrameLimiter } from "./FrameLimiter";
 import { PerfApply, PerfProbe } from "./PerfProbe";
 import { touch } from "./touch";
 import { Shell } from "./objects/Shell";
@@ -523,6 +524,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
         </EffectComposer>
       )}
       <Shutter />
+      <FrameLimiter />
       {DEBUG_PERF && (
         <>
           <PerfProbe />
