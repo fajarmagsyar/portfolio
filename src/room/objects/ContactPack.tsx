@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
+import { touchShadow } from "../shadowLive";
 import * as THREE from "three";
 import { asset } from "@/asset";
 import { blip, click } from "@/audio/sfx";
@@ -716,6 +717,7 @@ export function ContactPack() {
     const p = pack.current;
     if (!p) return;
     const live = s.focus === "cards";
+    if (live || st.wasLive) touchShadow(); // the cards' shadows are live while the pack is looked at
     const t = now();
     const k = 1 - Math.exp(-dt * 7);
     LIGHT.uTime.value = clock.elapsedTime;

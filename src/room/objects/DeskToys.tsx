@@ -1,5 +1,6 @@
 "use client";
 
+import { touchShadow } from "../shadowLive";
 import { asset } from "@/asset";
 import { useMemo, useRef } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
@@ -76,8 +77,11 @@ export function Mouse() {
     const s = useRoom.getState();
     const used = s.booted && s.focus === null && s.input !== "touch";
     const k = 1 - Math.exp(-dt * 14);
+    const x = g.position.x;
+    const z = g.position.z;
     g.position.x += (POS.mouse[0] + (used ? pointer.x * REACH.x : 0) - g.position.x) * k;
     g.position.z += (POS.mouse[2] - (used ? pointer.y * REACH.z : 0) - g.position.z) * k;
+    if (Math.abs(g.position.x - x) + Math.abs(g.position.z - z) > 0.00005) touchShadow(); // its shadow is live while it moves
   });
   return (
     <group ref={ref} position={POS.mouse} rotation={[0, 0.06, 0]}>
@@ -250,6 +254,7 @@ export function Dice() {
     // two short steps a frame, and never a long one after the tab has been away
     const dt = Math.min(frame, 1 / 30) / 2;
     const dice = all();
+    if (live || dice.some((d) => !d.resting)) touchShadow(); // their shadows are live while they are thrown
     for (let step = 0; step < 2; step++) {
       for (const d of dice) {
         if (d.resting) {

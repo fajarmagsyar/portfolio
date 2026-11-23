@@ -119,7 +119,8 @@ export const HOME_VIEW = { pos: [0.0, 1.17, 1.3] as V3, look: [0, 1.05, -0.3] as
 export const ENTER_VIEW = { pos: [-0.056, 1.019, 0.58] as V3, look: [-0.1, 1.019, -0.005] as V3 };
 /** At the typing test the view draws back a little from the TV so the keyboard is in the picture too. */
 export const TYPING_VIEW = { pos: [-0.056, 1.1, 0.86] as V3, look: [-0.08, 0.92, -0.03] as V3 };
-export const HOME_FOV = 47;
+// 47 before; 39.8 is the same lens 20% more zoomed in (tan(fov/2) divided by 1.2)
+export const HOME_FOV = 39.8;
 export const FOCUS_FOV = 36;
 
 /** Where the camera goes for each object. `look` is the object itself; the rig shifts the frame left to make room for the panel. */

@@ -11,6 +11,7 @@ import { glideOrbit, orbit, resetOrbit, type OrbitLimits } from "./orbit";
 import { useRoom, type FocusId } from "./store";
 import { DEBUG_PERF, usePerf } from "./perf";
 import { FrameLimiter } from "./FrameLimiter";
+import { shadowLive } from "./shadowLive";
 import { PerfApply, PerfProbe } from "./PerfProbe";
 import { touch } from "./touch";
 import { Shell } from "./objects/Shell";
@@ -561,11 +562,26 @@ function ShadowBake() {
       for (const ms of [150, 700, 1500]) timers.push(window.setTimeout(() => (shadowMap.needsUpdate = true), ms));
     };
     bake();
+    // and while the mouse, the dice or the cards move (shadowLive.ts), about 30 times a second
+    let last = 0;
+    let wasLive = false;
+    const live = () => {
+      const now = performance.now();
+      const on = now < shadowLive.until;
+      if ((on && now - last > 33) || (!on && wasLive)) {
+        shadowMap.needsUpdate = true;
+        last = now;
+      }
+      wasLive = on;
+      raf = requestAnimationFrame(live);
+    };
+    let raf = requestAnimationFrame(live);
     const unsub = useRoom.subscribe((s, prev) => {
       if (s.focus !== prev.focus || s.selectedTape !== prev.selectedTape || s.selectedCd !== prev.selectedCd || s.cdOpen !== prev.cdOpen) bake();
     });
     return () => {
       unsub();
+      cancelAnimationFrame(raf);
       timers.forEach(clearTimeout);
       shadowMap.autoUpdate = true;
     };
