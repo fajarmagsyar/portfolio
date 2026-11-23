@@ -40,6 +40,8 @@ const tmpPos = new THREE.Vector3();
 const tmpLook = new THREE.Vector3();
 const tmpUp = new THREE.Vector3();
 /** the point the camera is looking at this frame: what is kept sharp when the background is blurred */
+/** How much of the screen's resolution the wide view is drawn at. */
+const WIDE_SCALE = 0.75;
 const focusPoint = new THREE.Vector3(0, 1, 0);
 const LEVEL: [number, number, number] = [0, 1, 0];
 const sph = new THREE.Spherical();
@@ -451,6 +453,9 @@ function SoftFocus() {
 
 export default function Room({ onReady }: { onReady?: () => void }) {
   const flags = usePerf((s) => s.flags);
+  // The whole desk on screen is the heaviest view (every pixel runs the lights, shadows and the
+  // rain shader), so it is drawn at a lower resolution; close to an object it is full again.
+  const wide = useRoom((s) => s.focus === null) && !LOW_POWER;
   useEffect(() => {
     document.body.style.cursor = "";
     // anything with a name or a hint under the pointer gets the hand. Only when one of those
@@ -464,7 +469,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
     <Canvas
       flat
       shadows={LOW_POWER ? false : "soft"}
-      dpr={flags.lowres ? 0.75 : LOW_POWER ? [1, 1.5] : [1, 1.75]}
+      dpr={flags.lowres || wide ? WIDE_SCALE : LOW_POWER ? [1, 1.5] : [1, 1.75]}
       camera={{ fov: HOME_FOV, near: 0.05, far: 40, position: HOME_VIEW.pos }}
       gl={{ antialias: !LOW_POWER, powerPreference: "high-performance" }}
       onCreated={({ scene }) => {
