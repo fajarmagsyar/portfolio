@@ -230,7 +230,7 @@ export function TvScreen({ url }: { url: string }) {
         if (!booted && e.uv) {
           const answer = enterAnswer(e.uv.x, e.uv.y);
           enterPoint(answer);
-          hint(answer ? (answer === "on" ? "sound_on_tip" : "sound_off_tip") : null);
+          hint(null);
           return;
         }
         if (!live || !e.uv) return;
@@ -244,7 +244,7 @@ export function TvScreen({ url }: { url: string }) {
         e.stopPropagation();
         const answer = enterAnswer(e.uv.x, e.uv.y);
         if (!answer) return;
-        tap(`tv-enter-${answer}`, answer === "on" ? "sound_on_tip" : "sound_off_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+        tap(`tv-enter-${answer}`, null, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
           enterPoint(null);
           hint(null);
           useRoom.getState().setSound(answer === "on");
@@ -256,7 +256,7 @@ export function TvScreen({ url }: { url: string }) {
         if (!e.uv) return;
         if (!booted) {
           const answer = enterAnswer(e.uv.x, e.uv.y);
-          if (answer) holdStart(`tv-enter-${answer}`, answer === "on" ? "sound_on_tip" : "sound_off_tip", e.nativeEvent.clientX, e.nativeEvent.clientY);
+          if (answer) holdStart(`tv-enter-${answer}`, null, e.nativeEvent.clientX, e.nativeEvent.clientY);
           return;
         }
         if (!live) return;

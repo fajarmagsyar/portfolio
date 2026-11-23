@@ -13,6 +13,7 @@ import { useLang } from "@/state/lang";
 import { Interactive } from "../Interactive";
 import { POS, SHELF } from "../layout";
 import { hint } from "../hint";
+import { held as heldClick } from "../held";
 import { useRoom } from "../store";
 import { holdCancel, holdMove, holdStart, tap } from "../touch";
 import { canvasTexture, paper, rng, useCanvasTexture, useFonts, wrap, type Fonts } from "../textures";
@@ -609,10 +610,11 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
       position={rest}
       quaternion={SHELVED}
       onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        if (selected) heldClick.hit = true; // a click on the held case (or its leaflet) is not an outside click
         if (!(focus === "tapes" || live)) return;
         holdStart(
           focus === "tapes" ? "rack-cds" : `cd-${project.id}`,
-          focus === "tapes" ? "rack_cds_tip" : selected ? "tip_put_back" : null,
+          focus === "tapes" ? "rack_cds_tip" : null,
           e.nativeEvent.clientX,
           e.nativeEvent.clientY,
         );
@@ -626,14 +628,17 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
           e.stopPropagation();
           tap("rack-cds", "rack_cds_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
             hint(null);
+            // a cassette is held: this click is outside it, so it goes back and nothing else is picked
+            if (useRoom.getState().selectedTape) return useRoom.getState().selectTape(null);
             useRoom.getState().setFocus("cds");
           });
           return;
         }
         if (!live) return;
         e.stopPropagation();
-        tap(`cd-${project.id}`, selected ? "tip_put_back" : null, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
-          useRoom.getState().selectCd(selected ? null : project.id);
+        tap(`cd-${project.id}`, null, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+          // one CD at a time: with one held, this click puts it back (or, on the held one itself, the same) and picks nothing
+          useRoom.getState().selectCd(useRoom.getState().selectedCd ? null : project.id);
         });
       }}
       onPointerOver={(e) => {
@@ -645,7 +650,7 @@ function JewelCase({ project, index }: { project: Project; index: number }) {
         if (!live) return;
         e.stopPropagation();
         hovered.current = true;
-        hint(selected ? "tip_put_back" : null);
+        hint(null);
       }}
       onPointerOut={() => {
         hovered.current = false;

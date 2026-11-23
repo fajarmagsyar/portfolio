@@ -70,37 +70,59 @@ function drawBoot(ctx: CanvasRenderingContext2D, f: Fonts | null, t: number) {
 }
 
 /** The picture while nobody is using the TV: a blue tape-deck title card with the name. */
+// The idle card: the name, the job, and since when, set low on the left, and one ornament,
+// a dial of tick marks with a bright sweep going round it and fading behind. On the tube's own cyan.
 function drawIdle(ctx: CanvasRenderingContext2D, f: Fonts, t: number) {
+  const ink = "#f4f2ea";
+  const M = 80; // the margin all round
   ctx.fillStyle = "#0a93ad";
   ctx.fillRect(0, 0, TV_W, TV_H);
+
+  // the dial, in the top right corner
+  const R = 112;
+  const cx = TV_W - M - R - 14;
+  const cy = M + R + 10;
+  const TICKS = 72;
+  const head = (t * 0.28) % 1;
+  ctx.lineCap = "butt";
+  for (let i = 0; i < TICKS; i++) {
+    const u = i / TICKS;
+    const behind = (head - u + 1) % 1; // how far the sweep has gone past this tick
+    const lit = Math.exp(-behind * 7);
+    const long = i % 6 === 0;
+    const len = (long ? 24 : 13) + lit * 8;
+    const ang = u * Math.PI * 2 - Math.PI / 2;
+    ctx.strokeStyle = `rgba(244,242,234,${(0.42 + 0.58 * lit).toFixed(3)})`;
+    ctx.lineWidth = long ? 4 : 3;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(ang) * (R - len), cy + Math.sin(ang) * (R - len));
+    ctx.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R);
+    ctx.stroke();
+  }
+
+  // the channel, top left, level with the dial's middle
+  ctx.fillStyle = "rgba(244,242,234,0.8)";
   ctx.textAlign = "left";
-  ctx.fillStyle = "#f4f2ea";
-  ctx.font = `36px ${f.screen}`;
-  if (Math.floor(t * 1.2) % 2 === 0) ctx.fillText("▶ PLAY", 74, 108);
+  ctx.font = `28px ${f.screen}`;
+  ctx.fillText("CH 04", M, cy + 9);
+
+  // the name, over two lines, low on the left
+  ctx.fillStyle = ink;
+  ctx.textAlign = "left";
+  ctx.font = `700 110px ${f.body}`;
+  ctx.fillText(profile.firstName.toUpperCase(), M, 340);
+  ctx.fillText(profile.name.split(" ").slice(1).join(" ").toUpperCase(), M, 444);
+
+  // a rule, then the job on the left and since when on the right
+  ctx.fillStyle = "rgba(244,242,234,0.4)";
+  ctx.fillRect(M, 500, TV_W - M * 2, 2);
+  ctx.fillStyle = ink;
+  ctx.font = `34px ${f.screen}`;
+  ctx.fillText(profile.role.toUpperCase(), M, 544);
   ctx.textAlign = "right";
-  ctx.fillText("CH 03", TV_W - 74, 108);
-  ctx.textAlign = "left";
-  ctx.font = `700 102px ${f.body}`;
-  ctx.fillText(profile.firstName.toUpperCase(), 74, 284);
-  ctx.fillText("MAGSYAR", 74, 390);
-  ctx.font = `31px ${f.screen}`;
-  ctx.fillStyle = "rgba(244,242,234,0.85)";
-  ctx.fillText(`${profile.role.toUpperCase()}  ·  SBY`, 74, 450);
-  const cx = TV_W * 0.6;
-  const cy = TV_H * 0.76;
-  ctx.strokeStyle = "rgba(244,242,234,0.75)";
-  ctx.lineWidth = 3;
-  ctx.setLineDash([3, 10]);
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, 250, 56, -0.2, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  const a = t * 0.5;
-  const sx = cx + Math.cos(a) * 250 * Math.cos(-0.2) - Math.sin(a) * 56 * Math.sin(-0.2);
-  const sy = cy + Math.cos(a) * 250 * Math.sin(-0.2) + Math.sin(a) * 56 * Math.cos(-0.2);
-  ctx.fillStyle = "#f4f2ea";
-  ctx.fillRect(sx - 2, sy - 15, 4, 30);
-  ctx.fillRect(sx - 15, sy - 2, 30, 4);
+  ctx.fillStyle = "rgba(244,242,234,0.8)";
+  ctx.font = `30px ${f.screen}`;
+  ctx.fillText(`SINCE ${profile.since}`, TV_W - M, 544);
 }
 
 // Before anyone has come in, the tube asks one thing: sound, or no sound. The two answers

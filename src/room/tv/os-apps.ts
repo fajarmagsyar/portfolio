@@ -636,6 +636,7 @@ const snake: Program = {
 
 type Alien = { x: number; y: number; alive: boolean; kind: number };
 type Shot = { x: number; y: number; vy: number };
+type Spark = { x: number; y: number; vx: number; vy: number; life: number; color: string };
 const G = { w: 320, h: 280, cols: 8, rows: 4 };
 const ga = {
   state: "ready" as "ready" | "on" | "over" | "won",
@@ -652,26 +653,55 @@ const ga = {
   score: 0,
   best: 0,
   lives: 3,
+  /** when the game was last advanced, and the time not yet spent on a whole step */
+  lastAt: 0,
+  carry: 0,
+  /** which of the two wing positions the aliens are in; it changes each time they step */
+  frame: 0,
+  fx: [] as Spark[],
 };
+/** The game is tuned for 60 steps a second; it is run on a clock, not once per picture, so it plays the same at 30 or 144 frames a second. */
+const GA_STEP = 1000 / 60;
+const GA_SHIP_SPEED = 3.4;
 function newGalaga() {
   ga.aliens = [];
   for (let r = 0; r < G.rows; r++) for (let c = 0; c < G.cols; c++) ga.aliens.push({ x: 34 + c * 32, y: 38 + r * 28, alive: true, kind: r < 1 ? 2 : r < 2 ? 1 : 0 });
-  ga.ship = G.w / 2; ga.shots = []; ga.enemyShots = []; ga.dir = 1; ga.stepAt = performance.now(); ga.fireAt = 0; ga.score = 0; ga.lives = 3; ga.state = "on"; ga.left = ga.right = ga.fire = false;
+  ga.ship = G.w / 2; ga.shots = []; ga.enemyShots = []; ga.dir = 1; ga.stepAt = performance.now(); ga.fireAt = 0; ga.score = 0; ga.lives = 3; ga.state = "on"; ga.left = ga.right = ga.fire = false; ga.lastAt = 0; ga.carry = 0; ga.frame = 0; ga.fx = [];
 }
-function galagaStep() {
-  const now = performance.now();
+function sparks(x: number, y: number, color: string, n = 10) {
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+    const s = 0.8 + Math.random() * 1.8;
+    ga.fx.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 18 + Math.floor(Math.random() * 10), color });
+  }
+}
+/** Runs the game up to `now`, in whole steps; a long gap (the tab was away) is cut short, not played through. */
+function galagaAdvance(now: number) {
+  if (!ga.lastAt) ga.lastAt = now;
+  let owed = Math.min(now - ga.lastAt, 100) + ga.carry;
+  ga.lastAt = now;
+  while (owed >= GA_STEP && ga.state === "on") {
+    galagaStep(now);
+    owed -= GA_STEP;
+  }
+  ga.carry = ga.state === "on" ? owed : 0;
+}
+function galagaStep(now: number) {
   const alive = ga.aliens.filter((a) => a.alive);
   if (!alive.length) { ga.state = "won"; ga.best = Math.max(ga.best, ga.score); return blip(880, 0.2); }
-  const speed = 2.2 + (1 - alive.length / (G.cols * G.rows)) * 2.6;
-  if (ga.left) ga.ship = clamp(ga.ship - speed * 2.2, 18, G.w - 18);
-  if (ga.right) ga.ship = clamp(ga.ship + speed * 2.2, 18, G.w - 18);
+  // the ship goes at one speed; it used to be scaled by how many aliens were left, so it became uncontrollable near the end
+  if (ga.left) ga.ship = clamp(ga.ship - GA_SHIP_SPEED, 18, G.w - 18);
+  if (ga.right) ga.ship = clamp(ga.ship + GA_SHIP_SPEED, 18, G.w - 18);
   if (ga.fire && now - ga.fireAt > 260) { ga.shots.push({ x: ga.ship, y: G.h - 34, vy: -6.5 }); ga.fireAt = now; beep(900); }
   ga.shots.forEach((s) => (s.y += s.vy));
   ga.enemyShots.forEach((s) => (s.y += s.vy));
+  for (const p of ga.fx) { p.x += p.vx; p.y += p.vy; p.life--; }
+  ga.fx = ga.fx.filter((p) => p.life > 0);
   ga.shots = ga.shots.filter((s) => s.y > -10);
   ga.enemyShots = ga.enemyShots.filter((s) => s.y < G.h + 10);
   if (now - ga.stepAt > Math.max(120, 520 - (G.cols * G.rows - alive.length) * 12)) {
     ga.stepAt = now;
+    ga.frame ^= 1;
     const edge = alive.some((a) => (ga.dir > 0 ? a.x > G.w - 24 : a.x < 24));
     if (edge) { ga.dir *= -1; ga.aliens.forEach((a) => { if (a.alive) a.y += 12; }); }
     else ga.aliens.forEach((a) => { if (a.alive) a.x += ga.dir * 10; });
@@ -682,41 +712,108 @@ function galagaStep() {
   }
   for (const s of ga.shots) for (const a of ga.aliens) {
     if (!a.alive || Math.abs(s.x - a.x) > 11 || Math.abs(s.y - a.y) > 9) continue;
-    a.alive = false; s.y = -999; ga.score += a.kind === 2 ? 150 : a.kind === 1 ? 100 : 80; beep(520); break;
+    a.alive = false; s.y = -999; ga.score += a.kind === 2 ? 150 : a.kind === 1 ? 100 : 80; beep(520); sparks(a.x, a.y, ALIEN_ART[a.kind].a); break;
   }
   for (const s of ga.enemyShots) if (Math.abs(s.x - ga.ship) < 12 && Math.abs(s.y - (G.h - 20)) < 10) {
-    s.y = 999; ga.lives--; blip(160, 0.18);
+    s.y = 999; ga.lives--; blip(160, 0.18); sparks(ga.ship, G.h - 24, "#f4f4f4", 16);
     if (ga.lives <= 0) { ga.state = "over"; ga.best = Math.max(ga.best, ga.score); }
   }
   if (alive.some((a) => a.y > G.h - 44)) { ga.state = "over"; ga.best = Math.max(ga.best, ga.score); blip(140, 0.25); }
 }
+/* The art: pixel sprites, drawn once to small canvases and stamped. Letters pick a colour from the sprite's palette. */
+const ALIEN_ART = [
+  { a: "#e0402f", b: "#f5c542" }, // the bee
+  { a: "#f0a030", b: "#4aa3e8" }, // the butterfly
+  { a: "#59d8e6", b: "#b07be0" }, // the boss
+];
+const ALIEN_FRAMES: string[][][] = [
+  [
+    ["...a...a...", "....a.a....", "...aaaaa...", "..aawaawa..", ".aaaaaaaaa.", "aa.aaaaa.aa", "a..b...b..a", "...b...b..."],
+    ["..a.....a..", "...a...a...", "...aaaaa...", "..aawaawa..", ".aaaaaaaaa.", ".a.aaaaa.a.", "aa.b...b.aa", "a...b.b...a"],
+  ],
+  [
+    ["a...aaa...a", "aa.aaaaa.aa", "aaaabwbaaaa", "aaaaaaaaaaa", ".aaabbbaaa.", "..aab.baa..", "...a...a...", "..a.....a.."],
+    ["aa.......aa", "aaa.aaa.aaa", "aaaabwbaaaa", ".aaaaaaaaa.", "..aabbbaa..", "...ab.ba...", "...a...a...", "..a.....a.."],
+  ],
+  [
+    ["..b.....b..", ".bbb...bbb.", ".babaaabab.", "aaaawawaaaa", "aaaaaaaaaaa", ".aa.aaa.aa.", ".a..a.a..a.", "aa.......aa"],
+    ["..b.....b..", ".bbb...bbb.", ".babaaabab.", "aaaawawaaaa", "aaaaaaaaaaa", "a.aaaaaaa.a", "a..a...a..a", ".a.......a."],
+  ],
+];
+const SHIP_ART = [".....w.....", ".....w.....", "....www....", "...wwwww...", ".r.wwcww.r.", ".rrwwwwwrr.", "rrrwwwwwrrr", "rr.ww.ww.rr"];
+const sprites = new Map<string, HTMLCanvasElement>();
+/** A sprite as a small canvas, at two canvas pixels to each of its own. `null` before there is a document to draw it in. */
+function sprite(key: string, rows: string[], colours: Record<string, string>): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  let c = sprites.get(key);
+  if (!c) {
+    c = document.createElement("canvas");
+    c.width = rows[0].length * 2;
+    c.height = rows.length * 2;
+    const x = c.getContext("2d")!;
+    rows.forEach((row, j) => [...row].forEach((ch, i) => {
+      if (colours[ch]) { x.fillStyle = colours[ch]; x.fillRect(i * 2, j * 2, 2, 2); }
+    }));
+    sprites.set(key, c);
+  }
+  return c;
+}
+const alienSprite = (kind: number, frame: number) => sprite(`al${kind}${frame}`, ALIEN_FRAMES[kind][frame], { a: ALIEN_ART[kind].a, b: ALIEN_ART[kind].b, w: "#ffffff" });
+const shipSprite = () => sprite("ship", SHIP_ART, { w: "#f4f4f4", r: "#e0402f", c: "#4aa3e8" });
+
 const galaga: Program = {
-  size: [420, 390],
+  size: [420, 440],
   draw(ctx, f, b, lang, front) {
     ctx.fillStyle = K.frame; ctx.fillRect(b.x, b.y, b.w, b.h);
-    const cellW = Math.floor((b.w - 20) / G.w * G.w);
-    const scale = (b.w - 20) / G.w;
-    const g: Rect = { x: b.x + 10, y: b.y + 34, w: G.w * scale, h: G.h * scale };
+    // the field is scaled to fit the window both ways (it used to be sized by the width alone, so its foot, with the ship in it, was cut off)
+    const scale = Math.min((b.w - 20) / G.w, (b.h - 44) / G.h);
+    const g: Rect = { x: b.x + Math.floor((b.w - G.w * scale) / 2), y: b.y + 34, w: G.w * scale, h: G.h * scale };
     ctx.font = `700 16px ${f.body}`; ctx.textAlign = "left"; ctx.fillStyle = K.ink;
     ctx.fillText(`${lang === "id" ? "Skor" : "Score"} ${ga.score}`, g.x, b.y + 23);
-    ctx.textAlign = "right"; ctx.fillText(`${lang === "id" ? "Nyawa" : "Lives"} ${ga.lives}   Best ${ga.best}`, g.x + g.w, b.y + 23);
-    if (ga.state === "on" && front) galagaStep(); else ga.stepAt = performance.now();
-    ctx.fillStyle = "#050816"; ctx.fillRect(g.x, g.y, g.w, g.h);
+    ctx.textAlign = "right"; ctx.fillText(`Best ${ga.best}`, g.x + g.w, b.y + 23);
+    const mini = shipSprite();
+    if (mini) for (let i = 0; i < ga.lives; i++) ctx.drawImage(mini, g.x + g.w - 74 - i * 26, b.y + 8, 22, 16);
+    if (ga.state === "on" && front) galagaAdvance(performance.now());
+    else { ga.stepAt = ga.lastAt = performance.now(); ga.carry = 0; }
+    // deep space, a little lighter towards the bottom
+    const sky = ctx.createLinearGradient(0, g.y, 0, g.y + g.h);
+    sky.addColorStop(0, "#03040f"); sky.addColorStop(1, "#0a1034");
+    ctx.fillStyle = sky; ctx.fillRect(g.x, g.y, g.w, g.h);
     ctx.save(); ctx.translate(g.x, g.y); ctx.scale(scale, scale);
-    ctx.fillStyle = "rgba(255,255,255,0.5)"; for (let i = 0; i < 40; i++) ctx.fillRect((i * 53) % G.w, (i * 97 + Math.floor(performance.now()/40)) % G.h, 2, 2);
-    ga.aliens.forEach((a) => { if (!a.alive) return; ctx.fillStyle = a.kind === 2 ? "#8fe8f0" : a.kind === 1 ? "#f0b45c" : "#d8362a"; ctx.fillRect(a.x - 10, a.y - 7, 20, 14); ctx.fillStyle = "#fff"; ctx.fillRect(a.x - 4, a.y - 2, 2, 2); ctx.fillRect(a.x + 2, a.y - 2, 2, 2); });
-    ctx.fillStyle = "#f7efe0"; ctx.fillRect(ga.ship - 12, G.h - 24, 24, 8); ctx.fillRect(ga.ship - 3, G.h - 32, 6, 8);
-    ctx.fillStyle = "#8fe8f0"; ga.shots.forEach((s) => ctx.fillRect(s.x - 2, s.y - 8, 4, 10));
-    ctx.fillStyle = "#ff8a7a"; ga.enemyShots.forEach((s) => ctx.fillRect(s.x - 2, s.y, 4, 10));
+    ctx.beginPath(); ctx.rect(0, 0, G.w, G.h); ctx.clip();
+    // three layers of stars, the near ones faster and brighter, a few twinkling
+    const clock = performance.now() / 1000;
+    for (let i = 0; i < 54; i++) {
+      const layer = i % 3;
+      const sx = (i * 53 + layer * 17) % G.w;
+      const sy = (i * 97 + clock * (10 + layer * 22)) % G.h;
+      const tw = layer === 2 && Math.floor(clock * 3 + i) % 4 === 0 ? 0.35 : 1;
+      ctx.fillStyle = `rgba(${layer === 0 ? "150,170,255" : "255,255,255"},${((0.25 + layer * 0.25) * tw).toFixed(2)})`;
+      ctx.fillRect(sx, sy, layer === 2 ? 2 : 1, layer === 2 ? 2 : 1);
+    }
+    ga.aliens.forEach((a) => { if (!a.alive) return; const s = alienSprite(a.kind, ga.frame); if (s) ctx.drawImage(s, Math.round(a.x - s.width / 2), Math.round(a.y - s.height / 2)); });
+    const ship = shipSprite();
+    if (ship) ctx.drawImage(ship, Math.round(ga.ship - ship.width / 2), G.h - 34);
+    // the ship's engine flame, flickering
+    ctx.fillStyle = Math.floor(clock * 20) % 2 ? "#ffd27a" : "#ff8a3a"; ctx.fillRect(ga.ship - 3, G.h - 16, 2, 4 + Math.floor(clock * 20) % 2 * 2); ctx.fillRect(ga.ship + 1, G.h - 16, 2, 4 + Math.floor(clock * 20) % 2 * 2);
+    // the ship's shots: a pale core in a cyan sleeve; the aliens': a red bolt with a hot centre
+    ga.shots.forEach((s) => { ctx.fillStyle = "#59d8e6"; ctx.fillRect(s.x - 2, s.y - 8, 4, 12); ctx.fillStyle = "#ffffff"; ctx.fillRect(s.x - 1, s.y - 8, 2, 12); });
+    ga.enemyShots.forEach((s) => { ctx.fillStyle = "#e0402f"; ctx.fillRect(s.x - 2, s.y, 4, 10); ctx.fillStyle = "#ffd27a"; ctx.fillRect(s.x - 1, s.y + 2, 2, 6); });
+    // sparks from what was hit, shrinking as they fade
+    ga.fx.forEach((p) => { ctx.fillStyle = p.color; ctx.globalAlpha = Math.min(1, p.life / 12); const z = p.life > 10 ? 3 : 2; ctx.fillRect(p.x - z / 2, p.y - z / 2, z, z); });
+    ctx.globalAlpha = 1;
     ctx.restore();
+    // a thin frame round the field
+    ctx.strokeStyle = K.shade; ctx.lineWidth = 1; ctx.strokeRect(g.x - 0.5, g.y - 0.5, g.w + 1, g.h + 1);
     if (ga.state !== "on") {
       ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(g.x, g.y, g.w, g.h);
-      ctx.textAlign = "center"; ctx.fillStyle = "#fff"; ctx.font = `700 22px ${f.body}`;
-      const msg = ga.state === "won" ? (lang === "id" ? "Menang!" : "You win!") : ga.state === "over" ? (lang === "id" ? "Selesai!" : "Game over!") : "Galaga";
-      ctx.fillText(msg, g.x + g.w / 2, g.y + g.h / 2 - 8);
+      ctx.textAlign = "center"; ctx.font = `40px ${f.screen}`;
+      const msg = ga.state === "won" ? (lang === "id" ? "MENANG!" : "YOU WIN!") : ga.state === "over" ? (lang === "id" ? "SELESAI!" : "GAME OVER") : "GALAGA";
+      ctx.fillStyle = "#e0402f"; ctx.fillText(msg, g.x + g.w / 2 + 2, g.y + g.h / 2 - 6);
+      ctx.fillStyle = "#59d8e6"; ctx.fillText(msg, g.x + g.w / 2, g.y + g.h / 2 - 8);
+      ctx.fillStyle = "#fff";
       ctx.font = `700 15px ${f.body}`; ctx.fillText(lang === "id" ? "Enter mulai • panah gerak • Spasi tembak" : "Enter start • arrows move • Space fire", g.x + g.w / 2, g.y + g.h / 2 + 20);
     }
-    void cellW;
   },
   down() { if (ga.state !== "on") newGalaga(); },
   key(e) {

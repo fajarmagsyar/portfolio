@@ -5,10 +5,12 @@ import { useMemo, useRef } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import { jobs, type Job } from "@/content/data";
+import { jobYears, jobs, type Job } from "@/content/data";
+import { useLang } from "@/state/lang";
 import { Interactive } from "../Interactive";
 import { POS, SHELF, tapeHeld } from "../layout";
 import { hint } from "../hint";
+import { held } from "../held";
 import { useRoom } from "../store";
 import { holdCancel, holdMove, holdStart, tap } from "../touch";
 import { receiptOpen } from "./Pamphlet";
@@ -64,6 +66,7 @@ const ease = (t: number) => t * t * (3 - 2 * t);
 
 function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell }) {
   const fonts = useFonts();
+  const lang = useLang();
   const ref = useRef<THREE.Group>(null);
   const focus = useRoom((s) => s.focus);
   const selected = useRoom((s) => s.selectedTape === job.id);
@@ -73,22 +76,58 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
   /** 0 on the shelf, 1 held up to be read */
   const out = useRef(0);
 
-  // a strip of masking tape with the workplace written on it: one on the face, one along the spine
-  const label = (w: number, h: number, size0: number) => (ctx: CanvasRenderingContext2D) => {
-    paper(ctx, w, h, "#ead9b0", job.from);
+  // a printed label stuck on the cassette: the years first, large, then the workplace. One on the
+  // face, and a lower one along the spine, where the two share a line.
+  const years = jobYears(job, lang).toUpperCase();
+  const company = job.company.toUpperCase();
+  const label = (w: number, h: number, spine: boolean) => (ctx: CanvasRenderingContext2D) => {
+    paper(ctx, w, h, "#ece4d0", job.from);
     if (!fonts) return;
-    ctx.fillStyle = "#1d1712";
-    ctx.textAlign = "center";
-    let size = size0;
-    ctx.font = `400 ${size}px ${fonts.marker}`;
-    while (ctx.measureText(job.company).width > w - 36 && size > 24) {
-      size -= 2;
-      ctx.font = `400 ${size}px ${fonts.marker}`;
+    ctx.fillStyle = "#171411";
+    ctx.textBaseline = "alphabetic";
+    const face = (px: number) => `800 ${px}px ${fonts.display}`;
+    // the largest size, from `size`, at which `text` fits in `room`
+    const fit = (text: string, size: number, room: number) => {
+      ctx.font = face(size);
+      while (ctx.measureText(text).width > room && size > 12) {
+        size -= 1;
+        ctx.font = face(size);
+      }
+      return size;
+    };
+    // a hairline rule top and bottom, as on a printed label
+    ctx.fillRect(14, 8, w - 28, 2);
+    ctx.fillRect(14, h - 10, w - 28, 2);
+    if (spine) {
+      const ys = fit(years, 34, w * 0.5);
+      ctx.textAlign = "left";
+      ctx.fillText(years, 20, h / 2 + ys * 0.36);
+      const room = w - 40 - ctx.measureText(years).width - 24;
+      ctx.textAlign = "right";
+      const words = company.split(" ");
+      if (words.length > 1 && fit(company, 26, room) < 20) {
+        // a long name goes on two lines rather than shrinking to nothing
+        const cut = Math.ceil(words.length / 2);
+        const lines = [words.slice(0, cut).join(" "), words.slice(cut).join(" ")];
+        const size = Math.min(...lines.map((l) => fit(l, 22, room)));
+        ctx.font = face(size);
+        ctx.fillText(lines[0], w - 20, h / 2 - 1);
+        ctx.fillText(lines[1], w - 20, h / 2 + size + 1);
+      } else {
+        const cs = fit(company, 26, room);
+        ctx.fillText(company, w - 20, h / 2 + cs * 0.36);
+      }
+    } else {
+      ctx.textAlign = "center";
+      // the years take the upper two thirds, the workplace the line under them, clear of each other
+      fit(years, 40, w - 44);
+      ctx.fillText(years, w / 2, 52);
+      fit(company, 21, w - 44);
+      ctx.fillText(company, w / 2, h - 17);
     }
-    ctx.fillText(job.company, w / 2, h / 2 + size * 0.3);
   };
-  const strip = useCanvasTexture(512, 96, label(512, 96, 70), [job, fonts]);
-  const spine = useCanvasTexture(512, 60, label(512, 60, 50), [job, fonts]);
+  const strip = useCanvasTexture(512, 96, label(512, 96, false), [job, fonts, lang]);
+  const spine = useCanvasTexture(512, 60, label(512, 60, true), [job, fonts, lang]);
 
   const slotX = SHELF.x - SHELF.inner / 2 + SHELF.tape.start + index * SHELF.tape.pitch;
   // standing on its short edge, spine level with the others
@@ -126,10 +165,11 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
       position={rest}
       quaternion={SHELVED}
       onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        if (selected) held.hit = true; // a click on the held cassette is not an outside click
         if (!(focus === "cds" || live)) return;
         holdStart(
           focus === "cds" ? "rack-tapes" : `tape-${job.id}`,
-          focus === "cds" ? "rack_tapes_tip" : selected ? "tip_put_back" : null,
+          focus === "cds" ? "rack_tapes_tip" : null,
           e.nativeEvent.clientX,
           e.nativeEvent.clientY,
         );
@@ -143,13 +183,19 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
           e.stopPropagation();
           tap("rack-tapes", "rack_tapes_tip", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
             hint(null);
+            // a CD is held: this click is outside it, so it goes back and nothing else is picked
+            if (useRoom.getState().selectedCd) return useRoom.getState().selectCd(null);
             useRoom.getState().setFocus("tapes");
           });
           return;
         }
         if (!live) return;
         e.stopPropagation();
-        tap(`tape-${job.id}`, selected ? "tip_put_back" : null, e.nativeEvent.clientX, e.nativeEvent.clientY, () => selectTape(selected ? null : job.id));
+        tap(`tape-${job.id}`, null, e.nativeEvent.clientX, e.nativeEvent.clientY, () => {
+          // one cassette at a time: with another held, this click is outside it, so it goes back and this one is not picked
+          const held = useRoom.getState().selectedTape;
+          selectTape(held ? null : job.id);
+        });
       }}
       onPointerOver={(e) => {
         if (focus === "cds") {
@@ -160,7 +206,7 @@ function Cassette({ job, index, shell }: { job: Job; index: number; shell: Shell
         if (!live) return;
         e.stopPropagation();
         hovered.current = true;
-        hint(selected ? "tip_put_back" : null);
+        hint(null);
       }}
       onPointerOut={() => {
         hovered.current = false;

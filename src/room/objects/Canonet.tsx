@@ -67,11 +67,19 @@ export function Canonet() {
   const peeking = useRoom((s) => s.focus === "canonet" && s.finder);
   const ref = useRef<THREE.Group>(null);
   const turn = useRef({ yaw: REST_YAW, pitch: 0 });
+  const liftT = useRef(0);
 
+  const wasHeld = useRef(false);
+  const dropT = useRef(0);
   useFrame((_, dt) => {
     const g = ref.current;
     if (!g) return;
     const t = turn.current;
+    if (held && !wasHeld.current) liftT.current = 0;
+    if (!held && wasHeld.current) dropT.current = 0;
+    if (held) liftT.current += dt;
+    else dropT.current += dt;
+    wasHeld.current = held;
     // put down, it goes back the short way round however many times it was spun
     if (!held) t.yaw = REST_YAW + ((((t.yaw - REST_YAW + Math.PI) % TAU) + TAU) % TAU) - Math.PI;
     const k = 1 - Math.exp(-dt * (held ? 12 : 6));
@@ -82,7 +90,10 @@ export function Canonet() {
     // with the eye at its viewfinder the camera itself is not seen: the eye is inside it
     g.visible = !peeking;
     const y = POS.canonet[1] + MID + (held ? 0.105 : 0);
-    g.position.y += (y - g.position.y) * (1 - Math.exp(-dt * 6));
+    const liftRamp = Math.min(1, liftT.current / 0.8);
+    const dropRamp = Math.min(1, dropT.current / 0.8);
+    const ramp = held ? liftRamp * liftRamp : dropRamp * dropRamp;
+    g.position.y += (y - g.position.y) * (1 - Math.exp(-dt * 4)) * ramp;
   });
 
   return (

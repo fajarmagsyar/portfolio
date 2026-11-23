@@ -19,9 +19,11 @@ CC BY 4.0 requires naming the author, linking the source and the licence, and st
 | Coffee Cup | jeffbas | https://sketchfab.com/3d-models/coffee-cup-ce14e184dce0440ebf21246ae876fca6 | packed as one file, not compressed; its unlit material made to take the room's light; scaled, placed |
 | Helmet Redbull - Max Verstappen | Maubian | https://sketchfab.com/3d-models/helmet-redbull-max-verstappen-87eee96938ae415281a8aa8233eefba8 | textures downscaled to 1024 px (WebP), meshopt-compressed; scaled, placed on the window sill |
 | Window | adventurer | https://sketchfab.com/3d-models/window-e7a957f3585a4ced8aeb23e9525f0b87 | the outer frame and the two sashes are used, the leaf over the top is left out; textures downscaled to 1024 px; scaled to the wall opening and placed in front of the painted view |
+| Trash Can | Yury Misiyuk | https://sketchfab.com/3d-models/trash-can-0ad3407cd8104ba58f71885c0e58ca9a | textures downscaled to 1024 px (JPEG); scaled and placed on the floor at the right-hand end of the desk |
+| Lamp - WIP | KeenanBabcock | https://sketchfab.com/3d-models/lamp-wip-8170cf1409924abc9c3fc8becccdd36e | textures downscaled to 1024 px (JPEG); scaled to the height of a standing lamp and placed on the floor at the right of the desk; the shade given a warm glow |
 | Nintendo DS Lite | Cianon | https://sketchfab.com/3d-models/nintendo-ds-lite-ca529eb7208746e89b7a28fd2246659d | textures downscaled to 1024 px (WebP), meshopt-compressed; scaled, placed on the window sill |
 | Mercury, Venus, Earth, Mars, Jupiter | Akshat | https://sketchfab.com/3d-models/mercury-32347fa4ec1a4987b71f461a401d91c4, https://sketchfab.com/3d-models/venus-d497ce25553447f3b7b679110c85cfa1, https://sketchfab.com/3d-models/earth-41fc80d85dfd480281f21b74b2de2faa, https://sketchfab.com/3d-models/mars-9c7bbc64d8c74acfa9ec344c0fc10e1a, https://sketchfab.com/3d-models/jupiter-d252c96ae3de48d7968b1206522ba9f5 | only the surface texture of each is used (`public/textures/planets/`), downscaled to 2048 px, on the globe of the Saturn lamp |
-| Audio Cassettes (Low Poly) | Mobius1 | https://sketchfab.com/3d-models/audio-cassettes-low-poly-72f334ea017840209f53998c8c2792b9 | each cassette separated; a strip of masking tape with a workplace name laid over the label |
+| Audio Cassettes (Low Poly) | Mobius1 | https://sketchfab.com/3d-models/audio-cassettes-low-poly-72f334ea017840209f53998c8c2792b9 | each cassette separated; a printed label with the years and the workplace laid over the cassette |
 
 Licence: https://creativecommons.org/licenses/by/4.0/
 

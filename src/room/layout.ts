@@ -43,7 +43,7 @@ const CDS_X = SHELF_LEFT + SHELF.cd.start + SHELF.cd.pitch * 1.5;
  */
 export function tapeHeld(aspect: number): V3 {
   const wide = aspect > 1.05;
-  return [TAPES_X + (wide ? 0.045 : 0), POS.tapeRack[1] + 0.18 + (wide ? 0 : 0.03), POS.tapeRack[2] + 0.15];
+  return [TAPES_X + (wide ? 0.015 : 0), POS.tapeRack[1] + 0.18 + (wide ? 0 : 0.03), POS.tapeRack[2] + 0.15];
 }
 
 export const POS = {
@@ -68,7 +68,7 @@ export const POS = {
   receipt: [0.62, DESK.y, -0.2] as V3,
   // the clock on the wall to the right of the window, above the notes: in sight from the chair
   clock: [1.2, 1.6, WALL_Z + 0.004] as V3,
-  notes: [1.17, 1.22, WALL_Z + 0.006] as V3,
+  notes: [1.25, 1.22, WALL_Z + 0.006] as V3, // right of the curtain's edge, which hid the first column
   // the two frames stand at the back of the desk, right of the shelf
   frames: [0.74, DESK.y, -0.4] as V3,
   // the Discman in front of the shelf, the rangefinder beside it, the album at the desk's right-hand corner
@@ -83,7 +83,9 @@ export const POS = {
   guitar: [-1.22, 0, -0.22] as V3,
   amp: [-1.62, 0, -0.4] as V3,
   // far enough along that its leaves do not hang in front of the album when it is held up
-  plant: [1.1, 0, -0.3] as V3,
+  standingLamp: [1.17, 0, 0.3] as V3,
+  /** on the floor at the right-hand end of the desk, by the wall */
+  trashCan: [1.2, 0, -0.32] as V3,
   window: [WIN.x, WIN.y, WALL_Z] as V3,
 };
 
@@ -120,6 +122,8 @@ export const ENTER_VIEW = { pos: [-0.056, 1.019, 0.58] as V3, look: [-0.1, 1.019
 /** At the typing test the view draws back a little from the TV so the keyboard is in the picture too. */
 export const TYPING_VIEW = { pos: [-0.056, 1.1, 0.86] as V3, look: [-0.08, 0.92, -0.03] as V3 };
 // 47 before; 39.8 is the same lens 20% more zoomed in (tan(fov/2) divided by 1.2)
+/** Where the standing lamp's light sits: in the middle of its shade, 1.3 m up, so it moves with the lamp. */
+export const STANDING_LAMP_LIGHT = (): V3 => [POS.standingLamp[0], 1.3, POS.standingLamp[2]];
 export const HOME_FOV = 39.8;
 export const FOCUS_FOV = 36;
 
@@ -134,7 +138,7 @@ export const VIEWS: Record<FocusId, { pos: V3; look: V3 }> = {
   cd: { pos: [0.45, 0.99, 0.17], look: [0.445, 0.79, -0.01] },
   guitar: { pos: [-0.57, 0.72, 1.58], look: [-1.22, 0.58, -0.17] },
   frames: { pos: [0.56, 1.0, 0.36], look: [0.74, 0.91, -0.4] },
-  notes: { pos: [1.17, 1.22, 0.3], look: [1.17, 1.22, WALL_Z] },
+  notes: { pos: [POS.notes[0], 1.26, 0.3], look: [POS.notes[0], 1.26, WALL_Z] },
   // the pack and its cards are held up in front of the eye
   cards: { pos: [CARDS_HELD[0], 1.05, 0.52], look: CARDS_HELD },
   // both of these are picked up off the desk when focused: the view looks at where they are held

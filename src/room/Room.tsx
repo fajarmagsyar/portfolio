@@ -6,12 +6,13 @@ import { Environment, Lightformer } from "@react-three/drei";
 import { Bloom, DepthOfField, EffectComposer, Noise, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
 import { type DepthOfFieldEffect, Effect, SMAAPreset, ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
-import { CD_OPEN_VIEW, ENTER_VIEW, LAMP_LIGHT_OFFSET, TYPING_VIEW, FINDER_FOV, FOCUS_FOV, HOME_FOV, HOME_VIEW, POS, VIEWS, WALL_Z } from "./layout";
+import { CD_OPEN_VIEW, ENTER_VIEW, LAMP_LIGHT_OFFSET, STANDING_LAMP_LIGHT, TYPING_VIEW, FINDER_FOV, FOCUS_FOV, HOME_FOV, HOME_VIEW, POS, VIEWS, WALL_Z } from "./layout";
 import { glideOrbit, orbit, resetOrbit, type OrbitLimits } from "./orbit";
 import { useRoom, type FocusId } from "./store";
 import { DEBUG_PERF, usePerf } from "./perf";
 import { FrameLimiter } from "./FrameLimiter";
 import { shadowLive } from "./shadowLive";
+import { held } from "./held";
 import { PerfApply, PerfProbe } from "./PerfProbe";
 import { touch } from "./touch";
 import { Shell } from "./objects/Shell";
@@ -47,6 +48,12 @@ const focusPoint = new THREE.Vector3(0, 1, 0);
 const LEVEL: [number, number, number] = [0, 1, 0];
 const sph = new THREE.Spherical();
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+/** How long the camera takes to go in to a prop, and to go back out to the desk, in seconds. */
+const MOVE_IN = 1.0;
+const MOVE_OUT = 1.7;
+const easeOutQuart = (x: number) => 1 - Math.pow(1 - x, 4);
+const easeInOutCubic = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const easeInOutQuart = (x: number) => (x < 0.5 ? 8 * x * x * x * x : 1 - Math.pow(-2 * x + 2, 4) / 2);
 /** Phones run the same room with fewer pixels and no shadow maps, so a drag stays smooth. */
 const LOW_POWER = typeof window !== "undefined" && (matchMedia("(pointer: coarse)").matches || matchMedia("(max-width: 700px)").matches);
 
@@ -206,6 +213,7 @@ function CameraRig() {
   const shift = useRef(0);
   const size = useThree((s) => s.size);
   const hand = useRef({ yaw: 0, pitch: 0, zoom: 1 });
+  const move = useRef({ key: "", t: 0, dur: 1, ease: easeOutQuart, pos: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(), fov: 47 });
   useOrbitInput();
   // every view starts square on; what was dialled in for the last one is dropped
   useEffect(() => resetOrbit(), [focus, booted, zoomed, frameZoom, finder, tapeOpen]);
@@ -272,25 +280,52 @@ function CameraRig() {
       camera.fov = fov;
       camera.updateProjectionMatrix();
     } else {
-      // the pull back from the TV on entering is slower than a hop between objects
-      const k = 1 - Math.exp(-dt * (manual ? 9 : booted && !focus ? 2.2 : 3.2));
-      camera.position.lerp(tmpPos, k);
-      camera.up.lerp(tmpUp, k).normalize();
-      look.current.lerp(tmpLook, k);
-      if (Math.abs(camera.fov - fov) > 0.01) {
-        camera.fov += (fov - camera.fov) * k;
+      // A change of view (to a prop, between props, back to the desk) is a timed, eased move from where the
+      // camera is: in to a prop is very fast and lands softly; out to the desk is slow and eases both ends.
+      // Once it is over, the camera follows its target with the old smoothing (the drift of the pointer).
+      const key = `${booted}|${focus}|${zoomed}|${frameZoom}|${cdOut}|${peeking}|${playing ? 1 : 0}`;
+      const mv = move.current;
+      if (mv.key !== key) {
+        const toProp = booted && focus !== null && !peeking;
+        mv.key = key;
+        mv.t = 0;
+        mv.dur = toProp ? MOVE_IN : MOVE_OUT;
+        mv.ease = easeInOutQuart;
+        mv.pos.copy(camera.position);
+        mv.look.copy(look.current);
+        mv.up.copy(camera.up);
+        mv.fov = camera.fov;
+      }
+      mv.t += dt;
+      if (manual) mv.t = mv.dur; // the visitor took the camera: no timed move
+      if (mv.t < mv.dur) {
+        const s = mv.ease(mv.t / mv.dur);
+        camera.position.lerpVectors(mv.pos, tmpPos, s);
+        camera.up.lerpVectors(mv.up, tmpUp, s).normalize();
+        look.current.lerpVectors(mv.look, tmpLook, s);
+        camera.fov = mv.fov + (fov - mv.fov) * s;
         camera.updateProjectionMatrix();
+      } else {
+        const k = 1 - Math.exp(-dt * (manual ? 9 : booted && !focus ? 2.2 : 3.2));
+        camera.position.lerp(tmpPos, k);
+        camera.up.lerp(tmpUp, k).normalize();
+        look.current.lerp(tmpLook, k);
+        if (Math.abs(camera.fov - fov) > 0.01) {
+          camera.fov += (fov - camera.fov) * k;
+          camera.updateProjectionMatrix();
+        }
       }
     }
     camera.lookAt(look.current);
+    (window as unknown as { __cam?: unknown }).__cam = camera; // TEMP-PROBE
     focusPoint.copy(look.current);
 
     // with a cassette's inlay open on the right of a wide screen, the picture slides left so the cassette and
     // the inlay stand side by side, clear of each other (the cassette cannot go further left itself: the TV is there)
     const inlay = focus === "tapes" && tapeOpen && aspect > 1.05;
     // slide the picture left while a side panel is open (the TV takes the whole screen instead)
-    // nor for the Discman, the planet lamp, the guitar or the card pack, which have no panel: their controls are in the room
-    const goal = inlay ? 0.14 : focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && zoomed === null ? 0.19 : 0;
+    // nor for the Discman, the planet lamp, the guitar, the sticky notes or the card pack, which have no panel: their controls are in the room
+    const goal = inlay ? 0.14 : focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && focus !== "notes" && zoomed === null ? 0.19 : 0;
     shift.current += (goal - shift.current) * (1 - Math.exp(-dt * 3.2));
     if (Math.abs(shift.current) > 0.0005) camera.setViewOffset(size.width, size.height, shift.current * size.width, 0, size.width, size.height);
     else camera.clearViewOffset();
@@ -388,6 +423,8 @@ function Lights() {
       />
       {/* the lamp's light coming back off the room behind the chair */}
       <pointLight position={[1.6, 1.8, 2.4]} color="#ffcaa0" intensity={0.7} distance={9} decay={1.45} />
+      {/* the standing lamp: a very soft, warm light from inside its shade, only to take the dark off the right of the desk and the wall behind it */}
+      <pointLight position={STANDING_LAMP_LIGHT()} color="#ffb869" intensity={0.55} distance={3.2} decay={1.7} />
       {/* night through the glass, pulled towards the TV's cyan */}
       <pointLight position={[POS.window[0], POS.window[1] + 0.2, POS.window[2] + 0.45]} color="#7bb7dd" intensity={0.75} distance={5.5} decay={1.7} />
       {/* the right of the desk: a soft, warm pool from up and in front, falling off into the dark
@@ -454,6 +491,30 @@ function SoftFocus() {
 
 export default function Room({ onReady }: { onReady?: () => void }) {
   const flags = usePerf((s) => s.flags);
+  // With a cassette or a CD held, a click anywhere on the picture but on it puts it back. Whether
+  // something was held is noted as the button goes down, since a click on another cassette changes
+  // that before the click is over; the held thing marks its own clicks (held.ts).
+  useEffect(() => {
+    const down = () => {
+      const s = useRoom.getState();
+      held.heldAtDown = Boolean(s.selectedTape || s.selectedCd);
+      held.hit = false;
+    };
+    const click = (e: MouseEvent) => {
+      const outside = held.heldAtDown && !held.hit && e.target instanceof HTMLCanvasElement;
+      held.heldAtDown = false;
+      if (!outside) return;
+      const s = useRoom.getState();
+      if (s.selectedTape) s.selectTape(null);
+      if (s.selectedCd) s.selectCd(null);
+    };
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("click", click);
+    return () => {
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("click", click);
+    };
+  }, []);
   // The whole desk on screen is the heaviest view (every pixel runs the lights, shadows and the
   // rain shader), so it is drawn at a lower resolution; close to an object it is full again.
   const wide = useRoom((s) => s.focus === null) && !LOW_POWER;

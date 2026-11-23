@@ -281,10 +281,51 @@ function StickyNote({ text, index, fonts }: { text: string; index: number; fonts
   );
 }
 
+/** The note above the others, saying what they are. A pin through its top, and its words larger. */
+function TitleNote({ fonts }: { fonts: Fonts | null }) {
+  const lang = useLang();
+  const text = lang === "id" ? ["Keahlian", "saya"] : ["My", "skills"];
+  const tex = useCanvasTexture(
+    192,
+    192,
+    (ctx, w, h) => {
+      paper(ctx, w, h, "#f7f3e6", 77);
+      ctx.fillStyle = "rgba(0,0,0,0.05)";
+      ctx.fillRect(0, 0, w, 30);
+      if (!fonts) return;
+      ctx.fillStyle = "#2a2018";
+      ctx.textAlign = "center";
+      ctx.font = `700 60px ${fonts.hand}`;
+      text.forEach((word, i) => ctx.fillText(word, w / 2, 96 + i * 54));
+      // a red pin through the top, with its small shadow
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.beginPath();
+      ctx.arc(w / 2 + 3, 19, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#c93a2c";
+      ctx.beginPath();
+      ctx.arc(w / 2, 16, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.beginPath();
+      ctx.arc(w / 2 - 3, 13, 3, 0, Math.PI * 2);
+      ctx.fill();
+    },
+    [lang, fonts],
+  );
+  return (
+    <mesh position={[0, 2 * (NOTE + 0.012) - 0.004, 0.0035]} rotation={[0.03, 0, -0.035]} castShadow>
+      <planeGeometry args={[NOTE, NOTE]} />
+      <meshStandardMaterial map={tex} roughness={0.9} />
+    </mesh>
+  );
+}
+
 export function Notes() {
   const fonts = useFonts();
   return (
     <Interactive target="notes" position={POS.notes}>
+      <TitleNote fonts={fonts} />
       {skills.map((sk, i) => (
         <StickyNote key={sk} text={sk} index={i} fonts={fonts} />
       ))}

@@ -6,7 +6,7 @@ import { Interactive } from "../Interactive";
 import { POS, WALL_Z } from "../layout";
 import { useRoom } from "../store";
 import { Clock } from "./Clock";
-import { Model } from "./Props";
+import { FadeOnFocus, Model, fadable } from "./Props";
 
 // What stands around the desk, so the room is not bare when the view is turned: a bookshelf
 // against the back wall on the right with a reading chair in front of it, and a chest of
@@ -21,6 +21,15 @@ const CHEST_SCALE = 0.64;
 const CHEST_TOP = 1.09 * CHEST_SCALE;
 const TABLE: [number, number, number] = [2.95, 0, 0.5];
 
+/** The reading chair stands between the camera and the guitar, so it fades away while the guitar is looked at. */
+function LoungeChair() {
+  return (
+    <FadeOnFocus focuses={["guitar"]}>
+      <Model asset="mid_century_lounge_chair" position={[-0.9, 0, 0.6]} rotation={[0, 2.7, 0]} scale={0.8} process={fadable} />
+    </FadeOnFocus>
+  );
+}
+
 export function Furniture() {
   return (
     <group>
@@ -34,7 +43,7 @@ export function Furniture() {
         <Clock position={[0.3, 0.38 + 0.13, 0.08]} rotation={[-0.12, -0.2, 0]} scale={0.8} />
       </group>
       {/* a chair to read in, turned towards the desk, and a small table beside it */}
-      <Model asset="mid_century_lounge_chair" position={[1.0, 0, 0.6]} rotation={[0, -2.55, 0]} scale={0.8} />
+      <LoungeChair />
       <Model asset="side_table_01" position={TABLE} rotation={[0, 0, 0]} />
       <Model asset="potted_plant_04" position={[TABLE[0], 0.55, TABLE[2]]} rotation={[0, 1.2, 0]} scale={1.4} />
 

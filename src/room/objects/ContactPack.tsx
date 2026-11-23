@@ -690,6 +690,8 @@ export function ContactPack() {
     glow: 0,
     wasLive: false,
     wasOpen: false,
+    liftT: 0,
+    dropT: 0,
     /** when the cards were last put away, the pack being open; before that nothing is being put away */
     away: -1,
     /** where the pack [0] and each card were when they began to be put away */
@@ -719,7 +721,14 @@ export function ContactPack() {
     const live = s.focus === "cards";
     if (live || st.wasLive) touchShadow(); // the cards' shadows are live while the pack is looked at
     const t = now();
-    const k = 1 - Math.exp(-dt * 7);
+    if (live && !st.wasLive) { st.liftT = 0; st.dropT = 0; }
+    if (!live && st.wasLive) { st.dropT = 0; st.liftT = 0; }
+    if (live) st.liftT += dt;
+    else st.dropT += dt;
+    const liftRamp = Math.min(1, st.liftT / 0.8);
+    const dropRamp = Math.min(1, st.dropT / 0.8);
+    const ramp = live ? liftRamp * liftRamp : dropRamp * dropRamp;
+    const k = (1 - Math.exp(-dt * 4)) * ramp;
     LIGHT.uTime.value = clock.elapsedTime;
 
     // Taken up with the pack already open, or the moment it is cut through, the cards start

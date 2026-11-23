@@ -100,6 +100,20 @@ export const credits: Credit[] = [
     changes: { id: "Tekstur diperkecil ke 1024 px (WebP), dikompres; diskalakan dan ditempatkan di ambang jendela.", en: "Textures downscaled to 1024 px (WebP), compressed; scaled and placed on the window sill." },
   },
   {
+    title: "Trash Can",
+    author: "Yury Misiyuk",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/trash-can-0ad3407cd8104ba58f71885c0e58ca9a",
+    changes: { id: "Tekstur diperkecil ke 1024 px (JPEG); diskalakan dan ditempatkan di lantai di ujung kanan meja.", en: "Textures downscaled to 1024 px (JPEG); scaled and placed on the floor at the right-hand end of the desk." },
+  },
+  {
+    title: "Lamp - WIP",
+    author: "KeenanBabcock",
+    licence: "CC BY 4.0",
+    url: "https://sketchfab.com/3d-models/lamp-wip-8170cf1409924abc9c3fc8becccdd36e",
+    changes: { id: "Tekstur diperkecil ke 1024 px (JPEG); diskalakan ke tinggi lampu berdiri dan ditempatkan di lantai di sisi kanan meja; kap diberi pendar hangat.", en: "Textures downscaled to 1024 px (JPEG); scaled to the height of a standing lamp and placed on the floor at the right of the desk; the shade given a warm glow." },
+  },
+  {
     title: "Nintendo DS Lite",
     author: "Cianon",
     licence: "CC BY 4.0",
@@ -150,8 +164,8 @@ export const credits: Credit[] = [
     licence: "CC BY 4.0",
     url: "https://sketchfab.com/3d-models/audio-cassettes-low-poly-72f334ea017840209f53998c8c2792b9",
     changes: {
-      id: "Tekstur diperkecil; tiap kaset dipisah dan diberi selotip kertas bertuliskan nama tempat kerja.",
-      en: "Textures downscaled; each cassette separated and given strips of masking tape with a workplace name.",
+      id: "Tekstur diperkecil; tiap kaset dipisah dan diberi label cetak berisi tahun dan nama tempat kerja.",
+      en: "Textures downscaled; each cassette separated and given a printed label with the years and the workplace.",
     },
   },
   {

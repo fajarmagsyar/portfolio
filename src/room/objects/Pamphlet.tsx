@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { jobs, jobYears, type Job, type Lang } from "@/content/data";
 import { useLang } from "@/state/lang";
 import { tapeHeld } from "../layout";
+import { held } from "../held";
 import { useRoom } from "../store";
 import { tap } from "../touch";
 import { canvasTexture, paper, rng, useFonts, useImage, type Fonts } from "../textures";
@@ -494,6 +495,7 @@ function Sheet({ job, selected }: { job: Job; selected: boolean }) {
       }}
       onPointerOut={() => grab(false)}
       onPointerDown={(e: ThreeEvent<PointerEvent>) => {
+        held.hit = true; // the pamphlet belongs to the held cassette
         if (!live.current) return;
         e.stopPropagation();
         if (!tap("receipt-scroll", "tip_receipt", e.nativeEvent.clientX, e.nativeEvent.clientY, () => {})) return;
