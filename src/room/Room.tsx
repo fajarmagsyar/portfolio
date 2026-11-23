@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useStore, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
 import { Bloom, DepthOfField, EffectComposer, Noise, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
 import { type DepthOfFieldEffect, Effect, SMAAPreset, ToneMappingMode } from "postprocessing";
@@ -508,6 +508,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
         <LampGlow />
         <Haze />
         <Ready onReady={onReady} />
+        <ShadowBake />
       </Suspense>
       {/* The scene is drawn into the composer's buffer, not the canvas, so the canvas's own
           antialiasing never reaches it. Multisampling that buffer is the obvious fix, but on
@@ -536,6 +537,37 @@ export default function Room({ onReady }: { onReady?: () => void }) {
 }
 
 /** Mounts only once every suspended asset above it has loaded. */
+/**
+ * The shadows are drawn once, not every frame. The room is nearly all still, and the lamp's
+ * shadow (a point light, so the room is drawn six times for it) was about a third of every
+ * frame in the wide view. They are drawn again a moment after the room settles, and after
+ * anything that moves things about (a new focus, a tape or CD pulled out, a case opening), so
+ * a picked-up object does not leave its shadow behind.
+ */
+function ShadowBake() {
+  const store = useStore();
+  useEffect(() => {
+    const shadowMap = store.getState().gl.shadowMap;
+    shadowMap.autoUpdate = false;
+    const timers: number[] = [];
+    const bake = () => {
+      timers.forEach(clearTimeout);
+      timers.length = 0;
+      for (const ms of [150, 700, 1500]) timers.push(window.setTimeout(() => (shadowMap.needsUpdate = true), ms));
+    };
+    bake();
+    const unsub = useRoom.subscribe((s, prev) => {
+      if (s.focus !== prev.focus || s.selectedTape !== prev.selectedTape || s.selectedCd !== prev.selectedCd || s.cdOpen !== prev.cdOpen) bake();
+    });
+    return () => {
+      unsub();
+      timers.forEach(clearTimeout);
+      shadowMap.autoUpdate = true;
+    };
+  }, [store]);
+  return null;
+}
+
 function Ready({ onReady }: { onReady?: () => void }) {
   useEffect(() => {
     onReady?.();
