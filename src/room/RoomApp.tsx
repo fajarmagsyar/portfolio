@@ -6,8 +6,10 @@ import { useRestoreLang } from "@/state/lang";
 import Room from "./Room";
 import { PLANETS } from "./planets";
 import { FOCUS_ORDER, useRoom, type FocusId } from "./store";
+import { DEBUG_PERF } from "./perf";
 import { Boot } from "./ui/Boot";
 import { Hud } from "./ui/Hud";
+import { PerfPanel } from "./ui/PerfPanel";
 
 /** The hi-fi version: the 3D room plus every 2D layer drawn over it. */
 export default function RoomApp() {
@@ -62,6 +64,7 @@ export default function RoomApp() {
       <Room onReady={onReady} />
       <Hud />
       {!booted && <Boot ready={ready} />}
+      {DEBUG_PERF && <PerfPanel />}
     </div>
   );
 }

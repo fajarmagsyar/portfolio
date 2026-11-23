@@ -155,7 +155,11 @@ function drawEnter(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, t: numbe
     ctx.fillStyle = lit ? "#0a6e83" : "#f4f2ea";
     // a loudspeaker, with waves coming off it or a line through it
     const cx = x + w / 2;
-    const cy = y + h * 0.4;
+    const cy = y + h / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(1.5, 1.5);
+    ctx.translate(-cx - 2, -cy);
     ctx.beginPath();
     ctx.moveTo(cx - 44, cy - 13);
     ctx.lineTo(cx - 24, cy - 13);
@@ -181,8 +185,7 @@ function drawEnter(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, t: numbe
     }
     ctx.stroke();
     ctx.lineCap = "butt";
-    ctx.font = `700 40px ${f.body}`;
-    ctx.fillText(name === "on" ? s.sound_on : s.sound_off, cx, y + h * 0.84);
+    ctx.restore();
   }
   ctx.fillStyle = "#f4f2ea";
   ctx.font = `24px ${f.screen}`;

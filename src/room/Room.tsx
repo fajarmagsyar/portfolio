@@ -3,12 +3,14 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
-import { Bloom, DepthOfField, EffectComposer, Noise, SMAA, ToneMapping, Vignette } from "@react-three/postprocessing";
-import { type DepthOfFieldEffect, Effect, SMAAPreset, ToneMappingMode } from "postprocessing";
+import { Bloom, DepthOfField, EffectComposer, Noise, ToneMapping, Vignette } from "@react-three/postprocessing";
+import { type DepthOfFieldEffect, Effect, ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
 import { CD_OPEN_VIEW, ENTER_VIEW, LAMP_LIGHT_OFFSET, TYPING_VIEW, FINDER_FOV, FOCUS_FOV, HOME_FOV, HOME_VIEW, POS, VIEWS, WALL_Z } from "./layout";
 import { glideOrbit, orbit, resetOrbit, type OrbitLimits } from "./orbit";
 import { useRoom, type FocusId } from "./store";
+import { DEBUG_PERF, usePerf } from "./perf";
+import { PerfApply, PerfProbe } from "./PerfProbe";
 import { touch } from "./touch";
 import { Shell } from "./objects/Shell";
 import { Props } from "./objects/Props";
@@ -299,7 +301,9 @@ function CameraRig() {
  */
 function Shutter() {
   const taken = useRef(0);
-  useFrame(({ gl }) => {
+  useFrame(({ gl, scene, camera }) => {
+    // with the composer switched off (performance debugger only) nothing else draws the frame
+    if (!usePerf.getState().flags.composer) gl.render(scene, camera);
     const s = useRoom.getState();
     if (s.shutter === taken.current) return;
     taken.current = s.shutter;
@@ -368,6 +372,7 @@ function Lights() {
       {/* desk lamp: the warm key light, low on the left */}
       <pointLight
         ref={lamp}
+        name="lamp"
         position={[POS.lamp[0] + LAMP_LIGHT_OFFSET[0], POS.lamp[1] + LAMP_LIGHT_OFFSET[1], POS.lamp[2] + LAMP_LIGHT_OFFSET[2]]}
         color="#ffd6b0"
         distance={8.5}
@@ -381,9 +386,6 @@ function Lights() {
       <pointLight position={[1.6, 1.8, 2.4]} color="#ffcaa0" intensity={0.7} distance={9} decay={1.45} />
       {/* night through the glass, pulled towards the TV's cyan */}
       <pointLight position={[POS.window[0], POS.window[1] + 0.2, POS.window[2] + 0.45]} color="#7bb7dd" intensity={0.75} distance={5.5} decay={1.7} />
-      {/* a blue edge from the far side, so shapes separate from the dark */}
-      <pointLight position={[1.9, 1.5, 0.6]} color="#7aaed8" intensity={0.22} distance={6} decay={1.5} />
-      <pointLight position={[-2.4, 1.2, 1.0]} color="#88b0d6" intensity={0.12} distance={6} decay={1.5} />
       {/* the right of the desk: a soft, warm pool from up and in front, falling off into the dark
           at its rim. The gradient is what gives the things on it a lit side and a shadowed one, and
           which the camera sees sliding across the postcard and the ink bottle as the view shifts. */}
@@ -447,6 +449,7 @@ function SoftFocus() {
 }
 
 export default function Room({ onReady }: { onReady?: () => void }) {
+  const flags = usePerf((s) => s.flags);
   useEffect(() => {
     document.body.style.cursor = "";
     // anything with a name or a hint under the pointer gets the hand. Only when one of those
@@ -460,7 +463,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
     <Canvas
       flat
       shadows={LOW_POWER ? false : "soft"}
-      dpr={LOW_POWER ? [1, 1.5] : [1.5, 2]}
+      dpr={flags.lowres ? 0.75 : 1}
       camera={{ fov: HOME_FOV, near: 0.05, far: 40, position: HOME_VIEW.pos }}
       gl={{ antialias: !LOW_POWER, powerPreference: "high-performance" }}
       onCreated={({ scene }) => {
@@ -506,19 +509,26 @@ export default function Room({ onReady }: { onReady?: () => void }) {
         <Ready onReady={onReady} />
       </Suspense>
       {/* The scene is drawn into the composer's buffer, not the canvas, so the canvas's own
-          antialiasing never reaches it. Multisampling that buffer is the obvious fix, but on
-          Intel/Mesa it renders the frame black, so edges are smoothed by SMAA after tone mapping. */}
-      <EffectComposer multisampling={0}>
-        {!LOW_POWER && <FocusBlur />}
-        <Bloom intensity={LOW_POWER ? 0.45 : 0.6} luminanceThreshold={0.92} luminanceSmoothing={0.25} radius={0.7} mipmapBlur />
-        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        <Grade />
-        <SoftFocus />
-        {!LOW_POWER && <SMAA preset={SMAAPreset.ULTRA} />}
-        <Vignette offset={0.25} darkness={0.5} />
-        {!LOW_POWER && <Noise opacity={0.025} />}
-      </EffectComposer>
+          antialiasing never reaches it. Multisampling that buffer renders the frame black on
+          Intel/Mesa, and SMAA was dropped for speed, so edges are left unsmoothed. */}
+      {flags.composer && (
+        <EffectComposer multisampling={0}>
+          {!LOW_POWER && flags.focus && <FocusBlur />}
+          {flags.bloom && <Bloom intensity={LOW_POWER ? 0.45 : 0.6} luminanceThreshold={0.92} luminanceSmoothing={0.25} radius={0.7} mipmapBlur />}
+          {flags.tonemap && <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />}
+          {flags.grade && <Grade />}
+          {flags.soft && <SoftFocus />}
+          {flags.vignette && <Vignette offset={0.25} darkness={0.5} />}
+          {!LOW_POWER && flags.noise && <Noise opacity={0.025} />}
+        </EffectComposer>
+      )}
       <Shutter />
+      {DEBUG_PERF && (
+        <>
+          <PerfProbe />
+          <PerfApply />
+        </>
+      )}
     </Canvas>
   );
 }

@@ -589,35 +589,27 @@ a.pill:hover,
   font-stretch: 125%;
   font-variation-settings: "wdth" 125;
   font-weight: 900;
-  font-size: 15px;
+  font-size: 13px;
   letter-spacing: 0.06em;
   color: #fff;
 }
-.bootBar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  letter-spacing: 0.1em;
+.bootLogo {
+  position: relative;
+  width: min(16vw, 72px);
+  aspect-ratio: 1054 / 1274;
+  background: rgba(236, 231, 245, 0.14);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
 }
-.bootBar i {
-  width: 8px;
-  height: 10px;
-  background: rgba(236, 231, 245, 0.18);
-}
-.bootBar i[data-on="true"] {
-  background: #9fb0ff;
-}
-.bootBar span {
-  width: 52px;
-  margin-left: 8px;
-  text-align: right;
-}
-.bootHint {
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  opacity: 0.6;
+.bootFill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #ece7f5;
+  transition: height 0.3s ease-out;
 }
 @keyframes blink {
   50% {
