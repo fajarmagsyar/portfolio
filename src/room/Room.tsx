@@ -463,7 +463,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
     <Canvas
       flat
       shadows={LOW_POWER ? false : "soft"}
-      dpr={flags.lowres ? 0.75 : LOW_POWER ? [1, 1.5] : [1.5, 2]}
+      dpr={flags.lowres ? 0.75 : LOW_POWER ? [1, 1.5] : [1, 1.75]}
       camera={{ fov: HOME_FOV, near: 0.05, far: 40, position: HOME_VIEW.pos }}
       gl={{ antialias: !LOW_POWER, powerPreference: "high-performance" }}
       onCreated={({ scene }) => {
@@ -513,7 +513,6 @@ export default function Room({ onReady }: { onReady?: () => void }) {
           Intel/Mesa it renders the frame black, so edges are smoothed by SMAA after tone mapping. */}
       {flags.composer && (
         <EffectComposer multisampling={0}>
-          {!LOW_POWER && flags.focus && <FocusBlur />}
           {flags.bloom && <Bloom intensity={LOW_POWER ? 0.45 : 0.6} luminanceThreshold={0.92} luminanceSmoothing={0.25} radius={0.7} mipmapBlur />}
           {flags.tonemap && <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />}
           {flags.grade && <Grade />}
