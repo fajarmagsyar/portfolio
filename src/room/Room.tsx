@@ -158,6 +158,7 @@ function useOrbitInput() {
       e.stopPropagation();
     };
     const wheel = (e: WheelEvent) => {
+      if (!useRoom.getState().booted) return;
       const l = orbitLimits();
       if (!l) {
         // the wheel belongs to the receipt, not to the page or the camera
@@ -229,7 +230,7 @@ function CameraRig() {
     const playing = booted && focus === "guitar" ? guitarView(aspect) : null;
     // through the Canonet's viewfinder: the room as it is seen from the chair
     const peeking = booted && focus === "canonet" && finder;
-    const view = !booted ? ENTER_VIEW : peeking ? HOME_VIEW : playing ? playing : focus === "album" && zoomed !== null ? albumPhotoView(zoomed) : focus === "frames" && frameZoom ? framePhotoView(frameZoom) : focus === "cds" && cdOut ? CD_OPEN_VIEW : focus === "tv" && typingFront() ? TYPING_VIEW : focus ? VIEWS[focus] : HOME_VIEW;
+    const view = peeking ? HOME_VIEW : playing ? playing : focus === "album" && zoomed !== null ? albumPhotoView(zoomed) : focus === "frames" && frameZoom ? framePhotoView(frameZoom) : focus === "cds" && cdOut ? CD_OPEN_VIEW : focus === "tv" && typingFront() ? TYPING_VIEW : focus ? VIEWS[focus] : HOME_VIEW;
     tmpLook.set(...view.look);
     tmpPos.set(...view.pos);
     tmpUp.set(...(playing ? playing.up : LEVEL));
@@ -262,16 +263,9 @@ function CameraRig() {
     // stay inside the room
     tmpPos.set(clamp(tmpPos.x, -2.9, 2.9), clamp(tmpPos.y, 0.25, 2.6), Math.max(tmpPos.z, WALL_Z + 0.2));
     const manual = peeking || orbit.dragging || Math.abs(orbit.yaw) + Math.abs(orbit.pitch) + Math.abs(orbit.zoom - 1) > 0.002;
-    const drift = finger || playing || peeking ? 0 : focus ? 0.025 : 0.1;
-    tmpPos.x += pointer.x * drift;
-    tmpPos.y += pointer.y * drift * 0.4;
     // seated at the desk, the mouse turns the head a little: enough to find the guitar and the wall
-    if (booted && !focus && !finger) {
-      tmpLook.x += pointer.x * 0.4;
-      tmpLook.y += pointer.y * 0.12;
-    }
 
-    const fov = peeking ? FINDER_FOV : !booted || focus ? FOCUS_FOV : HOME_FOV;
+    const fov = peeking ? FINDER_FOV : focus ? FOCUS_FOV : HOME_FOV;
     if (first.current) {
       first.current = false;
       camera.position.copy(tmpPos);
@@ -283,7 +277,7 @@ function CameraRig() {
       // A change of view (to a prop, between props, back to the desk) is a timed, eased move from where the
       // camera is: in to a prop is very fast and lands softly; out to the desk is slow and eases both ends.
       // Once it is over, the camera follows its target with the old smoothing (the drift of the pointer).
-      const key = `${booted}|${focus}|${zoomed}|${frameZoom}|${cdOut}|${peeking}|${playing ? 1 : 0}`;
+      const key = `${focus}|${zoomed}|${frameZoom}|${cdOut}|${peeking}|${playing ? 1 : 0}`;
       const mv = move.current;
       if (mv.key !== key) {
         const toProp = booted && focus !== null && !peeking;
@@ -489,6 +483,19 @@ function SoftFocus() {
   return <primitive object={effect} />;
 }
 
+/** Swaps pixel ratio imperatively to avoid the black frame caused by changing the Canvas dpr prop. */
+function DprManager() {
+  const gl = useThree((s) => s.gl);
+  const focus = useRoom((s) => s.focus);
+  useFrame(() => {
+    if (LOW_POWER) return;
+    const isWide = focus === null;
+    const target = isWide ? WIDE_SCALE : Math.min(window.devicePixelRatio, 1.75);
+    if (gl.getPixelRatio() !== target) gl.setPixelRatio(target);
+  });
+  return null;
+}
+
 export default function Room({ onReady }: { onReady?: () => void }) {
   const flags = usePerf((s) => s.flags);
   // With a cassette or a CD held, a click anywhere on the picture but on it puts it back. Whether
@@ -517,7 +524,8 @@ export default function Room({ onReady }: { onReady?: () => void }) {
   }, []);
   // The whole desk on screen is the heaviest view (every pixel runs the lights, shadows and the
   // rain shader), so it is drawn at a lower resolution; close to an object it is full again.
-  const wide = useRoom((s) => s.focus === null) && !LOW_POWER;
+  // dpr is set imperatively via gl.setPixelRatio to avoid a black frame on every Canvas re-render.
+  const wide = false;
   useEffect(() => {
     document.body.style.cursor = "";
     // anything with a name or a hint under the pointer gets the hand. Only when one of those
@@ -539,6 +547,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
       }}
     >
       <CameraRig />
+      <DprManager />
       {/* a little smoke in the air: far corners soften and sink into brown */}
       <fogExp2 attach="fog" args={["#120f0c", 0.03]} />
       <Lights />

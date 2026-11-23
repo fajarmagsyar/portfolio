@@ -8,6 +8,7 @@ import { useFrame } from "@react-three/fiber";
 import { RoundedBox, useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 import { DESK, LAMP_LIGHT_OFFSET, POS, SILL, WALL_Z, WIN } from "../layout";
+import { useRoom } from "../store";
 import { canvasTexture, rng } from "../textures";
 import { useClone } from "./Guitar";
 
@@ -269,7 +270,7 @@ function CityWindow() {
     };
   }, [photo]);
   useFrame((_, dt) => {
-    if (mat.current) mat.current.uniforms.uTime.value += dt;
+    if (mat.current && useRoom.getState().booted) mat.current.uniforms.uTime.value += dt;
   });
   return (
     <group position={POS.window}>
@@ -379,7 +380,7 @@ function Curtain({ x, width, seed, side }: { x: number; width: number; seed: num
   );
   const { geo, rest, phase } = useMemo(() => {
     const r = rng(seed);
-    const g = new THREE.PlaneGeometry(width, top - bottom, 40, 14);
+    const g = new THREE.PlaneGeometry(width, top - bottom, 20, 8);
     const p = g.attributes.position;
     const phase = r() * 6;
     for (let i = 0; i < p.count; i++) {
@@ -395,26 +396,32 @@ function Curtain({ x, width, seed, side }: { x: number; width: number; seed: num
   }, [width, top, bottom, seed]);
   useEffect(() => () => geo.dispose(), [geo]);
 
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
+  const frozenT = useRef(0);
+  const lastUpdate = useRef(0);
+  useFrame(({ clock }, dt) => {
+    const s = useRoom.getState();
+    if (s.booted) frozenT.current += dt;
+    // curtains are in the background — 15 fps is plenty, and skip entirely when focused on something
+    if (s.focus !== null) return;
+    const now = clock.elapsedTime;
+    if (now - lastUpdate.current < 1 / 15) return;
+    lastUpdate.current = now;
+    const t = frozenT.current;
     const p = geo.attributes.position as THREE.BufferAttribute;
     const height = top - bottom;
-    // the draught comes and goes: long swells, never quite still
     const gust = 0.45 + 0.35 * Math.sin(t * 0.21 + phase) + 0.2 * Math.sin(t * 0.083 + phase * 3);
     for (let i = 0; i < p.count; i++) {
       const x0 = rest[i * 3];
       const y0 = rest[i * 3 + 1];
       const u = x0 / width + 0.5;
-      const free = 1 - (y0 / height + 0.5); // 0 at the rail, 1 at the hem
+      const free = 1 - (y0 / height + 0.5);
       const hang = free * free * (0.4 + 0.6 * free);
-      // a wave that climbs the cloth from the hem and drifts across it
       const billow = Math.sin(t * 0.55 + phase - free * 2.6 + u * 1.7) * 0.6 + Math.sin(t * 0.93 + phase * 2 + u * 5.2 - free * 4.1) * 0.25;
       const ripple = Math.sin(t * 1.4 + u * 13 + free * 6 + phase) * 0.1;
       const push = (billow + ripple + 0.55) * gust * hang;
       p.setXYZ(i, x0 + side * push * 0.014 + Math.sin(t * 0.4 + phase) * hang * 0.006, y0 + push * 0.004, rest[i * 3 + 2] + push * 0.05);
     }
     p.needsUpdate = true;
-    geo.computeVertexNormals();
   });
 
   return (

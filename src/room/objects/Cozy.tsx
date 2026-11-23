@@ -109,6 +109,8 @@ export function LampGlow() {
 export function Haze() {
   // up close to the tube, motes drifting across the picture are only a distraction
   const atTv = useRoom((s) => s.focus === "tv");
+  const booted = useRoom((s) => s.booted);
+  if (!booted) return null;
   return (
     <Sparkles visible={!atTv} count={140} position={[-0.2, 1.35, 0.15]} scale={[2.8, 1.3, 1.3]} size={0.4} speed={0.1} opacity={0.4} noise={0.5} color="#c9a67a" />
   );

@@ -1,0 +1,36 @@
+.group {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.btn {
+  padding: 5px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.4;
+  border: 0;
+  background: transparent;
+  color: var(--fg2);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+
+.btn + .btn {
+  border-left: 1px solid var(--line);
+}
+
+.btn:hover {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+.btn[aria-pressed="true"],
+.btn[aria-current="true"] {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  color: var(--fg);
+  cursor: default;
+}

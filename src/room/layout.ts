@@ -116,7 +116,7 @@ export const ALBUM_HELD: V3 = [0.76, 1.0, 0.27];
 
 // The wide view is the eyes of someone sitting at the desk: low, close, with the desk top
 // running out of the bottom of the frame. Close-ups use a longer lens so objects are not distorted.
-export const HOME_VIEW = { pos: [0.0, 1.17, 1.3] as V3, look: [0, 1.05, -0.3] as V3 };
+export const HOME_VIEW = { pos: [0.0, 1.17, 1.1] as V3, look: [0, 1.05, -0.3] as V3 };
 /** Before the visitor has clicked to enter: close on the TV, which carries the sound prompt. */
 export const ENTER_VIEW = { pos: [-0.056, 1.019, 0.58] as V3, look: [-0.1, 1.019, -0.005] as V3 };
 /** At the typing test the view draws back a little from the TV so the keyboard is in the picture too. */

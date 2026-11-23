@@ -70,18 +70,15 @@ export function Mouse() {
     return whole;
   }, [whole]);
   const ref = useRef<THREE.Group>(null);
-  useFrame(({ pointer }, dt) => {
+  useFrame((_, dt) => {
     const g = ref.current;
     if (!g) return;
-    // only while sitting at the desk with a mouse: on touch there is no cursor to follow
-    const s = useRoom.getState();
-    const used = s.booted && s.focus === null && s.input !== "touch";
     const k = 1 - Math.exp(-dt * 14);
     const x = g.position.x;
     const z = g.position.z;
-    g.position.x += (POS.mouse[0] + (used ? pointer.x * REACH.x : 0) - g.position.x) * k;
-    g.position.z += (POS.mouse[2] - (used ? pointer.y * REACH.z : 0) - g.position.z) * k;
-    if (Math.abs(g.position.x - x) + Math.abs(g.position.z - z) > 0.00005) touchShadow(); // its shadow is live while it moves
+    g.position.x += (POS.mouse[0] - g.position.x) * k;
+    g.position.z += (POS.mouse[2] - g.position.z) * k;
+    if (Math.abs(g.position.x - x) + Math.abs(g.position.z - z) > 0.00005) touchShadow();
   });
   return (
     <group ref={ref} position={POS.mouse} rotation={[0, 0.06, 0]}>
