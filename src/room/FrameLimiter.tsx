@@ -15,28 +15,29 @@ const CAP = (() => {
  * 60 Hz a frame that takes 28 ms is shown for 2 or 3 refreshes at random, which looks like
  * stutter even though the average is fine. Drawing every other refresh makes each frame last
  * the same 33 ms. It only helps while a frame costs less than that, which is why the room's
- * cost matters more than its peak frame rate.
+ * cost matters more than its peak frame rate. (R3F's "never" mode with advance() drew a black
+ * screen here, so this uses "demand" and asks for one frame per tick.)
  */
 export function FrameLimiter() {
   const setFrameloop = useThree((s) => s.setFrameloop);
-  const advance = useThree((s) => s.advance);
+  const invalidate = useThree((s) => s.invalidate);
   useEffect(() => {
     if (CAP >= 59) return;
     const every = 1000 / CAP - 1.5; // a hair under, so a 60 Hz refresh lands on the right frame
     let last = 0;
     let raf = 0;
-    setFrameloop("never");
+    setFrameloop("demand");
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop);
       if (t - last < every) return;
       last = t;
-      advance(t / 1000);
+      invalidate();
     };
     raf = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(raf);
       setFrameloop("always");
     };
-  }, [setFrameloop, advance]);
+  }, [setFrameloop, invalidate]);
   return null;
 }
