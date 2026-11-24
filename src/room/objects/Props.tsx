@@ -144,7 +144,7 @@ export function Props() {
       {/* console and pad belong to the TV: clicking them opens the TV too */}
       <Interactive target="tv">
         <Model asset="gaming_console" position={POS.console} rotation={[0, 0.35, 0]} scale={0.82} />
-        <Model asset="gamepad" position={POS.gamepad} rotation={[0, 0.115, 0]} scale={0.8} />
+        <Model asset="gamepad" position={POS.gamepad} rotation={[0, 0.715, 0]} scale={0.8} />
       </Interactive>
       {/* lamp on the left of the desk, its shade turned towards the middle */}
       <Model asset="desk_lamp_arm_01" position={POS.lamp} rotation={[0, LAMP_ROTATION, 0]} />

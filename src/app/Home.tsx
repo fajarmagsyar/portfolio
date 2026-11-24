@@ -35,5 +35,5 @@ export function Home() {
   }, []);
 
   if (mode === "room") return <RoomApp />;
-  return <LiteView routed={mode === "lite"} />;
+  return <LiteView />;
 }

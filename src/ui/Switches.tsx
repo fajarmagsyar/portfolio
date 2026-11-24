@@ -7,6 +7,7 @@ import { useTheme } from "@/state/theme";
 import s from "./LiteControls.module.css";
 import styles from "./Switches.module.css";
 
+
 export function LangToggle() {
   const lang = useLangStore((st) => st.lang);
   const setLang = useLangStore((st) => st.setLang);
@@ -27,6 +28,8 @@ export function ThemeToggle() {
     </div>
   );
 }
+
+
 
 /** Switch between the 3D room (hi-fi) and the static page (lo-fi). */
 export function FidelityToggle({ current }: { current: "hifi" | "lofi" }) {

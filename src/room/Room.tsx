@@ -596,7 +596,7 @@ export default function Room({ onReady }: { onReady?: () => void }) {
           {flags.grade && <Grade />}
           {flags.soft && <SoftFocus />}
           {!LOW_POWER && <SMAA preset={SMAAPreset.ULTRA} />}
-          {flags.vignette && <Vignette offset={0.25} darkness={0.5} />}
+          {flags.vignette && <Vignette offset={0.2} darkness={0.85} />}
           {!LOW_POWER && flags.noise && <Noise opacity={0.025} />}
         </EffectComposer>
       )}

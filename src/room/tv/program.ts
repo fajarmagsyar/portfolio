@@ -71,40 +71,47 @@ function drawBoot(ctx: CanvasRenderingContext2D, f: Fonts | null, t: number) {
 
 /** The picture while nobody is using the TV: a blue tape-deck title card with the name. */
 // The idle card: the name, the job, and since when, set low on the left, and one ornament,
-// a dial of tick marks with a bright sweep going round it and fading behind. On the tube's own cyan.
+// a triforce in the top right corner whose three triangles brighten and lift in turn. On the tube's own cyan.
 function drawIdle(ctx: CanvasRenderingContext2D, f: Fonts, t: number) {
   const ink = "#f4f2ea";
   const M = 80; // the margin all round
   ctx.fillStyle = "#0a93ad";
   ctx.fillRect(0, 0, TV_W, TV_H);
 
-  // the dial, in the top right corner
-  const R = 112;
-  const cx = TV_W - M - R - 14;
-  const cy = M + R + 10;
-  const TICKS = 72;
-  const head = (t * 0.28) % 1;
-  ctx.lineCap = "butt";
-  for (let i = 0; i < TICKS; i++) {
-    const u = i / TICKS;
-    const behind = (head - u + 1) % 1; // how far the sweep has gone past this tick
-    const lit = Math.exp(-behind * 7);
-    const long = i % 6 === 0;
-    const len = (long ? 24 : 13) + lit * 8;
-    const ang = u * Math.PI * 2 - Math.PI / 2;
-    ctx.strokeStyle = `rgba(244,242,234,${(0.42 + 0.58 * lit).toFixed(3)})`;
-    ctx.lineWidth = long ? 4 : 3;
+  // the triforce, in the top right corner: one triangle, then the two beneath it
+  const s = 96; // side of one triangle
+  const h = s * Math.sqrt(3) / 2;
+  const cx = TV_W - M - s - 30;
+  const top = M + 26;
+  const tri: [number, number][][] = [
+    [[cx, top], [cx - s / 2, top + h], [cx + s / 2, top + h]],
+    [[cx - s / 2, top + h], [cx - s, top + 2 * h], [cx, top + 2 * h]],
+    [[cx + s / 2, top + h], [cx, top + 2 * h], [cx + s, top + 2 * h]],
+  ];
+  for (let i = 0; i < tri.length; i++) {
+    const lit = 0.5 + 0.5 * Math.cos(t * 1.6 - i * (Math.PI * 2 / 3));
+    const dy = -lit * 6;
+    const p = tri[i];
     ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(ang) * (R - len), cy + Math.sin(ang) * (R - len));
-    ctx.lineTo(cx + Math.cos(ang) * R, cy + Math.sin(ang) * R);
+    ctx.moveTo(p[0][0], p[0][1] + dy);
+    ctx.lineTo(p[1][0], p[1][1] + dy);
+    ctx.lineTo(p[2][0], p[2][1] + dy);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(244,242,234,${(0.3 + 0.7 * lit).toFixed(3)})`;
+    ctx.shadowColor = "rgba(159,240,255,0.85)";
+    ctx.shadowBlur = lit * 22;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = `rgba(244,242,234,${(0.55 + 0.45 * lit).toFixed(3)})`;
+    ctx.lineWidth = 3;
     ctx.stroke();
   }
 
-  // the channel, top left, level with the dial's middle
+  // the channel, top left, level with the ornament's middle
   ctx.fillStyle = "rgba(244,242,234,0.8)";
   ctx.textAlign = "left";
   ctx.font = `28px ${f.screen}`;
-  ctx.fillText("CH 04", M, cy + 9);
+  ctx.fillText("CH 04", M, top + h + 9);
 
   // the name, over two lines, low on the left
   ctx.fillStyle = ink;

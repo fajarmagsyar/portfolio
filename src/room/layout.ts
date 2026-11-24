@@ -48,13 +48,13 @@ export function tapeHeld(aspect: number): V3 {
 
 export const POS = {
   tv: [-0.05, DESK.y, -0.2] as V3,
-  console: [-0.58, DESK.y, -0.18] as V3,
-  gamepad: [-0.62, DESK.y, -0.02] as V3,
+  console: [-0.54, DESK.y, -0.18] as V3,
+  gamepad: [-0.80, DESK.y, -0.03] as V3,
   // the old keyboard, square in front of the TV
   keyboard: [-0.05, DESK.y, 0.094] as V3,
   lamp: [-0.6, DESK.y, -0.35] as V3,
   deskPlant: [-0.86, DESK.y, -0.31] as V3,
-  cards: [-0.82, DESK.y, 0.04] as V3,
+  cards: [-0.48, DESK.y, 0.07] as V3,
   // both are the middle of the group, at the top of the shelf's floor, on the line of the spines
   tapeRack: [TAPES_X, DESK.y + SHELF.wall, SHELF.spine] as V3,
   cdStack: [CDS_X, DESK.y + SHELF.wall, SHELF.spine] as V3,

@@ -231,6 +231,8 @@ export function TvScreen({ url }: { url: string }) {
           const answer = enterAnswer(e.uv.x, e.uv.y);
           enterPoint(answer);
           hint(null);
+          // the two ways in are choices: show the hand while one is under the pointer
+          document.body.style.cursor = answer ? "pointer" : "";
           return;
         }
         if (!live || !e.uv) return;
@@ -282,6 +284,7 @@ export function TvScreen({ url }: { url: string }) {
         if (!booted) {
           enterPoint(null);
           hint(null);
+          document.body.style.cursor = "";
         }
         tvPointerOut();
         if (live) document.body.style.cursor = "";

@@ -30,7 +30,7 @@
 
 .btn[aria-pressed="true"],
 .btn[aria-current="true"] {
-  background: color-mix(in srgb, var(--fg) 8%, transparent);
-  color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
   cursor: default;
 }

@@ -273,18 +273,31 @@ function frame(ctx: CanvasRenderingContext2D, f: Fonts, r: Rect, title: string, 
 
 /* ---------- documents: text laid out once, then scrolled ---------- */
 
-type Line = { text: string; font: string; colour: string; h: number; rule?: boolean };
+type Line = { text: string; font: string; colour: string; h: number; rule?: boolean; logo?: string };
 const laid = new Map<string, Line[]>();
+const logos = new Map<string, HTMLImageElement>();
 
-function layout(ctx: CanvasRenderingContext2D, key: string, width: number, build: (add: (text: string, font: string, colour: string, h: number, rule?: boolean) => void) => void) {
+/** A workplace logo for the work document, fetched once and painted as soon as the file is ready. */
+function logoImg(src: string): HTMLImageElement | null {
+  if (typeof Image === "undefined") return null;
+  let img = logos.get(src);
+  if (!img) {
+    img = new Image();
+    img.src = asset(src);
+    logos.set(src, img);
+  }
+  return img.complete && img.naturalWidth ? img : null;
+}
+
+function layout(ctx: CanvasRenderingContext2D, key: string, width: number, build: (add: (text: string, font: string, colour: string, h: number, rule?: boolean, logo?: string) => void) => void) {
   const k = `${key}|${Math.round(width)}`;
   let lines = laid.get(k);
   if (!lines) {
     lines = [];
-    build((text, font, colour, h, rule) => {
+    build((text, font, colour, h, rule, logo) => {
       ctx.font = font;
       const parts = text ? wrap(ctx, text, width) : [""];
-      parts.forEach((part) => lines!.push({ text: part, font, colour, h, rule }));
+      parts.forEach((part, i) => lines!.push({ text: part, font, colour, h, rule, logo: i === 0 ? logo : undefined }));
     });
     laid.set(k, lines);
   }
@@ -317,6 +330,23 @@ function page(ctx: CanvasRenderingContext2D, w: Win, b: Rect, lines: Line[], pad
         ctx.font = l.font;
         ctx.fillStyle = l.colour;
         ctx.fillText(l.text, b.x + pad, y + l.h * 0.76);
+        if (l.logo) {
+          const img = logoImg(l.logo);
+          if (img) {
+            // the logo has its own row, so it can be read as the heading of the entry
+            const ih = l.h - 12;
+            const iw = Math.min(120, (img.width / img.height) * ih);
+            const ix = b.x + pad + 4;
+            const iy = y;
+            // a white plate with a hairline border, like a picture pasted into a document
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(ix, iy, iw + 12, ih + 12);
+            ctx.strokeStyle = K.shade;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(ix + 0.5, iy + 0.5, iw + 11, ih + 11);
+            ctx.drawImage(img, ix + 6, iy + 6, iw, ih);
+          }
+        }
       }
     }
     y += l.h;
@@ -346,13 +376,14 @@ function aboutLines(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, width: 
   });
 }
 
-/** The work history, set out as a word-processor document: a heading, then an entry per workplace. */
+/** The work history, set out as a word-processor document: a heading, then an entry per workplace with its logo. */
 function workLines(ctx: CanvasRenderingContext2D, lang: Lang, f: Fonts, width: number) {
   return layout(ctx, `work|${lang}`, width, (add) => {
     add("WORK EXPERIENCE", `700 27px ${f.body}`, K.ink, 40);
     add(`${profile.name}  ·  ${profile.role}`, `700 17px ${f.body}`, K.dim, 26);
     add("", "", "", 16, true);
     for (const job of jobs) {
+      add("", "", "", 80, false, job.logo);
       add(job.company, `700 22px ${f.body}`, K.title, 34);
       add(`${job.title}  ·  ${jobYears(job, lang)}  ·  ${job.place[lang]}`, `700 16px ${f.body}`, K.dim, 25);
       add("", "", "", 6);
