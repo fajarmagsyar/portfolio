@@ -62,6 +62,67 @@ function KineticTitle({
   );
 }
 
+/** The hero artwork: half and quarter discs on a 4 x 5 grid, like a screen-printed poster. */
+const ART: Array<{ d: string; fill: "ink" | "orange" | "teal" | "yellow" | "paper" }> = [
+  { d: "M100,0 A100,100 0 0 0 100,200 Z", fill: "ink" },
+  { d: "M100,0 A100,100 0 0 1 100,200 Z", fill: "orange" },
+  { d: "M200,0 A100,100 0 0 0 400,0 Z", fill: "orange" },
+  { d: "M200,200 A100,100 0 0 1 400,200 Z", fill: "ink" },
+  { d: "M0,200 H200 V400 H0 Z", fill: "ink" },
+  { d: "M200,200 H400 V400 H200 Z", fill: "teal" },
+  { d: "M300,300 A100,100 0 0 1 400,200 L400,300 Z", fill: "orange" },
+  { d: "M300,400 A100,100 0 0 1 400,300 L400,400 Z", fill: "yellow" },
+  { d: "M200,200 A100,100 0 0 0 200,400 Z", fill: "yellow" },
+  { d: "M200,200 A100,100 0 0 1 200,400 Z", fill: "paper" },
+  { d: "M0,500 A100,100 0 0 1 200,500 Z", fill: "ink" },
+  { d: "M200,400 A100,100 0 0 1 300,500 L200,500 Z", fill: "yellow" },
+  { d: "M300,500 A100,100 0 0 1 400,400 L400,500 Z", fill: "teal" },
+];
+
+function HeroArt() {
+  return (
+    <svg className={s.art} viewBox="0 0 400 500" aria-hidden="true" focusable="false">
+      {ART.map((shape, i) => (
+        <path key={i} d={shape.d} className={`${s.artShape} ${s[`fill_${shape.fill}`]}`} data-art-shape />
+      ))}
+    </svg>
+  );
+}
+
+/** A section's title row: a coloured shape, the title, and its number, like the head of a poster. */
+function SectionHead({
+  shape,
+  num,
+  kicker,
+  title,
+}: {
+  shape: "a" | "b" | "c" | "d" | "e";
+  num: string;
+  kicker: string;
+  title: string;
+}) {
+  return (
+    <div className={s.sectionHead} data-section-head>
+      <span className={s.glyph} data-g={shape} data-glyph aria-hidden="true" />
+      <div className={s.sectionTitleWrap}>
+        <p className={s.kicker} data-reveal>{kicker}</p>
+        <KineticTitle text={title} className={s.sectionTitle} />
+      </div>
+      <span className={s.sectionNo} data-section-no aria-hidden="true">{num}</span>
+      <span className={s.headRule} data-head-rule aria-hidden="true" />
+    </div>
+  );
+}
+
+/** A row of quarter discs and circles that separates the sections. */
+function ShapeBand() {
+  return (
+    <div className={s.band} data-band aria-hidden="true">
+      {Array.from({ length: 10 }, (_, i) => <span key={i} />)}
+    </div>
+  );
+}
+
 /** The static version: the whole story on one page, with a cinematic scroll. */
 export function LiteView() {
   useRestoreLang();
@@ -129,31 +190,40 @@ export function LiteView() {
 
       <main>
         <section id="top" className={s.hero} data-hero>
-          <div className={s.heroInner}>
-            <p className={s.eyebrow} data-hero-line>
-              <span className={s.pulse} aria-hidden="true" />
-              {profile.role} · Surabaya · {profile.since}
-            </p>
-            <KineticTitle text={profile.hello[lang]} as="h1" className={s.heroTitle} hero />
-            <p className={s.heroLede} data-hero-line>{profile.intro[lang]}</p>
-            <div className={s.heroActions} data-hero-cta>
-              <a className={s.primaryBtn} href="#work">
-                {t("nav_work")}
-                <span aria-hidden="true">↓</span>
-              </a>
-              <a className={s.textBtn} href={asset("/?room=1")}>
-                {t("static_cta")}
-                <span aria-hidden="true">↗</span>
-              </a>
+          <div className={s.poster}>
+            <div className={s.posterTop}>
+              <KineticTitle text={profile.hello[lang]} as="h1" className={s.heroTitle} hero />
+              <span className={s.posterNo} aria-hidden="true" data-hero-line>
+                {String(profile.since).slice(2)}
+              </span>
+            </div>
+
+            <div className={s.posterBody}>
+              <HeroArt />
+              <div className={s.heroMain}>
+                <p className={s.eyebrow} data-hero-line>
+                  {profile.role} · Surabaya · {profile.since}
+                </p>
+                <p className={s.heroLede} data-hero-line>{profile.intro[lang]}</p>
+                <div className={s.heroActions} data-hero-cta>
+                  <a className={s.primaryBtn} href="#work">
+                    {t("nav_work")}
+                    <span aria-hidden="true">↓</span>
+                  </a>
+                  <a className={s.textBtn} href={asset("/?room=1")}>
+                    {t("static_cta")}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
+        <ShapeBand />
+
         <section id="about" className={s.section}>
-          <div className={s.sectionHead}>
-            <p className={s.kicker} data-reveal>{t("more_about")}</p>
-            <KineticTitle text={t("nav_about")} className={s.sectionTitle} />
-          </div>
+          <SectionHead shape="a" num="01" kicker={t("more_about")} title={t("nav_about")} />
           <div className={s.aboutGrid} data-reveal-group>
             {profile.about[lang].map((paragraph) => (
               <p key={paragraph} className={s.aboutText} data-reveal-item>{paragraph}</p>
@@ -163,60 +233,54 @@ export function LiteView() {
         </section>
 
         <section id="work" className={s.section}>
-          <div className={s.sectionHead}>
-            <p className={s.kicker} data-reveal>{t("work_note")}</p>
-            <KineticTitle text={t("work")} className={s.sectionTitle} />
-          </div>
-          <div className={s.deck} data-deck>
-            <div className={s.deckMeta}>
-              <span>{t("work")}</span>
-            </div>
-            <div className={s.deckStage} data-deck-stage>
-              {jobs.map((job) => (
-                <article
-                  key={job.id}
-                  className={s.deckCard}
-                  data-deck-card
-                  style={
-                    {
-                      "--tape-shell": job.tape.shell,
-                      "--tape-label": job.tape.label,
-                      "--tape-ink": job.tape.ink,
-                    } as CSSProperties
-                  }
-                >
-                  <span className={s.cardStripe} aria-hidden="true" />
-                  <div className={s.deckCardInner}>
-                    <div className={s.deckCardTop}>
-                      {job.logo ? (
-                        <span className={s.logoPlate}>
-                          <Image src={asset(job.logo)} alt="" fill sizes="110px" className={s.logoImage} />
-                        </span>
-                      ) : (
-                        <span className={s.logoFallback} aria-hidden="true">
-                          {job.company.slice(0, 2).toUpperCase()}
-                        </span>
-                      )}
+          <SectionHead shape="b" num="02" kicker={t("work_note")} title={t("work")} />
+          <div className={s.workList} data-work-list>
+            {jobs.map((job) => (
+              <article
+                key={job.id}
+                className={s.workCard}
+                data-work-card
+                style={
+                  {
+                    "--tape-shell": job.tape.shell,
+                    "--tape-label": job.tape.label,
+                    "--tape-ink": job.tape.ink,
+                  } as CSSProperties
+                }
+              >
+                <div className={s.workLead}>
+                  <p className={s.workPeriod}>{jobYears(job, lang)}</p>
+                  <p className={s.jobCompany}>{job.company}</p>
+                </div>
+
+                <div className={s.workMain}>
+                  <div className={s.workHeading}>
+                    <div className={s.workTitleWrap}>
+                      <h3 className={s.jobTitle}>{job.title}</h3>
+                      <p className={s.jobMeta}>{job.place[lang]}</p>
                     </div>
-                    <p className={s.jobCompany}>{job.company}</p>
-                    <h3 className={s.jobTitle}>{job.title}</h3>
-                    <p className={s.jobMeta}>{job.place[lang]} · {jobYears(job, lang)}</p>
-                    <p className={s.jobBody}>{job.body[lang]}</p>
-                    <ul className={s.chips}>
-                      {job.tech.map((tech) => <li key={tech}>{tech}</li>)}
-                    </ul>
+                    {job.logo ? (
+                      <span className={s.logoPlate}>
+                        <Image src={asset(job.logo)} alt="" fill sizes="96px" className={s.logoImage} />
+                      </span>
+                    ) : (
+                      <span className={s.logoFallback} aria-hidden="true">
+                        {job.company.slice(0, 2).toUpperCase()}
+                      </span>
+                    )}
                   </div>
-                </article>
-              ))}
-            </div>
+                  <p className={s.jobBody}>{job.body[lang]}</p>
+                  <ul className={s.chips}>
+                    {job.tech.map((tech) => <li key={tech}>{tech}</li>)}
+                  </ul>
+                </div>
+              </article>
+            ))}
           </div>
         </section>
 
         <section id="projects" className={s.section}>
-          <div className={s.sectionHead}>
-            <p className={s.kicker} data-reveal>{t("projects_note")}</p>
-            <KineticTitle text={t("projects")} className={s.sectionTitle} />
-          </div>
+          <SectionHead shape="c" num="03" kicker={t("projects_note")} title={t("projects")} />
           <div className={s.projectGrid} data-reveal-group>
             {projects.map((project, i) => {
               const title = project.name ?? `${t("empty_slot")} ${String(i + 1).padStart(2, "0")}`;
@@ -279,10 +343,7 @@ export function LiteView() {
         </section>
 
         <section id="education" className={s.section}>
-          <div className={s.sectionHead}>
-            <p className={s.kicker} data-reveal>{t("education")}</p>
-            <KineticTitle text={t("education")} className={s.sectionTitle} />
-          </div>
+          <SectionHead shape="d" num="04" kicker={t("education")} title={t("education")} />
           <div className={s.eduGrid}>
             <div className={s.eduCard} data-reveal>
               <p className={s.cardLabel}>{education.years}</p>
@@ -306,10 +367,7 @@ export function LiteView() {
         </section>
 
         <section id="skills" className={s.section}>
-          <div className={s.sectionHead}>
-            <p className={s.kicker} data-reveal>{profile.role}</p>
-            <KineticTitle text={t("skills")} className={s.sectionTitle} />
-          </div>
+          <SectionHead shape="e" num="05" kicker={profile.role} title={t("skills")} />
           <ul className={s.skillGrid} data-reveal-group>
             {skills.map((skill) => (
               <li key={skill} data-reveal-item>{skill}</li>
@@ -319,6 +377,12 @@ export function LiteView() {
 
         <section id="contact" className={s.contactSection}>
           <div className={s.contactPanel}>
+            <div className={s.contactArt} data-contact-art aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
             <p className={s.kicker} data-reveal>{t("contact")}</p>
             <KineticTitle text={t("contact")} className={s.contactTitle} />
             <a className={s.emailLink} href={`mailto:${links.email}`} data-reveal>{links.email}</a>

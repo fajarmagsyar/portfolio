@@ -74,6 +74,8 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
           },
         });
       });
+      // Before any section has been reached the pill rests under the first link, so mark it too.
+      if (!activeLink()?.hasAttribute("data-active")) navLinks[0]?.setAttribute("data-active", "true");
       movePill(activeLink(), false);
 
       if (nav && linksBox && !reduced) {
@@ -118,7 +120,8 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
       // Hero: the small type settles, the name rises out of its mask, then the actions arrive.
       gsap
         .timeline({ defaults: { ease: "power3.out" } })
-        .from(q("[data-hero-line]"), { y: 24, autoAlpha: 0, duration: 0.8, stagger: 0.1 })
+        .from(q("[data-art-shape]"), { scale: 0, duration: 0.7, ease: "back.out(1.5)", stagger: 0.06 })
+        .from(q("[data-hero-line]"), { y: 24, autoAlpha: 0, duration: 0.8, stagger: 0.1 }, "-=0.6")
         .from(q("[data-hero-word]"), { yPercent: 115, rotate: 3, duration: 1, stagger: 0.08 }, "-=0.55")
         .from(q("[data-hero-cta]"), { y: 20, autoAlpha: 0, duration: 0.7 }, "-=0.65");
 
@@ -169,6 +172,86 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
         });
       });
 
+      // Hero artwork: as the poster scrolls away its shapes drift apart, each at its own pace.
+      const artShapes = q("[data-art-shape]");
+      if (artShapes.length) {
+        gsap.to(artShapes, {
+          y: (i) => (i % 2 ? -1 : 1) * (18 + (i % 4) * 14),
+          rotation: (i) => (i % 3 === 0 ? 0 : (i % 2 ? -1 : 1) * 8),
+          ease: "none",
+          scrollTrigger: { trigger: "[data-hero]", start: "top top", end: "bottom top", scrub: 0.6 },
+        });
+      }
+
+      // The shape bands turn into place while they cross the screen.
+      q("[data-band]").forEach((band) => {
+        gsap.fromTo(
+          band.children,
+          { rotation: -90, scale: 0.35, autoAlpha: 0.2 },
+          {
+            rotation: 0,
+            scale: 1,
+            autoAlpha: 1,
+            ease: "power2.out",
+            stagger: 0.06,
+            scrollTrigger: { trigger: band, start: "top 98%", end: "top 45%", scrub: 0.5 },
+          }
+        );
+      });
+
+      // Section heads: the glyph spins in, the number drifts against the scroll, the rule draws itself.
+      q("[data-section-head]").forEach((head) => {
+        const glyph = head.querySelector("[data-glyph]");
+        const no = head.querySelector("[data-section-no]");
+        const rule = head.querySelector("[data-head-rule]");
+        if (glyph) {
+          gsap.fromTo(
+            glyph,
+            { rotation: -180, scale: 0.4 },
+            {
+              rotation: 0,
+              scale: 1,
+              ease: "power2.out",
+              scrollTrigger: { trigger: head, start: "top 92%", end: "top 45%", scrub: 0.5 },
+            }
+          );
+        }
+        if (no) {
+          gsap.fromTo(
+            no,
+            { yPercent: 40 },
+            {
+              yPercent: -20,
+              ease: "none",
+              scrollTrigger: { trigger: head, start: "top bottom", end: "bottom top", scrub: true },
+            }
+          );
+        }
+        if (rule) {
+          gsap.from(rule, {
+            scaleX: 0,
+            duration: 1.1,
+            ease: "power4.inOut",
+            scrollTrigger: { trigger: head, start: "top 85%", once: true },
+          });
+        }
+      });
+
+      // Contact: the shapes assemble as the panel rises into view.
+      q("[data-contact-art]").forEach((art) => {
+        gsap.fromTo(
+          art.children,
+          { scale: 0, rotation: (i) => (i % 2 ? 90 : -90) },
+          {
+            scale: 1,
+            rotation: 0,
+            ease: "back.out(1.4)",
+            stagger: 0.12,
+            scrollTrigger: { trigger: art, start: "top 92%", end: "top 40%", scrub: 0.6 },
+          }
+        );
+      });
+
       // A slow drift inside project shots, independent of the cards' reveal.
       q("[data-project-shot]").forEach((shot) => {
         const frame = shot.closest("[data-project]");
@@ -186,63 +269,45 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
       });
     }, root);
 
-    // Desktop gets a pinned deck of dossiers: one card pulls away and the next deals forward.
-    // Mobile just reveals a plain vertical stack.
+    // Work experience cards: reveal each card as it enters, no horizontal motion.
     const mm = gsap.matchMedia();
     if (!reduced) {
-      mm.add("(min-width: 900px)", () => {
-        const deck = q("[data-deck]")[0] as HTMLElement | undefined;
-        const cards = q("[data-deck-card]") as HTMLElement[];
-        if (!deck || cards.length < 2) return;
+      mm.add("(min-width: 0px)", () => {
+        const cards = q("[data-work-card]") as HTMLElement[];
+        if (!cards.length) return;
 
-        const total = cards.length;
-        gsap.set(cards, { yPercent: 14, scale: 0.94, autoAlpha: 0, rotate: 0, zIndex: 0 });
-        gsap.set(cards[0], { yPercent: 0, scale: 1, autoAlpha: 1, zIndex: total });
+        cards.forEach((card) => {
+          const lead = card.querySelector("[class*='workLead']");
+          const main = card.querySelector("[class*='workMain']");
 
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: deck,
-            start: "top top",
-            end: () => `+=${(total - 1) * Math.round(window.innerHeight * 0.9)}`,
-            pin: true,
-            scrub: 0.8,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-          },
-        });
+          if (lead && main) {
+            const tl = gsap.timeline({
+              scrollTrigger: {
+                trigger: card,
+                start: "top 88%",
+                once: true,
+              },
+            });
+            tl.from(lead, { y: 24, autoAlpha: 0, duration: 0.7, ease: "power3.out" }).from(
+              main,
+              { y: 32, autoAlpha: 0, duration: 0.85, ease: "power3.out" },
+              "-=0.5"
+            );
+            return;
+          }
 
-        cards.slice(1).forEach((card, i) => {
-          const previous = cards[i];
-          tl.to(
-            previous,
-            {
-              yPercent: -18,
-              scale: 0.9,
-              autoAlpha: 0,
-              rotate: i % 2 ? 2 : -2,
-              ease: "none",
-              zIndex: 1,
+          gsap.from(card, {
+            y: 48,
+            autoAlpha: 0,
+            scale: 0.985,
+            duration: 0.9,
+            ease: "power3.out",
+            scrollTrigger: {
+              trigger: card,
+              start: "top 88%",
+              once: true,
             },
-            i
-          ).to(
-            card,
-            { yPercent: 0, scale: 1, autoAlpha: 1, rotate: 0, ease: "none", zIndex: total - i },
-            i
-          );
-        });
-      });
-
-      mm.add("(max-width: 899px)", () => {
-        const cards = q("[data-deck-card]");
-        const stage = q("[data-deck-stage]")[0] as HTMLElement | undefined;
-        if (!stage || !cards.length) return;
-        gsap.from(cards, {
-          y: 32,
-          autoAlpha: 0,
-          duration: 0.8,
-          stagger: 0.1,
-          ease: "power3.out",
-          scrollTrigger: { trigger: stage, start: "top 85%", once: true },
+          });
         });
       });
     }

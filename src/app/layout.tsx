@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, Caveat, Permanent_Marker, Cedarville_Cursive, DotGothic16, EB_Garamond, UnifrakturCook, Zen_Kaku_Gothic_New } from "next/font/google";
+import { Archivo, Caveat, Jost, Permanent_Marker, Cedarville_Cursive, DotGothic16, EB_Garamond, UnifrakturCook, Zen_Kaku_Gothic_New } from "next/font/google";
 import { BASE_PATH } from "@/asset";
 import "./globals.css";
 
@@ -19,6 +19,12 @@ const screen = DotGothic16({
 const display = Archivo({
   variable: "--font-display",
   axes: ["wdth"],
+  subsets: ["latin"],
+});
+
+// The lite page's poster lettering: a Futura-style geometric sans with a single-storey "a".
+const poster = Jost({
+  variable: "--font-poster",
   subsets: ["latin"],
 });
 
@@ -74,7 +80,7 @@ const preflight = `(function(){try{var p=new URLSearchParams(location.search);va
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="id" className={`${body.variable} ${screen.variable} ${hand.variable} ${display.variable} ${script.variable} ${marker.variable} ${black.variable} ${serif.variable}`} suppressHydrationWarning>
+    <html lang="id" className={`${body.variable} ${screen.variable} ${hand.variable} ${display.variable} ${poster.variable} ${script.variable} ${marker.variable} ${black.variable} ${serif.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: preflight }} />
       </head>
