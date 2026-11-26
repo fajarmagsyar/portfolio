@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { asset } from "@/asset";
 
-export type Fonts = { hand: string; screen: string; body: string; display: string; script: string; marker: string; black: string; serif: string };
+export type Fonts = { hand: string; screen: string; body: string; display: string; script: string; marker: string; black: string; serif: string; poster: string };
 
 function cssVar(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "sans-serif";
@@ -14,7 +14,7 @@ function cssVar(name: string) {
 export function useFonts(): Fonts | null {
   const [fonts, setFonts] = useState<Fonts | null>(null);
   useEffect(() => {
-    const f: Fonts = { hand: cssVar("--font-hand"), screen: cssVar("--font-screen"), body: cssVar("--font-body"), display: cssVar("--font-display"), script: cssVar("--font-script"), marker: cssVar("--font-marker"), black: cssVar("--font-black"), serif: cssVar("--font-serif") };
+    const f: Fonts = { hand: cssVar("--font-hand"), screen: cssVar("--font-screen"), body: cssVar("--font-body"), display: cssVar("--font-display"), script: cssVar("--font-script"), marker: cssVar("--font-marker"), black: cssVar("--font-black"), serif: cssVar("--font-serif"), poster: cssVar("--font-poster") };
     let alive = true;
     Promise.all([
       document.fonts.load(`700 32px ${f.hand}`),
@@ -26,6 +26,8 @@ export function useFonts(): Fonts | null {
       document.fonts.load(`700 32px ${f.black}`),
       document.fonts.load(`500 32px ${f.serif}`),
       document.fonts.load(`700 32px ${f.serif}`),
+      document.fonts.load(`900 32px ${f.poster}`),
+      document.fonts.load(`500 32px ${f.poster}`),
     ])
       .catch(() => {})
       .then(() => alive && setFonts(f));

@@ -4,6 +4,7 @@ import { useEffect, type RefObject } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ScrollToPlugin } from "gsap/ScrollToPlugin";
+import { ScrollSmoother } from "gsap/ScrollSmoother";
 
 /**
  * All of the lite page's motion lives here so the view stays a plain component.
@@ -15,13 +16,108 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
     const root = rootRef.current;
     if (!root) return;
 
-    gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+    gsap.registerPlugin(ScrollTrigger, ScrollToPlugin, ScrollSmoother);
 
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const q = gsap.utils.selector(root);
     const cleanups: Array<() => void> = [];
+    // Inertial scrolling only where a wheel or trackpad drives the page; touch keeps its native fling.
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    let smoother: ScrollSmoother | null = null;
+    let revealStart = (_el: Element, at: number): string | (() => string) => `top ${at}%`;
+    const NAV_OFFSET = 96;
 
     const ctx = gsap.context(() => {
+      // Must exist before any ScrollTrigger so they all read its scroll position.
+      const wrapper = q("[data-smooth-wrapper]")[0] as HTMLElement | undefined;
+      const content = q("[data-smooth-content]")[0] as HTMLElement | undefined;
+      if (!reduced && finePointer && wrapper && content) {
+        smoother = ScrollSmoother.create({ wrapper, content, smooth: 1.1, effects: false, smoothTouch: false });
+        const initial = window.location.hash.slice(1);
+        const target = initial ? document.getElementById(initial) : null;
+        if (target) smoother.scrollTo(target, false, `top ${NAV_OFFSET}px`);
+      }
+
+      // Intro: the page opens on a blank screen with only the greeting and a subtitle. The hero is
+      // pinned while scrolling carries the greeting into the poster's headline, the backdrop clears,
+      // the nav docks, and the poster is printed from blueprint to colour.
+      const hero = q("[data-hero]")[0] as HTMLElement | undefined;
+      const heroTitle = hero?.querySelector<HTMLElement>("h1");
+      if (hero && heroTitle && !reduced) {
+        // The headline's box relative to the hero, from layout offsets so no transform can skew it.
+        // Words are looked up each time: a language swap re-keys them, so React replaces the nodes.
+        const offsetIn = (el: HTMLElement) => {
+          let x = 0;
+          let y = 0;
+          for (let node: HTMLElement | null = el; node && node !== hero; node = node.offsetParent as HTMLElement | null) {
+            x += node.offsetLeft;
+            y += node.offsetTop;
+          }
+          return { x, y };
+        };
+        const titleBox = () => {
+          const words = Array.from(heroTitle.querySelectorAll<HTMLElement>("[data-hero-word]"), (w) => w.parentElement ?? w);
+          const boxes = words.map((w) => ({ ...offsetIn(w), w: w.offsetWidth, h: w.offsetHeight }));
+          const left = Math.min(...boxes.map((b) => b.x));
+          const right = Math.max(...boxes.map((b) => b.x + b.w));
+          const top = Math.min(...boxes.map((b) => b.y));
+          const bottom = Math.max(...boxes.map((b) => b.y + b.h));
+          return { cx: (left + right) / 2, cy: (top + bottom) / 2, height: bottom - top };
+        };
+        const centreY = () => window.innerHeight * 0.46;
+        const sub = q("[data-intro-sub]")[0];
+        const dock = q("[data-nav-dock]")[0];
+
+        // The greeting's flight is driven by a 0..1 value; the offsets it scales are re-measured on
+        // every refresh (language swap, resize, fonts), so it always starts dead centre.
+        let dx = 0;
+        let dy = 0;
+        let subY = 0;
+        const flight = { p: 0 };
+        const ease = gsap.parseEase("power2.inOut");
+        const measure = () => {
+          const box = titleBox();
+          dx = hero.offsetWidth / 2 - box.cx;
+          dy = centreY() - box.cy;
+          subY = centreY() + box.height / 2 + 14;
+        };
+        const place = () => {
+          const left = 1 - ease(flight.p);
+          gsap.set(heroTitle, { x: dx * left, y: dy * left });
+          gsap.set(sub, { y: subY - 44 * Math.min(flight.p / 0.4, 1) });
+        };
+        measure();
+        place();
+
+        gsap
+          .timeline({
+            defaults: { ease: "none" },
+            scrollTrigger: {
+              trigger: hero,
+              start: "top top",
+              end: () => `+=${Math.round(window.innerHeight * 1.3)}`,
+              pin: true,
+              scrub: 0.6,
+            },
+          })
+          .fromTo(flight, { p: 0 }, { p: 1, duration: 0.34, onUpdate: place }, 0)
+          .fromTo(sub, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.14 }, 0)
+          .fromTo("[data-intro-bg]", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.26 }, 0.08)
+          .fromTo(dock, { yPercent: -180, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: 0.14, ease: "power2.out" }, 0.24)
+          .fromTo("[data-hero-art]", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 }, 0.3)
+          .fromTo(q("[data-hero-rest]"), { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.12, stagger: 0.03, ease: "power2.out" }, 0.3)
+          .fromTo(hero, { "--k": 0 }, { "--k": 1, duration: 0.55 }, 0.45)
+          .fromTo(q("[data-art-shape]"), { fillOpacity: 0 }, { fillOpacity: 1, duration: 0.2, stagger: 0.025 }, 0.5);
+
+        // Re-measure after every refresh; the timeline only re-places the greeting while it moves.
+        const rerender = () => {
+          measure();
+          place();
+        };
+        ScrollTrigger.addEventListener("refresh", rerender);
+        cleanups.push(() => ScrollTrigger.removeEventListener("refresh", rerender));
+      }
+
       const nav = q("[data-nav]")[0] as HTMLElement | undefined;
       const pill = q("[data-nav-pill]")[0] as HTMLElement | undefined;
       const linksBox = q("[data-nav-links]")[0] as HTMLElement | undefined;
@@ -117,13 +213,85 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
         );
       }
 
-      // Hero: the small type settles, the name rises out of its mask, then the actions arrive.
+      // Scene handoff: every section's stage recedes as it leaves while the next one rises
+      // underneath it. Both are scrubbed, so the change follows the scroll instead of popping.
+      const scenes = q("[data-scene]") as HTMLElement[];
+      scenes.forEach((scene, i) => {
+        const stage = scene.querySelector<HTMLElement>("[data-stage]");
+        if (!stage) return;
+        const isFirst = i === 0;
+        const isLast = i === scenes.length - 1;
+
+        if (!isFirst) {
+          gsap.fromTo(
+            stage,
+            { y: 110 },
+            {
+              y: 0,
+              ease: "power2.out",
+              scrollTrigger: { trigger: scene, start: "top bottom", end: "top 35%", scrub: 0.6 },
+            }
+          );
+        }
+
+        if (!isLast) {
+          // Separate tween on its own properties (yPercent/opacity) so it composes with the entry.
+          gsap.fromTo(
+            stage,
+            { yPercent: 0, autoAlpha: 1 },
+            {
+              yPercent: isFirst ? -6 : -4,
+              autoAlpha: 0.15,
+              ease: "power1.in",
+              immediateRender: false,
+              // The pinned hero's own bottom is measured before its pin, so it hands off from the band below.
+              scrollTrigger: isFirst
+                ? { trigger: "[data-band]", start: "top 60%", end: "top top", scrub: 0.6 }
+                : { trigger: scene, start: "bottom 60%", end: "bottom top", scrub: 0.6 },
+            }
+          );
+        }
+      });
+
+      // Reveals inside a stage are measured while the stage is shifted by the handoff above, so
+      // their start is pushed by that same shift to fire where the layout says they are.
+      const stageShift = (el: Element) => {
+        const stage = el.closest<HTMLElement>("[data-stage]");
+        if (!stage) return 0;
+        const y = Number(gsap.getProperty(stage, "y")) || 0;
+        const yPercent = Number(gsap.getProperty(stage, "yPercent")) || 0;
+        return y + (yPercent * stage.offsetHeight) / 100;
+      };
+      revealStart = (el, at) => () => `top ${Math.round((window.innerHeight * at) / 100 + stageShift(el))}px`;
+
+      // Every other block prints itself while it travels from the bottom of the screen to its upper half.
+      (q("[data-build]") as HTMLElement[]).forEach((block) => {
+        if (block === hero) return;
+        gsap.fromTo(
+          block,
+          { "--k": 0 },
+          {
+            "--k": 1,
+            ease: "none",
+            scrollTrigger: { trigger: block, start: revealStart(block, 92), end: revealStart(block, 45), scrub: 0.4 },
+          }
+        );
+      });
+
+      // The hero's name lifts away faster than its poster once the band takes over.
+      if (heroTitle) {
+        gsap.to(heroTitle, {
+          yPercent: -35,
+          ease: "none",
+          scrollTrigger: { trigger: "[data-band]", start: "top bottom", end: "top top", scrub: 0.4 },
+        });
+      }
+
+      // On load: the greeting rises out of its mask, then the subtitle settles under it.
       gsap
-        .timeline({ defaults: { ease: "power3.out" } })
-        .from(q("[data-art-shape]"), { scale: 0, duration: 0.7, ease: "back.out(1.5)", stagger: 0.06 })
-        .from(q("[data-hero-line]"), { y: 24, autoAlpha: 0, duration: 0.8, stagger: 0.1 }, "-=0.6")
-        .from(q("[data-hero-word]"), { yPercent: 115, rotate: 3, duration: 1, stagger: 0.08 }, "-=0.55")
-        .from(q("[data-hero-cta]"), { y: 20, autoAlpha: 0, duration: 0.7 }, "-=0.65");
+        .timeline({ defaults: { ease: "power3.out" }, delay: 0.15 })
+        .from(q("[data-hero-word]"), { yPercent: 115, rotate: 3, duration: 1, stagger: 0.08 })
+        .from(q("[data-intro-sub-text]"), { y: 16, autoAlpha: 0, duration: 0.8 }, "-=0.6");
 
       // Section titles unmask word by word as they enter.
       q("[data-kinetic]").forEach((title) => {
@@ -135,7 +303,7 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
           duration: 0.9,
           stagger: 0.055,
           ease: "power4.out",
-          scrollTrigger: { trigger: title, start: "top 88%", once: true },
+          scrollTrigger: { trigger: title, start: revealStart(title, 88), once: true },
         });
       });
 
@@ -145,7 +313,7 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
           autoAlpha: 0,
           duration: 0.9,
           ease: "power3.out",
-          scrollTrigger: { trigger: el, start: "top 88%", once: true },
+          scrollTrigger: { trigger: el, start: revealStart(el, 88), once: true },
         });
       });
 
@@ -158,7 +326,7 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
           duration: 0.8,
           stagger: 0.08,
           ease: "power3.out",
-          scrollTrigger: { trigger: group, start: "top 85%", once: true },
+          scrollTrigger: { trigger: group, start: revealStart(group, 85), once: true },
         });
       });
 
@@ -168,18 +336,17 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
           scaleX: 0,
           duration: 0.9,
           ease: "power3.out",
-          scrollTrigger: { trigger: rule, start: "top 92%", once: true },
+          scrollTrigger: { trigger: rule, start: revealStart(rule, 92), once: true },
         });
       });
 
-      // Hero artwork: as the poster scrolls away its shapes drift apart, each at its own pace.
+      // Hero artwork: as the poster scrolls away its shapes drift apart a little, each at its own pace.
       const artShapes = q("[data-art-shape]");
       if (artShapes.length) {
         gsap.to(artShapes, {
-          y: (i) => (i % 2 ? -1 : 1) * (18 + (i % 4) * 14),
-          rotation: (i) => (i % 3 === 0 ? 0 : (i % 2 ? -1 : 1) * 8),
+          y: (i) => (i % 2 ? -1 : 1) * (10 + (i % 4) * 8),
           ease: "none",
-          scrollTrigger: { trigger: "[data-hero]", start: "top top", end: "bottom top", scrub: 0.6 },
+          scrollTrigger: { trigger: "[data-band]", start: "top bottom", end: "top top", scrub: 0.6 },
         });
       }
 
@@ -199,10 +366,9 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
         );
       });
 
-      // Section heads: the glyph spins in, the number drifts against the scroll, the rule draws itself.
+      // Section heads: the glyph spins in, the rule draws itself.
       q("[data-section-head]").forEach((head) => {
         const glyph = head.querySelector("[data-glyph]");
-        const no = head.querySelector("[data-section-no]");
         const rule = head.querySelector("[data-head-rule]");
         if (glyph) {
           gsap.fromTo(
@@ -212,18 +378,7 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
               rotation: 0,
               scale: 1,
               ease: "power2.out",
-              scrollTrigger: { trigger: head, start: "top 92%", end: "top 45%", scrub: 0.5 },
-            }
-          );
-        }
-        if (no) {
-          gsap.fromTo(
-            no,
-            { yPercent: 40 },
-            {
-              yPercent: -20,
-              ease: "none",
-              scrollTrigger: { trigger: head, start: "top bottom", end: "bottom top", scrub: true },
+              scrollTrigger: { trigger: head, start: revealStart(head, 92), end: revealStart(head, 45), scrub: 0.5 },
             }
           );
         }
@@ -232,7 +387,7 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
             scaleX: 0,
             duration: 1.1,
             ease: "power4.inOut",
-            scrollTrigger: { trigger: head, start: "top 85%", once: true },
+            scrollTrigger: { trigger: head, start: revealStart(head, 85), once: true },
           });
         }
       });
@@ -284,7 +439,7 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
             const tl = gsap.timeline({
               scrollTrigger: {
                 trigger: card,
-                start: "top 88%",
+                start: revealStart(card, 88),
                 once: true,
               },
             });
@@ -304,7 +459,7 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
             ease: "power3.out",
             scrollTrigger: {
               trigger: card,
-              start: "top 88%",
+              start: revealStart(card, 88),
               once: true,
             },
           });
@@ -327,10 +482,15 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
         mark();
         return;
       }
+      if (smoother) {
+        smoother.scrollTo(destination, true, `top ${NAV_OFFSET}px`);
+        mark();
+        return;
+      }
       gsap.to(window, {
         duration: 1.05,
         ease: "power3.inOut",
-        scrollTo: { y: destination, offsetY: 96, autoKill: true },
+        scrollTo: { y: destination, offsetY: NAV_OFFSET, autoKill: true },
         onComplete: mark,
       });
     };
@@ -345,6 +505,8 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
       window.removeEventListener("load", refresh);
       cleanups.forEach((cleanup) => cleanup());
       mm.revert();
+      (smoother as ScrollSmoother | null)?.kill();
+      smoother = null;
       ctx.revert();
     };
   }, [rootRef]);

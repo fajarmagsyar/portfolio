@@ -16,12 +16,12 @@ function NotesPanel() {
   );
 }
 
-const BODY: Record<Exclude<FocusId, "tv" | "tapes" | "cd" | "cds" | "saturn" | "guitar" | "cards" | "dice" | "receipt" | "clock" | "album" | "canonet" | "portrait" | "frames">, () => React.ReactNode> = {
+const BODY: Record<Exclude<FocusId, "tv" | "tapes" | "cd" | "cds" | "saturn" | "guitar" | "cards" | "dice" | "receipt" | "clock" | "album" | "canonet" | "portrait" | "frames" | "bauhaus">, () => React.ReactNode> = {
   notes: NotesPanel,
 };
 
 /** The panel that slides in on the right while the camera is close on an object. */
-export function SidePanel({ focus }: { focus: Exclude<FocusId, "tv" | "tapes" | "cd" | "cds" | "saturn" | "guitar" | "cards" | "dice" | "receipt" | "clock" | "album" | "canonet" | "portrait" | "frames"> }) {
+export function SidePanel({ focus }: { focus: Exclude<FocusId, "tv" | "tapes" | "cd" | "cds" | "saturn" | "guitar" | "cards" | "dice" | "receipt" | "clock" | "album" | "canonet" | "portrait" | "frames" | "bauhaus"> }) {
   const t = useT();
   const setFocus = useRoom((r) => r.setFocus);
   const Body = BODY[focus];

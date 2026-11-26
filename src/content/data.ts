@@ -218,6 +218,66 @@ export const skills = [
   "Docker",
 ];
 
+/** What each skill actually is, shown when a skill tile is opened on the lite page. */
+export const skillNotes: Record<string, L10n> = {
+  PHP: {
+    id: "Bahasa server-side untuk web: logika di balik halaman, API, dan panel admin.",
+    en: "A server-side language for the web: the logic behind pages, APIs and admin panels.",
+  },
+  Javascript: {
+    id: "Bahasa browser: membuat halaman interaktif, dan lewat Node juga jalan di server.",
+    en: "The language of the browser: makes pages interactive, and through Node runs on servers too.",
+  },
+  Typescript: {
+    id: "JavaScript dengan tipe data, supaya kesalahan ketahuan sebelum kode dijalankan.",
+    en: "JavaScript with types, so mistakes are caught before the code ever runs.",
+  },
+  "C#": {
+    id: "Bahasa .NET dari Microsoft, dipakai untuk aplikasi desktop, backend, dan game Unity.",
+    en: "Microsoft's .NET language, used for desktop apps, back ends and Unity games.",
+  },
+  HTML: {
+    id: "Kerangka setiap halaman web: menyusun judul, teks, gambar, dan form dengan struktur yang benar.",
+    en: "The skeleton of every web page: headings, text, images and forms in a meaningful structure.",
+  },
+  CSS: {
+    id: "Bahasa tampilan web: layout, warna, tipografi, dan animasi yang responsif di semua layar.",
+    en: "The look of the web: layout, colour, type and motion that adapt to every screen.",
+  },
+  NodeJS: {
+    id: "JavaScript di server: membangun API, layanan real-time, dan alat bantu build.",
+    en: "JavaScript on the server: APIs, real-time services and build tooling.",
+  },
+  NextJS: {
+    id: "Framework React untuk situs dan aplikasi yang cepat dan ramah SEO, dirender di server maupun browser.",
+    en: "A React framework for fast, SEO-friendly sites and apps, rendered on the server and in the browser.",
+  },
+  VueJS: {
+    id: "Framework JavaScript yang ringan untuk antarmuka yang reaktif dan berbasis komponen.",
+    en: "A lightweight JavaScript framework for reactive, component-based interfaces.",
+  },
+  Silverstripe: {
+    id: "CMS dan framework PHP untuk situs yang kontennya dikelola sendiri oleh klien.",
+    en: "A PHP CMS and framework for websites whose content the client manages themselves.",
+  },
+  Laravel: {
+    id: "Framework PHP untuk aplikasi web lengkap: routing, database, autentikasi, dan antrean tugas.",
+    en: "A PHP framework for full web applications: routing, databases, authentication and queues.",
+  },
+  "AI Orchestration": {
+    id: "Merangkai model AI, tools, dan data menjadi alur kerja yang bisa diandalkan di aplikasi nyata.",
+    en: "Wiring AI models, tools and data into dependable workflows inside real applications.",
+  },
+  "CI/CD": {
+    id: "Otomatisasi tes dan deploy: setiap perubahan dicek lalu dirilis tanpa langkah manual.",
+    en: "Automated testing and deployment: every change is checked, then shipped without manual steps.",
+  },
+  Docker: {
+    id: "Membungkus aplikasi beserta lingkungannya dalam container, jadi jalan sama di mana pun.",
+    en: "Packages an app with its environment in a container, so it runs the same everywhere.",
+  },
+};
+
 export const links = {
   email: "fajar.magsyar@gmail.com",
   github: { label: "fajarmagsyar", url: "https://github.com/fajarmagsyar" },

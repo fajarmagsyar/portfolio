@@ -220,7 +220,18 @@
   text-decoration: none;
   color: var(--ui);
 }
+/* the LO-FI pill is a button; put back what the .hud button reset takes off */
+.hud button.pill {
+  padding: 3px 14px 3px 12px;
+  border: 1px solid var(--hair);
+  background: var(--glass);
+  font-size: 13px;
+  line-height: 22px;
+  letter-spacing: 0.14em;
+  pointer-events: auto;
+}
 a.pill:hover,
+button.pill:hover,
 .pill button:hover {
   color: #fff;
 }
@@ -938,4 +949,76 @@ a.pill:hover,
     width: clamp(150px, 42vw, 220px);
     bottom: 74px;
   }
+}
+
+/* ---------- "open the Lite version?" ---------- */
+
+.confirmBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 7, 5, 0.55);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+}
+
+.confirm {
+  width: min(380px, 100%);
+  padding: 22px 24px 20px;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+}
+
+.confirm h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+.confirm p {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--ui-dim);
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirmActions button {
+  padding: 4px 16px;
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ui);
+  cursor: pointer;
+}
+
+.confirmActions button:hover {
+  color: #fff;
+}
+
+.confirmActions .confirmYes {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #1a1410;
+}
+
+.confirmActions .confirmYes:hover {
+  color: #000;
 }

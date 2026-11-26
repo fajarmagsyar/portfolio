@@ -1,16 +1,21 @@
 "use client";
 
 import { asset } from "@/asset";
-import { useEffect, useState } from "react";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
+import { useEffect, useRef, useState } from "react";
+import type * as THREE from "three";
 import { Interactive } from "../Interactive";
 import { POS, WALL_Z } from "../layout";
+import { useRoom } from "../store";
+import { useLang } from "@/state/lang";
+import type { Lang } from "@/content/data";
 import { rng, useCanvasTexture, useFonts, type Fonts } from "../textures";
 import { Glass } from "./Glass";
 import { Model } from "./Props";
 
-// Two favourite albums as posters (and a framed family photo, below): the cover at the top, and under it the title, the
-// artist, the year and the track list. The covers are the files in public/art/; the
-// artwork belongs to the artists and their labels (see CREDITS.md).
+// On the wall: a favourite record hung on a nail, and a Bauhaus print of the lo-fi site that opens
+// it; on the sill, a framed family photo. The cover is the file in public/art/; the artwork belongs
+// to the artist and their label (see CREDITS.md).
 
 type Album = {
   title: string;
@@ -48,94 +53,6 @@ const OK_COMPUTER: Album = {
   art: "/art/ok-computer.jpg",
 };
 
-function fit(ctx: CanvasRenderingContext2D, text: string, weight: number, family: string, max: number, start: number) {
-  let size = start;
-  ctx.font = `${weight} ${size}px ${family}`;
-  while (ctx.measureText(text).width > max && size > 12) {
-    size -= 2;
-    ctx.font = `${weight} ${size}px ${family}`;
-  }
-  return size;
-}
-
-/** Decades on a bedroom wall: yellowing, fold creases, stains, scuffed edges, tape. */
-function age(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number) {
-  const r = rng(seed);
-  // yellowing, strongest towards the edges
-  ctx.globalCompositeOperation = "multiply";
-  const y = ctx.createRadialGradient(w / 2, h / 2, w * 0.2, w / 2, h / 2, h * 0.75);
-  y.addColorStop(0, "rgba(236,214,160,0.35)");
-  y.addColorStop(1, "rgba(150,105,50,0.75)");
-  ctx.fillStyle = y;
-  ctx.fillRect(0, 0, w, h);
-  // water stains
-  for (let i = 0; i < 5; i++) {
-    const cx = r() * w;
-    const cy = r() * h;
-    const rad = 30 + r() * 90;
-    const g = ctx.createRadialGradient(cx, cy, rad * 0.6, cx, cy, rad);
-    g.addColorStop(0, "rgba(120,85,40,0)");
-    g.addColorStop(0.85, "rgba(120,85,40,0.22)");
-    g.addColorStop(1, "rgba(120,85,40,0)");
-    ctx.fillStyle = g;
-    ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
-  }
-  ctx.globalCompositeOperation = "source-over";
-  // it was folded in four once
-  for (const [x0, y0, x1, y1] of [
-    [0, h / 2, w, h / 2],
-    [w / 2, 0, w / 2, h],
-  ]) {
-    ctx.strokeStyle = "rgba(255,255,255,0.28)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(0,0,0,0.3)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(x0 + 2, y0 + 2);
-    ctx.lineTo(x1 + 2, y1 + 2);
-    ctx.stroke();
-  }
-  // ink rubbed off in specks, more along the creases
-  for (let i = 0; i < 1400; i++) {
-    const onCrease = r() < 0.35;
-    const x = onCrease && r() < 0.5 ? w / 2 + (r() - 0.5) * 14 : r() * w;
-    const yy = onCrease && x !== w / 2 ? (r() < 0.5 ? h / 2 + (r() - 0.5) * 14 : r() * h) : r() * h;
-    ctx.fillStyle = `rgba(235,220,185,${0.15 + r() * 0.35})`;
-    ctx.fillRect(x, yy, 1 + r() * 3, 1 + r() * 2);
-  }
-  // scuffed, torn edges and dog-eared corners are cut away
-  ctx.globalCompositeOperation = "destination-out";
-  for (let i = 0; i < 90; i++) {
-    const side = Math.floor(r() * 4);
-    const t = r();
-    const d = 2 + r() * 7;
-    const [x, yy] = side === 0 ? [t * w, 0] : side === 1 ? [t * w, h] : side === 2 ? [0, t * h] : [w, t * h];
-    ctx.beginPath();
-    ctx.arc(x, yy, d, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  const cornerX = r() < 0.5 ? 0 : w;
-  ctx.beginPath();
-  ctx.moveTo(cornerX, h);
-  ctx.lineTo(cornerX === 0 ? 46 : w - 46, h);
-  ctx.lineTo(cornerX, h - 38);
-  ctx.fill();
-  ctx.globalCompositeOperation = "source-over";
-  // yellowed tape on the top corners
-  for (const x of [w * 0.12, w * 0.88]) {
-    ctx.save();
-    ctx.translate(x, 16);
-    ctx.rotate((r() - 0.5) * 0.5);
-    ctx.fillStyle = "rgba(226,205,150,0.85)";
-    ctx.fillRect(-34, -13, 68, 26);
-    ctx.restore();
-  }
-}
-
 /** Loads an image for painting into a canvas; null until it has arrived. */
 function useImage(src: string) {
   const [img, setImg] = useState<HTMLImageElement | null>(null);
@@ -151,79 +68,346 @@ function useImage(src: string) {
   return img;
 }
 
-/** The cover fills the top of the sheet; the words sit in the band beneath it. */
-function drawAlbum(ctx: CanvasRenderingContext2D, w: number, h: number, f: Fonts, a: Album, art: HTMLImageElement | null) {
+// ── The record, hung on the wall ───────────────────────────────────────────────────────────
+
+/** A 12-inch sleeve is 31 cm square. */
+const SLEEVE = 0.31;
+
+/** The sleeve: the cover, worn at the edges and with the ring the record pressed into it. */
+function drawSleeve(ctx: CanvasRenderingContext2D, w: number, h: number, a: Album, art: HTMLImageElement | null) {
   ctx.fillStyle = a.paper;
   ctx.fillRect(0, 0, w, h);
-  const m = 34;
-  const side = w - m * 2;
-  if (art) {
-    ctx.drawImage(art, m, m, side, side);
-    ctx.strokeStyle = "rgba(128,128,128,0.35)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(m + 0.5, m + 0.5, side - 1, side - 1);
+  if (art) ctx.drawImage(art, 0, 0, w, h);
+  const r = rng(1997);
+  // ring wear: the disc inside has rubbed a pale circle through the print
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.strokeStyle = "rgba(255,255,255,0.09)";
+  for (let i = 0; i < 26; i++) {
+    ctx.lineWidth = 2 + r() * 3;
+    ctx.beginPath();
+    const from = r() * Math.PI * 2;
+    ctx.arc(w / 2, h / 2, w * 0.47 - i * 0.6, from, from + 2 + r() * 3);
+    ctx.stroke();
   }
-  let y = m + side + 54;
-  ctx.fillStyle = a.ink;
-  ctx.textAlign = "left";
-  fit(ctx, a.title, 700, f.body, w - m * 2, 46);
-  ctx.fillText(a.title, m, y);
-  y += 30;
-  ctx.font = `21px ${f.screen}`;
-  ctx.fillText(a.artist, m, y);
-  ctx.textAlign = "right";
-  ctx.fillStyle = a.accent;
-  ctx.fillText(String(a.year), w - m, y);
-  y += 14;
-  ctx.fillRect(m, y, side, 3);
-  y += 30;
-  // the tracks, down two columns
-  ctx.fillStyle = a.ink;
-  ctx.textAlign = "left";
-  const rows = Math.ceil(a.tracks.length / 2);
-  const line = Math.min(24, (h - y - 6) / rows);
-  ctx.font = `500 ${Math.round(line * 0.72)}px ${f.body}`;
-  ctx.globalAlpha = 0.86;
-  a.tracks.forEach((t, i) => {
-    const col = i < rows ? 0 : 1;
-    ctx.fillText(`${String(i + 1).padStart(2, "0")}  ${t}`, m + col * (side / 2 + 8), y + (i % rows) * line, side / 2 - 12);
-  });
-  ctx.globalAlpha = 1;
+  ctx.restore();
+  // scuffed corners and edges
+  ctx.fillStyle = "rgba(240,236,226,0.5)";
+  for (let i = 0; i < 260; i++) {
+    const side = Math.floor(r() * 4);
+    const t = r();
+    const d = r() * 6;
+    const [x, y] = side === 0 ? [t * w, d] : side === 1 ? [t * w, h - d] : side === 2 ? [d, t * h] : [w - d, t * h];
+    ctx.fillRect(x, y, 1 + r() * 3, 1 + r() * 2);
+  }
 }
 
-const PW = 0.44;
-const PH = 0.62;
+/** How the record swings on its nail: a pendulum about a quarter metre long, gently damped. */
+const SWING = { stiffness: 38, damping: 1.3, push: 0.55 };
 
-function Poster({
-  album,
-  seed,
-  position,
-  tilt,
-  fonts,
-}: {
-  album: Album;
-  seed: number;
-  position: [number, number];
-  tilt: number;
-  fonts: Fonts | null;
-}) {
+/**
+ * The record hangs on a nail by a cord tied round its sleeve, the way a fan would put it up.
+ * Clicking it gives it a nudge: it swings a little on the nail and settles back.
+ */
+function VinylOnWall({ album, position }: { album: Album; position: [number, number] }) {
   const art = useImage(album.art);
+  const pivot = useRef<THREE.Group>(null);
+  const swing = useRef({ angle: 0, speed: 0 });
+  useFrame((_, dt) => {
+    const s = swing.current;
+    if (!pivot.current || (Math.abs(s.angle) < 1e-4 && Math.abs(s.speed) < 1e-4)) return;
+    // small steps keep the spring steady when a frame runs long
+    const steps = Math.ceil(Math.min(dt, 0.1) / (1 / 120));
+    const h = Math.min(dt, 0.1) / steps;
+    for (let i = 0; i < steps; i++) {
+      s.speed += (-SWING.stiffness * s.angle - SWING.damping * s.speed) * h;
+      s.angle += s.speed * h;
+    }
+    pivot.current.rotation.z = s.angle;
+  });
+  const nudge = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    // pushed on its right-hand side it swings left, and the other way round
+    swing.current.speed += e.point.x > position[0] ? SWING.push : -SWING.push;
+  };
+  const sleeve = useCanvasTexture(1024, 1024, (ctx, w, h) => drawSleeve(ctx, w, h, album, art), [album, art]);
+  const half = SLEEVE / 2;
+  const nailY = half + 0.09;
+  // the two runs of cord, from the nail down to the sleeve's top corners
+  const cords = [-1, 1].map((side) => {
+    const dx = side * (half - 0.015);
+    const dy = half - nailY;
+    return { x: dx / 2, y: (nailY + half) / 2, len: Math.hypot(dx, dy), angle: Math.atan2(dy, dx) };
+  });
+  return (
+    <group position={[position[0], position[1], WALL_Z]} rotation={[0, 0, -0.03]}>
+      {/* everything that swings turns about the nail */}
+      <group ref={pivot} position={[0, nailY, 0]}>
+      <group position={[0, -nailY, 0]}>
+      {/* the sleeve: printed card on the front, plain board round the edges */}
+      <mesh position={[0, 0, 0.011]} castShadow receiveShadow onClick={nudge}>
+        <boxGeometry args={[SLEEVE, SLEEVE, 0.004]} />
+        <meshStandardMaterial attach="material-0" color="#d9d6cf" roughness={0.9} />
+        <meshStandardMaterial attach="material-1" color="#d9d6cf" roughness={0.9} />
+        <meshStandardMaterial attach="material-2" color="#d9d6cf" roughness={0.9} />
+        <meshStandardMaterial attach="material-3" color="#d9d6cf" roughness={0.9} />
+        <meshStandardMaterial attach="material-4" map={sleeve} roughness={0.75} />
+        <meshStandardMaterial attach="material-5" color="#cfcac0" roughness={0.9} />
+      </mesh>
+      {/* the cord and the nail it hangs from */}
+      {cords.map((cord, i) => (
+        <mesh key={i} position={[cord.x, cord.y, 0.014]} rotation={[0, 0, cord.angle]} castShadow>
+          <boxGeometry args={[cord.len, 0.0022, 0.0022]} />
+          <meshStandardMaterial color="#2b2520" roughness={0.8} />
+        </mesh>
+      ))}
+      </group>
+      </group>
+      <mesh position={[0, nailY, 0.008]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.006, 0.006, 0.016, 16]} />
+        <meshStandardMaterial color="#8a7a5c" roughness={0.35} metalness={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
+// ── The Bauhaus poster: the lo-fi site, as a print on the wall ───────────────────────────────
+
+/** The lo-fi site's hero artwork (see src/lite/LiteView.tsx), in its 400 x 500 box. */
+const BAUHAUS_ART: Array<[string, string]> = [
+  ["M100,0 A100,100 0 0 0 100,200 Z", "#3b3b3b"],
+  ["M100,0 A100,100 0 0 1 100,200 Z", "#f15a24"],
+  ["M200,0 A100,100 0 0 0 400,0 Z", "#f15a24"],
+  ["M200,200 A100,100 0 0 1 400,200 Z", "#3b3b3b"],
+  ["M0,200 H200 V400 H0 Z", "#3b3b3b"],
+  ["M200,200 H400 V400 H200 Z", "#008787"],
+  ["M300,300 A100,100 0 0 1 400,200 L400,300 Z", "#f15a24"],
+  ["M300,400 A100,100 0 0 1 400,300 L400,400 Z", "#fbb03b"],
+  ["M200,200 A100,100 0 0 0 200,400 Z", "#fbb03b"],
+  ["M200,200 A100,100 0 0 1 200,400 Z", "#e5dccf"],
+  ["M0,500 A100,100 0 0 1 200,500 Z", "#3b3b3b"],
+  ["M200,400 A100,100 0 0 1 300,500 L200,500 Z", "#fbb03b"],
+  ["M300,500 A100,100 0 0 1 400,400 L400,500 Z", "#008787"],
+];
+
+/** Which shapes are screened with stripes or a halftone, as on the site. */
+const BAUHAUS_SCREEN: Record<number, "stripes" | "dots"> = { 1: "stripes", 3: "stripes", 5: "dots", 7: "stripes", 9: "dots", 12: "stripes" };
+
+/** What the Bauhaus was, in a few lines under the title. */
+const BAUHAUS_NOTE: Record<Lang, string> = {
+  id: "Sekolah seni dan desain Jerman di Weimar, Dessau, dan Berlin. Menyatukan seni, kerajinan, dan industri: bentuk mengikuti fungsi, warna primer, lingkaran, persegi, segitiga.",
+  en: "The German art and design school of Weimar, Dessau and Berlin. It joined art, craft and industry: form follows function, primary colours, circle, square, triangle.",
+};
+
+/**
+ * "bauhaus", lettered the way the school set it: Herbert Bayer's universal alphabet, lowercase
+ * only, every letter built from a circle and straight strokes of one weight. Drawn as strokes in
+ * units of the x-height, from the baseline at (x, y), `size` pixels to the unit.
+ */
+function letterBauhaus(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  const w = 0.22; // the stroke, as a share of the x-height
+  const r = 0.5 - w / 2; // a bowl's radius to the middle of its stroke
+  const glyphs: Record<string, { advance: number; draw: (c: CanvasRenderingContext2D) => void }> = {
+    b: {
+      advance: 1,
+      draw: (c) => {
+        c.moveTo(w / 2, -1.62);
+        c.lineTo(w / 2, 0);
+        c.moveTo(0.5 + r, -0.5);
+        c.arc(0.5, -0.5, r, 0, Math.PI * 2);
+      },
+    },
+    a: {
+      advance: 1,
+      draw: (c) => {
+        c.moveTo(0.5 + r, -0.5);
+        c.arc(0.5, -0.5, r, 0, Math.PI * 2);
+        c.moveTo(1 - w / 2, -1);
+        c.lineTo(1 - w / 2, 0);
+      },
+    },
+    u: {
+      advance: 1,
+      draw: (c) => {
+        c.moveTo(w / 2, -1);
+        c.lineTo(w / 2, -0.5);
+        c.arc(0.5, -0.5, r, Math.PI, 0, true);
+        c.moveTo(1 - w / 2, -1);
+        c.lineTo(1 - w / 2, 0);
+      },
+    },
+    h: {
+      advance: 1,
+      draw: (c) => {
+        c.moveTo(w / 2, -1.62);
+        c.lineTo(w / 2, 0);
+        c.moveTo(w / 2, -0.5);
+        c.arc(0.5, -0.5, r, Math.PI, 0);
+        c.lineTo(1 - w / 2, 0);
+      },
+    },
+    s: {
+      advance: 0.72,
+      draw: (c) => {
+        // two stacked bowls, the upper opening to the right and the lower to the left; they
+        // meet in the middle and together fill the x-height
+        const sr = (1 - w) / 4;
+        const upper = -1 + w / 2 + sr;
+        const lower = -w / 2 - sr;
+        c.moveTo(0.36 + sr * Math.cos(-0.2 * Math.PI), upper + sr * Math.sin(-0.2 * Math.PI));
+        c.arc(0.36, upper, sr, -0.2 * Math.PI, 0.5 * Math.PI, true);
+        c.arc(0.36, lower, sr, -0.5 * Math.PI, 0.8 * Math.PI);
+      },
+    },
+  };
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size, size);
+  ctx.lineWidth = w;
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "miter";
+  let pen = 0;
+  for (const ch of "bauhaus") {
+    const g = glyphs[ch];
+    ctx.save();
+    ctx.translate(pen, 0);
+    ctx.beginPath();
+    g.draw(ctx);
+    ctx.stroke();
+    ctx.restore();
+    pen += g.advance + 0.16;
+  }
+  ctx.restore();
+  return pen - 0.16;
+}
+
+/** Breaks text into lines no wider than `max` in the current font. */
+function wrap(ctx: CanvasRenderingContext2D, text: string, max: number) {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    const next = line ? `${line} ${word}` : word;
+    if (ctx.measureText(next).width > max && line) {
+      lines.push(line);
+      line = word;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function drawBauhaus(ctx: CanvasRenderingContext2D, w: number, h: number, f: Fonts, lang: Lang) {
+  ctx.fillStyle = "#e5dccf";
+  ctx.fillRect(0, 0, w, h);
+  const m = 44;
+  // the artwork, with the misregistered ink shadow of a screen print
+  const scale = 0.86;
+  const artX = (w - 400 * scale) / 2;
+  const art = (offset: number, colour: string | null) => {
+    ctx.save();
+    ctx.translate(artX + offset, m + offset);
+    ctx.scale(scale, scale);
+    BAUHAUS_ART.forEach(([d, fill], i) => {
+      const path = new Path2D(d);
+      ctx.fillStyle = colour ?? fill;
+      ctx.fill(path);
+      const screen = colour ? undefined : BAUHAUS_SCREEN[i];
+      if (!screen) return;
+      ctx.save();
+      ctx.clip(path);
+      ctx.fillStyle = fill === "#3b3b3b" || fill === "#008787" ? "#e5dccf" : "#1d1d1d";
+      if (screen === "stripes") for (let y = 0; y < 500; y += 14) ctx.fillRect(0, y, 400, 5);
+      else for (let y = 5; y < 500; y += 11) for (let x = 5; x < 400; x += 11) ctx.fillRect(x - 2, y - 2, 4, 4);
+      ctx.restore();
+    });
+    ctx.restore();
+  };
+  art(7, "#1d1d1d");
+  art(0, null);
+  // the title in Bauhaus lettering, as wide as the type area, over a thick rule
+  const unit = (w - m * 2) / 7.7; // the word is 7.7 x-heights wide (see letterBauhaus)
+  let y = m + 500 * scale + 22 + 1.62 * unit;
+  ctx.strokeStyle = "#1d1d1d";
+  letterBauhaus(ctx, m, y, unit);
+  ctx.fillStyle = "#1d1d1d";
+  y += 22;
+  ctx.fillRect(m, y, w - m * 2, 6);
+  // the note
+  y += 34;
+  ctx.textAlign = "left";
+  ctx.font = `500 19px ${f.poster}`;
+  for (const line of wrap(ctx, BAUHAUS_NOTE[lang], w - m * 2)) {
+    ctx.fillText(line, m, y);
+    y += 26;
+  }
+  // signed along the foot
+  ctx.font = `700 15px ${f.poster}`;
+  ctx.fillStyle = "#3b3b3b";
+  ctx.fillText("FAJAR MAGSYAR", m, h - 30);
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#f15a24";
+  ctx.fillText("LO-FI ↗", w - m, h - 30);
+  // paper grain and a little sun on it
+  const r = rng(1919);
+  for (let i = 0; i < 2600; i++) {
+    ctx.fillStyle = `rgba(${r() < 0.5 ? "255,250,240" : "60,45,30"},${0.04 + r() * 0.06})`;
+    ctx.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 2);
+  }
+  ctx.globalCompositeOperation = "multiply";
+  const sun = ctx.createRadialGradient(w / 2, h / 2, w * 0.3, w / 2, h / 2, h * 0.8);
+  sun.addColorStop(0, "rgba(255,240,210,0)");
+  sun.addColorStop(1, "rgba(190,150,100,0.35)");
+  ctx.fillStyle = sun;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = "source-over";
+  // tape across the top corners
+  for (const x of [w * 0.1, w * 0.9]) {
+    ctx.save();
+    ctx.translate(x, 14);
+    ctx.rotate(x < w / 2 ? -0.35 : 0.35);
+    ctx.fillStyle = "rgba(235,222,190,0.85)";
+    ctx.fillRect(-36, -12, 72, 24);
+    ctx.restore();
+  }
+}
+
+const BW = 0.4;
+const BH = 0.56;
+
+/**
+ * A Bauhaus print, taped up left of the record. The first click brings the camera to it; a click
+ * on it from there asks whether to open the Lite page, whose artwork it shares.
+ */
+function BauhausPoster({ position, fonts }: { position: [number, number]; fonts: Fonts | null }) {
+  const lang = useLang();
+  const focused = useRoom((r) => r.focus === "bauhaus");
   const tex = useCanvasTexture(
     620,
-    874,
+    868,
     (ctx, w, h) => {
       ctx.clearRect(0, 0, w, h);
-      if (!fonts) return;
-      drawAlbum(ctx, w, h, fonts, album, art);
-      age(ctx, w, h, seed);
+      if (fonts) drawBauhaus(ctx, w, h, fonts, lang);
     },
-    [fonts, seed, album, art],
+    [fonts, lang],
   );
   return (
-    <mesh position={[position[0], position[1], WALL_Z + 0.004]} rotation={[0, 0, tilt]} receiveShadow>
-      <planeGeometry args={[PW, PH]} />
-      <meshStandardMaterial map={tex} transparent alphaTest={0.5} roughness={0.95} />
-    </mesh>
+    <Interactive target="bauhaus">
+      <mesh
+        position={[position[0], position[1], WALL_Z + 0.004]}
+        rotation={[0, 0, 0.02]}
+        receiveShadow
+        onClick={(e) => {
+          if (!focused) return;
+          e.stopPropagation();
+          useRoom.getState().setConfirmLite(true);
+        }}
+        onPointerOver={() => focused && useRoom.getState().setTip("bauhaus_open_tip")}
+        onPointerOut={() => useRoom.getState().tip === "bauhaus_open_tip" && useRoom.getState().setTip(null)}
+      >
+        <planeGeometry args={[BW, BH]} />
+        <meshStandardMaterial map={tex} roughness={0.92} />
+      </mesh>
+    </Interactive>
   );
 }
 
@@ -262,8 +446,10 @@ export function Posters() {
   const fonts = useFonts();
   return (
     <group>
-      {/* the one strip of wall still in view, above the guitar */}
-      <Poster album={OK_COMPUTER} seed={1997} position={POS.wallPoster} tilt={-0.025} fonts={fonts} />
+      {/* the one strip of wall still in view, above the guitar: the record, hung on a nail */}
+      <VinylOnWall album={OK_COMPUTER} position={POS.wallPoster} />
+      {/* further left, above the amp: a Bauhaus print that leads to the Lite page */}
+      <BauhausPoster position={POS.bauhausPoster} fonts={fonts} />
       {/* at the left-hand end of the desk, turned towards the chair */}
       <Portrait />
     </group>

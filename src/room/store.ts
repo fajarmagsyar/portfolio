@@ -6,7 +6,7 @@ import { setSound as switchSound } from "@/audio/sound";
 import type { StringKey } from "@/content/strings";
 import type { PlanetId } from "./planets";
 
-export type FocusId = "tv" | "tapes" | "cds" | "cd" | "guitar" | "frames" | "notes" | "cards" | "canonet" | "album" | "saturn" | "dice" | "receipt" | "clock" | "portrait";
+export type FocusId = "tv" | "tapes" | "cds" | "cd" | "guitar" | "frames" | "notes" | "cards" | "canonet" | "album" | "saturn" | "dice" | "receipt" | "clock" | "portrait" | "bauhaus";
 export type TvScreen = "menu" | "memory" | "about";
 /** A tooltip raised by the first tap on a touch screen, waiting for the second one. */
 export type TapTip = { id: string; text: StringKey; x: number; y: number };
@@ -29,6 +29,7 @@ export const FOCUS_LABEL: Record<FocusId, StringKey> = {
   receipt: "obj_receipt",
   clock: "obj_clock",
   portrait: "obj_portrait",
+  bauhaus: "obj_bauhaus",
 };
 
 type RoomState = {
@@ -107,6 +108,9 @@ type RoomState = {
   setFocus: (focus: FocusId | null) => void;
   setHover: (hover: FocusId | null) => void;
   setTip: (tip: StringKey | null) => void;
+  /** the "open the Lite version?" question is up (from the Bauhaus poster or the LO-FI button) */
+  confirmLite: boolean;
+  setConfirmLite: (open: boolean) => void;
   setTvScreen: (s: TvScreen) => void;
   selectTape: (id: string | null) => void;
   selectCd: (id: string | null) => void;
@@ -165,6 +169,7 @@ export const useRoom = create<RoomState>((set) => ({
   focus: null,
   hover: null,
   tip: null,
+  confirmLite: false,
   tvScreen: "menu",
   selectedTape: null,
   selectedCd: null,
@@ -231,6 +236,7 @@ export const useRoom = create<RoomState>((set) => ({
   clearTapTip: () => set({ tapTip: null }),
   setHover: (hover) => set((s) => (s.hover === hover ? s : { hover })),
   setTip: (tip) => set((s) => (s.tip === tip ? s : { tip })),
+  setConfirmLite: (confirmLite) => set({ confirmLite }),
   setTvScreen: (tvScreen) => set({ tvScreen, tapTip: null }),
   selectTape: (selectedTape) => set({ selectedTape }),
   selectCd: (selectedCd) => set({ selectedCd }),

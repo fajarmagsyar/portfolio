@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { asset } from "@/asset";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type PointerEvent as ReactPointerEvent } from "react";
 import { chordName } from "@/audio/guitar";
 import { click } from "@/audio/sfx";
@@ -318,6 +318,40 @@ function Viewfinder() {
   );
 }
 
+/** Asks before leaving the room for the Lite page; raised by the Bauhaus poster and the LO-FI button. */
+function LiteConfirm() {
+  const t = useT();
+  const router = useRouter();
+  const open = useRoom((r) => r.confirmLite);
+  const setOpen = useRoom((r) => r.setConfirmLite);
+  const yes = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (open) yes.current?.focus();
+  }, [open]);
+  if (!open) return null;
+  return (
+    <div className={s.confirmBackdrop} onPointerDown={(e) => e.target === e.currentTarget && setOpen(false)}>
+      <div className={s.confirm} role="alertdialog" aria-modal="true" aria-labelledby="lite-confirm-title" aria-describedby="lite-confirm-body">
+        <h2 id="lite-confirm-title">{t("lite_confirm")}</h2>
+        <p id="lite-confirm-body">{t("lite_confirm_body")}</p>
+        <div className={s.confirmActions}>
+          <button onClick={() => setOpen(false)}>{t("lite_confirm_no")}</button>
+          <button
+            ref={yes}
+            className={s.confirmYes}
+            onClick={() => {
+              setOpen(false);
+              router.push("/lite");
+            }}
+          >
+            {t("lite_confirm_yes")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Everything drawn over the 3D room. Before the visitor has entered, that is only the name. */
 export function Hud() {
   const t = useT();
@@ -332,6 +366,8 @@ export function Hud() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // the Lite question is answered (or dismissed) before anything else
+      if (e.key === "Escape" && useRoom.getState().confirmLite) return useRoom.getState().setConfirmLite(false);
       // close in on a photo, Escape steps back to the open album first
       if (e.key === "Escape" && useRoom.getState().zoomed !== null) return useRoom.getState().setZoomed(null);
       if (e.key === "Escape" && useRoom.getState().frameZoom !== null) return setFocus(null);
@@ -357,11 +393,12 @@ export function Hud() {
       </header>
 
       <HoverLabel />
+      <LiteConfirm />
 
       {focus === "tv" && <TvOverlay />}
       {focus === "guitar" && <ChordWheel />}
       {focus === "canonet" && finder && <Viewfinder />}
-      {focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && focus !== "notes" && !zoomed && <SidePanel key={focus} focus={focus} />}
+      {focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && focus !== "notes" && focus !== "bauhaus" && !zoomed && <SidePanel key={focus} focus={focus} />}
 
       <footer className={s.foot}>
         {!booted ? (
@@ -395,13 +432,13 @@ export function Hud() {
           <LangPill />
           {/* while the guitar is being played the corner belongs to its two switches */}
           {focus !== "guitar" && (
-            <Link className={s.pill} href="/lite" title={t("lofi_tip")}>
+            <button className={s.pill} title={t("lofi_tip")} onClick={() => useRoom.getState().setConfirmLite(true)}>
               <svg viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <rect x="1.6" y="0.6" width="8.8" height="10.8" rx="1" />
                 <path d="M3.8 3.6h4.4M3.8 6h4.4M3.8 8.4h2.6" />
               </svg>
               {t("lofi")}
-            </Link>
+            </button>
           )}
         </div>
       </footer>

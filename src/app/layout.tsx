@@ -76,7 +76,7 @@ export const viewport: Viewport = {
 
 // Runs before first paint: if this device will get the 3D room, hide the static
 // markup so it does not flash before the room mounts. Mirrors canRunRoom() in Home.tsx.
-const preflight = `(function(){try{var p=new URLSearchParams(location.search);var r=p.get('room');var f=r==='1';var ok=r!=='0'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!!document.createElement('canvas').getContext('webgl2');if((location.pathname==='/'||location.pathname==='${BASE_PATH}'||location.pathname==='${BASE_PATH}/')&&(f||ok))document.documentElement.classList.add('will-room');}catch(e){}})();`;
+const preflight = `(function(){try{var p=new URLSearchParams(location.search);var r=p.get('room');var f=r==='1';var ok=r!=='0'&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!!document.createElement('canvas').getContext('webgl2');if((location.pathname==='/'||location.pathname==='${BASE_PATH}'||location.pathname==='${BASE_PATH}/')&&(f||ok))document.documentElement.classList.add('will-room');}catch(e){}try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

@@ -2,7 +2,10 @@
 
 import { asset } from "@/asset";
 import Image from "next/image";
-import { useRef, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import gsap from "gsap";
+import { Flip } from "gsap/Flip";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   certifications,
   education,
@@ -11,13 +14,16 @@ import {
   links,
   profile,
   projects,
+  skillNotes,
   skills,
+  type Lang,
 } from "@/content/data";
 import { useLang, useRestoreLang, useT } from "@/state/lang";
 import type { StringKey } from "@/content/strings";
-import { themeClass, useTheme } from "@/state/theme";
+import { themeClass, useRestoreTheme, useTheme } from "@/state/theme";
 import { FidelityToggle, LangToggle, ThemeToggle } from "@/ui/Switches";
 import { useLiteMotion } from "./useLiteMotion";
+import { useBauhausCursor } from "./useBauhausCursor";
 import s from "./LiteView.module.css";
 
 const NAV_IDS = ["about", "work", "projects", "education", "skills", "contact"] as const;
@@ -63,61 +69,157 @@ function KineticTitle({
 }
 
 /** The hero artwork: half and quarter discs on a 4 x 5 grid, like a screen-printed poster. */
-const ART: Array<{ d: string; fill: "ink" | "orange" | "teal" | "yellow" | "paper" }> = [
+type ArtPattern = "stripes-ink" | "stripes-paper" | "dots" | "rings" | "rings-up";
+const ART: Array<{ d: string; fill: "ink" | "orange" | "teal" | "yellow" | "paper"; pattern?: ArtPattern }> = [
   { d: "M100,0 A100,100 0 0 0 100,200 Z", fill: "ink" },
-  { d: "M100,0 A100,100 0 0 1 100,200 Z", fill: "orange" },
-  { d: "M200,0 A100,100 0 0 0 400,0 Z", fill: "orange" },
-  { d: "M200,200 A100,100 0 0 1 400,200 Z", fill: "ink" },
+  { d: "M100,0 A100,100 0 0 1 100,200 Z", fill: "orange", pattern: "stripes-ink" },
+  { d: "M200,0 A100,100 0 0 0 400,0 Z", fill: "orange", pattern: "rings" },
+  { d: "M200,200 A100,100 0 0 1 400,200 Z", fill: "ink", pattern: "stripes-paper" },
   { d: "M0,200 H200 V400 H0 Z", fill: "ink" },
-  { d: "M200,200 H400 V400 H200 Z", fill: "teal" },
+  { d: "M200,200 H400 V400 H200 Z", fill: "teal", pattern: "dots" },
   { d: "M300,300 A100,100 0 0 1 400,200 L400,300 Z", fill: "orange" },
-  { d: "M300,400 A100,100 0 0 1 400,300 L400,400 Z", fill: "yellow" },
+  { d: "M300,400 A100,100 0 0 1 400,300 L400,400 Z", fill: "yellow", pattern: "stripes-ink" },
   { d: "M200,200 A100,100 0 0 0 200,400 Z", fill: "yellow" },
-  { d: "M200,200 A100,100 0 0 1 200,400 Z", fill: "paper" },
-  { d: "M0,500 A100,100 0 0 1 200,500 Z", fill: "ink" },
+  { d: "M200,200 A100,100 0 0 1 200,400 Z", fill: "paper", pattern: "dots" },
+  { d: "M0,500 A100,100 0 0 1 200,500 Z", fill: "ink", pattern: "rings-up" },
   { d: "M200,400 A100,100 0 0 1 300,500 L200,500 Z", fill: "yellow" },
-  { d: "M300,500 A100,100 0 0 1 400,400 L400,500 Z", fill: "teal" },
+  { d: "M300,500 A100,100 0 0 1 400,400 L400,500 Z", fill: "teal", pattern: "stripes-paper" },
 ];
+
+/** Screen-print textures: 70s stripes, a halftone screen and sunset rings, inked over a shape. */
+function ArtPatterns() {
+  return (
+    <defs>
+      <pattern id="lite-stripes-ink" width="14" height="14" patternUnits="userSpaceOnUse">
+        <rect width="14" height="5" fill="#1d1d1d" />
+      </pattern>
+      <pattern id="lite-stripes-paper" width="14" height="14" patternUnits="userSpaceOnUse">
+        <rect width="14" height="5" fill="#e5dccf" />
+      </pattern>
+      <pattern id="lite-dots" width="11" height="11" patternUnits="userSpaceOnUse">
+        <circle cx="5.5" cy="5.5" r="2.4" fill="#1d1d1d" />
+      </pattern>
+      {/* Sunset rings: a short radial ramp, repeated outward from the shape's flat edge. */}
+      <radialGradient id="lite-rings" cx="50%" cy="0%" r="16%" spreadMethod="repeat">
+        <stop offset="0.55" stopColor="#e5dccf" stopOpacity="0" />
+        <stop offset="0.55" stopColor="#e5dccf" stopOpacity="0.9" />
+        <stop offset="1" stopColor="#e5dccf" stopOpacity="0.9" />
+      </radialGradient>
+      <radialGradient id="lite-rings-up" cx="50%" cy="100%" r="16%" spreadMethod="repeat">
+        <stop offset="0.55" stopColor="#e5dccf" stopOpacity="0" />
+        <stop offset="0.55" stopColor="#e5dccf" stopOpacity="0.9" />
+        <stop offset="1" stopColor="#e5dccf" stopOpacity="0.9" />
+      </radialGradient>
+    </defs>
+  );
+}
 
 function HeroArt() {
   return (
-    <svg className={s.art} viewBox="0 0 400 500" aria-hidden="true" focusable="false">
+    <svg className={s.art} viewBox="0 0 400 500" aria-hidden="true" focusable="false" data-hero-art>
+      <ArtPatterns />
       {ART.map((shape, i) => (
-        <path key={i} d={shape.d} className={`${s.artShape} ${s[`fill_${shape.fill}`]}`} data-art-shape />
+        <g key={i} className={s.artShape} data-art-shape>
+          <path d={shape.d} className={s[`fill_${shape.fill}`]} />
+          {shape.pattern && <path d={shape.d} className={s.artPattern} fill={`url(#lite-${shape.pattern})`} />}
+        </g>
       ))}
     </svg>
   );
 }
 
-/** A section's title row: a coloured shape, the title, and its number, like the head of a poster. */
-function SectionHead({
-  shape,
-  num,
-  kicker,
-  title,
-}: {
-  shape: "a" | "b" | "c" | "d" | "e";
-  num: string;
-  kicker: string;
-  title: string;
-}) {
+/** A section's title row: a coloured shape and the title, like the head of a poster. */
+function SectionHead({ shape, title }: { shape: "a" | "b" | "c" | "d" | "e"; title: string }) {
   return (
-    <div className={s.sectionHead} data-section-head>
+    <div className={s.sectionHead} data-section-head data-build>
       <span className={s.glyph} data-g={shape} data-glyph aria-hidden="true" />
       <div className={s.sectionTitleWrap}>
-        <p className={s.kicker} data-reveal>{kicker}</p>
         <KineticTitle text={title} className={s.sectionTitle} />
       </div>
-      <span className={s.sectionNo} data-section-no aria-hidden="true">{num}</span>
       <span className={s.headRule} data-head-rule aria-hidden="true" />
     </div>
+  );
+}
+
+/**
+ * Skill tiles. Opening one widens it to explain the skill; GSAP Flip animates every tile from
+ * where it was to where the new grid puts it, so the reflow glides instead of jumping.
+ */
+function SkillGrid({ lang }: { lang: Lang }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const grid = useRef<HTMLUListElement>(null);
+  const before = useRef<Flip.FlipState | null>(null);
+
+  const toggle = (skill: string) => {
+    const tiles = grid.current?.querySelectorAll("li");
+    if (tiles?.length) {
+      gsap.registerPlugin(Flip);
+      before.current = Flip.getState(tiles);
+    }
+    setOpen((current) => (current === skill ? null : skill));
+  };
+
+  useLayoutEffect(() => {
+    const state = before.current;
+    const box = grid.current;
+    before.current = null;
+    if (!state || !box) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      ScrollTrigger.refresh();
+      return;
+    }
+    box.setAttribute("data-flipping", "");
+    Flip.from(state, {
+      duration: 0.6,
+      ease: "power3.inOut",
+      onComplete: () => {
+        box.removeAttribute("data-flipping");
+        ScrollTrigger.refresh();
+      },
+    });
+    const note = box.querySelector("[data-skill-note]");
+    if (note) gsap.from(note, { autoAlpha: 0, y: 12, duration: 0.45, delay: 0.3, ease: "power2.out" });
+  }, [open]);
+
+  return (
+    <ul className={s.skillGrid} ref={grid} data-reveal-group>
+      {skills.map((skill) => {
+        const isOpen = open === skill;
+        const id = `skill-${skill.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+        return (
+          <li key={skill} data-reveal-item data-build data-open={isOpen || undefined}>
+            <button type="button" className={s.skillBtn} aria-expanded={isOpen} aria-controls={id} onClick={() => toggle(skill)}>
+              <span className={s.skillName}>{skill}</span>
+              <span className={s.skillMark} aria-hidden="true">{isOpen ? "−" : "+"}</span>
+            </button>
+            <p id={id} className={s.skillNote} data-skill-note={isOpen || undefined} hidden={!isOpen}>
+              {skillNotes[skill]?.[lang]}
+            </p>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * The logo's three shapes (traced from public/logo.png), each in a Bauhaus colour: the tall
+ * rounded bar in teal, the quarter disc in orange, the small leaf in yellow.
+ */
+function BauhausLogo() {
+  return (
+    <svg className={s.brandLogo} viewBox="100 40 860 1160" aria-hidden="true" focusable="false">
+      <path className={s.logoBar} d="M119,192 H180 A356,356 0 0 1 536,548 V1178 H476 A357,357 0 0 1 119,821 Z" />
+      <path className={s.logoQuarter} d="M445,59 H942 V556 H913 A468,468 0 0 1 445,88 Z" />
+      <path className={s.logoLeaf} d="M830,610 H893 V658 A248,248 0 0 1 645,906 H584 V857 A247,247 0 0 1 830,610 Z" />
+    </svg>
   );
 }
 
 /** A row of quarter discs and circles that separates the sections. */
 function ShapeBand() {
   return (
-    <div className={s.band} data-band aria-hidden="true">
+    <div className={s.band} data-band data-build aria-hidden="true">
       {Array.from({ length: 10 }, (_, i) => <span key={i} />)}
     </div>
   );
@@ -126,12 +228,14 @@ function ShapeBand() {
 /** The static version: the whole story on one page, with a cinematic scroll. */
 export function LiteView() {
   useRestoreLang();
+  useRestoreTheme();
   const lang = useLang();
   const t = useT();
   const { theme } = useTheme();
   const root = useRef<HTMLDivElement>(null);
 
   useLiteMotion(root, `${lang}-${theme}`);
+  useBauhausCursor(root);
 
   return (
     <div ref={root} className={`${s.page} ${s[themeClass(theme)]} lite-root`}>
@@ -149,18 +253,16 @@ export function LiteView() {
           </filter>
         </defs>
       </svg>
-      <div className={s.navDock}>
+      {/* Bauhaus cursor: a dot on the pointer and a trailing shape (driven by useBauhausCursor). */}
+      <div className={s.cursor} data-cursor aria-hidden="true">
+        <span className={s.cursorShape} data-cursor-shape />
+        <span className={s.cursorDot} data-cursor-dot />
+      </div>
+      <div className={s.navDock} data-nav-dock>
         <header className={s.nav} data-nav>
           <div className={s.navInner}>
             <a className={s.brand} href="#top">
-              <Image
-                className={s.brandLogo}
-                src={asset("/logo.png")}
-                alt=""
-                width={22}
-                height={28}
-                priority
-              />
+              <BauhausLogo />
               <span>{profile.name}</span>
             </a>
             <nav className={s.navLinks} data-nav-links aria-label="Main">
@@ -188,24 +290,26 @@ export function LiteView() {
         </header>
       </div>
 
+      {/* ScrollSmoother moves this pair; the fixed nav has to stay outside it. */}
+      <div className={s.smoothWrapper} data-smooth-wrapper>
+      <div data-smooth-content>
       <main>
-        <section id="top" className={s.hero} data-hero>
-          <div className={s.poster}>
+        <section id="top" className={s.hero} data-hero data-scene data-build>
+          {/* The opening screen: a blank backdrop and a subtitle under the greeting (shown by the motion hook). */}
+          <div className={s.introBackdrop} data-intro-bg aria-hidden="true" />
+          <p className={s.introSub} data-intro-sub aria-hidden="true">
+            <span data-intro-sub-text>{t("intro_role")}</span>
+          </p>
+          <div className={s.poster} data-stage>
             <div className={s.posterTop}>
               <KineticTitle text={profile.hello[lang]} as="h1" className={s.heroTitle} hero />
-              <span className={s.posterNo} aria-hidden="true" data-hero-line>
-                {String(profile.since).slice(2)}
-              </span>
             </div>
 
             <div className={s.posterBody}>
               <HeroArt />
               <div className={s.heroMain}>
-                <p className={s.eyebrow} data-hero-line>
-                  {profile.role} · Surabaya · {profile.since}
-                </p>
-                <p className={s.heroLede} data-hero-line>{profile.intro[lang]}</p>
-                <div className={s.heroActions} data-hero-cta>
+                <p className={s.heroLede} data-hero-rest>{profile.intro[lang]}</p>
+                <div className={s.heroActions} data-hero-rest>
                   <a className={s.primaryBtn} href="#work">
                     {t("nav_work")}
                     <span aria-hidden="true">↓</span>
@@ -222,24 +326,28 @@ export function LiteView() {
 
         <ShapeBand />
 
-        <section id="about" className={s.section}>
-          <SectionHead shape="a" num="01" kicker={t("more_about")} title={t("nav_about")} />
-          <div className={s.aboutGrid} data-reveal-group>
-            {profile.about[lang].map((paragraph) => (
-              <p key={paragraph} className={s.aboutText} data-reveal-item>{paragraph}</p>
+        <section id="about" className={s.section} data-scene>
+          <div data-stage>
+          <SectionHead shape="a" title={t("nav_about")} />
+          <div className={s.aboutGrid} data-reveal-group data-build>
+            {/* The lite page keeps the first two paragraphs; the room still tells the whole story. */}
+            {profile.about[lang].slice(0, 2).map((paragraph) => (
+              <p key={paragraph} className={s.aboutText} data-reveal-item data-build>{paragraph}</p>
             ))}
           </div>
-          <p className={s.likes} data-reveal>{profile.likes[lang]}</p>
+          </div>
         </section>
 
-        <section id="work" className={s.section}>
-          <SectionHead shape="b" num="02" kicker={t("work_note")} title={t("work")} />
+        <section id="work" className={s.section} data-scene>
+          <div data-stage>
+          <SectionHead shape="b" title={t("work")} />
           <div className={s.workList} data-work-list>
             {jobs.map((job) => (
               <article
                 key={job.id}
                 className={s.workCard}
                 data-work-card
+                data-build
                 style={
                   {
                     "--tape-shell": job.tape.shell,
@@ -277,10 +385,12 @@ export function LiteView() {
               </article>
             ))}
           </div>
+          </div>
         </section>
 
-        <section id="projects" className={s.section}>
-          <SectionHead shape="c" num="03" kicker={t("projects_note")} title={t("projects")} />
+        <section id="projects" className={s.section} data-scene>
+          <div data-stage>
+          <SectionHead shape="c" title={t("projects")} />
           <div className={s.projectGrid} data-reveal-group>
             {projects.map((project, i) => {
               const title = project.name ?? `${t("empty_slot")} ${String(i + 1).padStart(2, "0")}`;
@@ -289,6 +399,7 @@ export function LiteView() {
                   key={project.id}
                   className={s.projectCard}
                   data-project
+                  data-build
                   data-reveal-item
                   data-empty={!project.name}
                   style={{ "--disc": project.disc } as CSSProperties}
@@ -340,12 +451,14 @@ export function LiteView() {
               );
             })}
           </div>
+          </div>
         </section>
 
-        <section id="education" className={s.section}>
-          <SectionHead shape="d" num="04" kicker={t("education")} title={t("education")} />
+        <section id="education" className={s.section} data-scene>
+          <div data-stage>
+          <SectionHead shape="d" title={t("education")} />
           <div className={s.eduGrid}>
-            <div className={s.eduCard} data-reveal>
+            <div className={s.eduCard} data-reveal data-build>
               <p className={s.cardLabel}>{education.years}</p>
               <h3>{education.school}</h3>
               <p>{education.degree[lang]}</p>
@@ -364,26 +477,24 @@ export function LiteView() {
               </ul>
             </div>
           </div>
+          </div>
         </section>
 
-        <section id="skills" className={s.section}>
-          <SectionHead shape="e" num="05" kicker={profile.role} title={t("skills")} />
-          <ul className={s.skillGrid} data-reveal-group>
-            {skills.map((skill) => (
-              <li key={skill} data-reveal-item>{skill}</li>
-            ))}
-          </ul>
+        <section id="skills" className={s.section} data-scene>
+          <div data-stage>
+          <SectionHead shape="e" title={t("skills")} />
+          <SkillGrid lang={lang} />
+          </div>
         </section>
 
-        <section id="contact" className={s.contactSection}>
-          <div className={s.contactPanel}>
+        <section id="contact" className={s.contactSection} data-scene>
+          <div className={s.contactPanel} data-stage>
             <div className={s.contactArt} data-contact-art aria-hidden="true">
               <span />
               <span />
               <span />
               <span />
             </div>
-            <p className={s.kicker} data-reveal>{t("contact")}</p>
             <KineticTitle text={t("contact")} className={s.contactTitle} />
             <a className={s.emailLink} href={`mailto:${links.email}`} data-reveal>{links.email}</a>
             <ul className={s.contactList} data-reveal-group>
@@ -400,6 +511,8 @@ export function LiteView() {
         <span>{profile.name} · {profile.role}</span>
         <a href={asset("/?room=1")}>{t("hifi")} ↗</a>
       </footer>
+      </div>
+      </div>
     </div>
   );
 }

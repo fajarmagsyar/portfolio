@@ -318,8 +318,8 @@ function CameraRig() {
     // the inlay stand side by side, clear of each other (the cassette cannot go further left itself: the TV is there)
     const inlay = focus === "tapes" && tapeOpen && aspect > 1.05;
     // slide the picture left while a side panel is open (the TV takes the whole screen instead)
-    // nor for the Discman, the planet lamp, the guitar, the sticky notes or the card pack, which have no panel: their controls are in the room
-    const goal = inlay ? 0.14 : focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && focus !== "notes" && zoomed === null ? 0.19 : 0;
+    // nor for the Discman, the planet lamp, the guitar, the sticky notes, the card pack or the Bauhaus print, which have no panel: their controls are in the room
+    const goal = inlay ? 0.14 : focus && focus !== "tv" && focus !== "tapes" && focus !== "cd" && focus !== "cds" && focus !== "saturn" && focus !== "guitar" && focus !== "cards" && focus !== "dice" && focus !== "receipt" && focus !== "clock" && focus !== "album" && focus !== "canonet" && focus !== "portrait" && focus !== "frames" && focus !== "notes" && focus !== "bauhaus" && zoomed === null ? 0.19 : 0;
     shift.current += (goal - shift.current) * (1 - Math.exp(-dt * 3.2));
     if (Math.abs(shift.current) > 0.0005) camera.setViewOffset(size.width, size.height, shift.current * size.width, 0, size.width, size.height);
     else camera.clearViewOffset();

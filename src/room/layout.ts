@@ -78,8 +78,10 @@ export const POS = {
   saturn: [0.86, DESK.y, -0.18] as V3,
   /** the framed family photo standing on the window sill */
   sillPhoto: [-0.56, SILL.y, SILL.z + 0.07] as V3,
-  /** the poster taped to the wall left of the window: x and y of its middle */
-  wallPoster: [-1.2, 1.5] as [number, number],
+  /** the record hung on the wall left of the window: x and y of its sleeve's middle */
+  wallPoster: [-1.2, 1.52] as [number, number],
+  /** the Bauhaus print further left, above the amp: x and y of its middle */
+  bauhausPoster: [-1.82, 1.45] as [number, number],
   guitar: [-1.22, 0, -0.22] as V3,
   amp: [-1.62, 0, -0.4] as V3,
   // far enough along that its leaves do not hang in front of the album when it is held up
@@ -157,4 +159,6 @@ export const VIEWS: Record<FocusId, { pos: V3; look: V3 }> = {
   dice: { pos: [POS.dice[0], 1.04, 0.52], look: [POS.dice[0], DESK.y + 0.03, POS.dice[2] - 0.01] },
   // the lamp with room above it, where the planets line up to be picked
   saturn: { pos: [POS.saturn[0], 1.0, 0.31], look: [POS.saturn[0], SATURN_GLOBE_Y + 0.045, POS.saturn[2]] },
+  // never flown to (clicking the print opens the lo-fi site), but square on to it all the same
+  bauhaus: { pos: [-1.82, 1.45, 0.4], look: [-1.82, 1.45, WALL_Z] },
 };
