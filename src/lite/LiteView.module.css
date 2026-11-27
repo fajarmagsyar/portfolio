@@ -424,7 +424,7 @@
 
 /* ── Intro: the blank opening screen ───────────────────────────────── */
 
-/* Both stay hidden unless the motion hook runs the intro (no JS / reduced motion: the plain hero). */
+/* These all stay hidden unless the motion hook runs the intro (no JS / reduced motion: the plain hero). */
 .introBackdrop {
   position: absolute;
   inset: 0;
@@ -457,6 +457,106 @@
 
 .introSub span {
   display: inline-block;
+}
+
+.scrollCue {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.scrollCueInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  color: var(--fg3);
+}
+
+/* A hairline track with an orange stroke running down it. */
+.scrollLine {
+  position: relative;
+  width: 2px;
+  height: 44px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--fg) 14%, transparent);
+}
+
+.scrollLine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--orange);
+  animation: scrollRun 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes scrollRun {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(100%); }
+}
+
+.introTools {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.introToolsRow {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.introBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg3);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.introBtn:hover {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  color: var(--fg);
+}
+
+.introBtn [data-on] {
+  color: var(--fg);
+}
+
+.introBtn svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* ── Shape band ────────────────────────────────────────────────────── */

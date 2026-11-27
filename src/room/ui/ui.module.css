@@ -569,59 +569,6 @@ button.pill:hover,
   white-space: nowrap;
 }
 
-/* ---------- loading ----------
-   Covers the room while models and textures arrive. Once they have, it lifts, and the
-   TV in the room carries the "click to enter" prompt itself. */
-
-.boot {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  place-items: center;
-  background: #080605;
-  color: #ece7f5;
-  font-family: var(--font-screen), monospace;
-  text-transform: uppercase;
-  transition: opacity 0.9s;
-}
-.boot[data-leaving="true"] {
-  opacity: 0;
-  pointer-events: none;
-}
-.bootBox {
-  display: grid;
-  gap: 14px;
-  justify-items: center;
-}
-.bootName {
-  margin: 0;
-  font-family: var(--font-display), var(--font-body), sans-serif;
-  font-stretch: 125%;
-  font-variation-settings: "wdth" 125;
-  font-weight: 900;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  color: #fff;
-}
-.bootLogo {
-  position: relative;
-  width: min(16vw, 72px);
-  aspect-ratio: 1054 / 1274;
-  background: rgba(236, 231, 245, 0.14);
-  mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-}
-.bootFill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #ece7f5;
-  transition: height 0.3s ease-out;
-}
 @keyframes blink {
   50% {
     opacity: 0.35;

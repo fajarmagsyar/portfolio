@@ -57,6 +57,8 @@ html.will-room,
 html.will-room body {
   overflow: hidden;
   height: 100%;
+  /* black from the first paint, the same as the loading screen that follows */
+  background: #000;
 }
 
 .sr-only {

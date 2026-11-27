@@ -67,12 +67,16 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
         const centreY = () => window.innerHeight * 0.46;
         const sub = q("[data-intro-sub]")[0];
         const dock = q("[data-nav-dock]")[0];
+        const tools = q("[data-intro-tools]")[0] as HTMLElement;
+        const cue = q("[data-intro-cue]")[0] as HTMLElement;
 
         // The greeting's flight is driven by a 0..1 value; the offsets it scales are re-measured on
         // every refresh (language swap, resize, fonts), so it always starts dead centre.
         let dx = 0;
         let dy = 0;
         let subY = 0;
+        let toolsY = 0;
+        let cueY = 0;
         const flight = { p: 0 };
         const ease = gsap.parseEase("power2.inOut");
         const measure = () => {
@@ -80,11 +84,16 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
           dx = hero.offsetWidth / 2 - box.cx;
           dy = centreY() - box.cy;
           subY = centreY() + box.height / 2 + 14;
+          toolsY = centreY() - box.height / 2 - 20 - tools.offsetHeight;
+          cueY = window.innerHeight - cue.offsetHeight - 24;
         };
         const place = () => {
           const left = 1 - ease(flight.p);
           gsap.set(heroTitle, { x: dx * left, y: dy * left });
-          gsap.set(sub, { y: subY - 44 * Math.min(flight.p / 0.4, 1) });
+          const lift = 44 * Math.min(flight.p / 0.4, 1);
+          gsap.set(sub, { y: subY - lift });
+          gsap.set(tools, { y: toolsY - lift });
+          gsap.set(cue, { y: cueY });
         };
         measure();
         place();
@@ -101,7 +110,8 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
             },
           })
           .fromTo(flight, { p: 0 }, { p: 1, duration: 0.34, onUpdate: place }, 0)
-          .fromTo(sub, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.14 }, 0)
+          .fromTo([sub, tools], { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.14 }, 0)
+          .fromTo(cue, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.06 }, 0)
           .fromTo("[data-intro-bg]", { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.26 }, 0.08)
           .fromTo(dock, { yPercent: -180, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: 0.14, ease: "power2.out" }, 0.24)
           .fromTo("[data-hero-art]", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.1 }, 0.3)
@@ -291,7 +301,9 @@ export function useLiteMotion(rootRef: RefObject<HTMLElement | null>, refreshKey
       gsap
         .timeline({ defaults: { ease: "power3.out" }, delay: 0.15 })
         .from(q("[data-hero-word]"), { yPercent: 115, rotate: 3, duration: 1, stagger: 0.08 })
-        .from(q("[data-intro-sub-text]"), { y: 16, autoAlpha: 0, duration: 0.8 }, "-=0.6");
+        .from(q("[data-intro-sub-text]"), { y: 16, autoAlpha: 0, duration: 0.8 }, "-=0.6")
+        .from(q("[data-intro-tools-row]"), { y: -10, autoAlpha: 0, duration: 0.6 }, "<0.15")
+        .from(q("[data-intro-cue-inner]"), { autoAlpha: 0, duration: 0.6 }, "<0.2");
 
       // Section titles unmask word by word as they enter.
       q("[data-kinetic]").forEach((title) => {

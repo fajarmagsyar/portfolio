@@ -18,9 +18,10 @@ import {
   skills,
   type Lang,
 } from "@/content/data";
-import { useLang, useRestoreLang, useT } from "@/state/lang";
+import { useLang, useLangStore, useRestoreLang, useT } from "@/state/lang";
 import type { StringKey } from "@/content/strings";
 import { themeClass, useRestoreTheme, useTheme } from "@/state/theme";
+import { LOGO } from "@/ui/logo";
 import { FidelityToggle, LangToggle, ThemeToggle } from "@/ui/Switches";
 import { useLiteMotion } from "./useLiteMotion";
 import { useBauhausCursor } from "./useBauhausCursor";
@@ -128,6 +129,48 @@ function HeroArt() {
   );
 }
 
+/** The opening screen's two quiet switches (the nav and its toggles only dock once you scroll). */
+function IntroTools() {
+  const lang = useLang();
+  const setLang = useLangStore((st) => st.setLang);
+  const { theme, setTheme } = useTheme();
+  const dark = theme === "dark";
+  return (
+    <div className={s.introTools} data-intro-tools>
+      <div className={s.introToolsRow} data-intro-tools-row>
+        <button
+          type="button"
+          className={s.introBtn}
+          aria-label={lang === "id" ? "Switch to English" : "Ganti ke Bahasa Indonesia"}
+          onClick={() => setLang(lang === "id" ? "en" : "id")}
+        >
+          <span data-on={lang === "id" || undefined}>id</span>
+          <span aria-hidden="true">/</span>
+          <span data-on={lang === "en" || undefined}>en</span>
+        </button>
+        <button
+          type="button"
+          className={s.introBtn}
+          aria-label={dark ? "Light mode" : "Dark mode"}
+          onClick={() => setTheme(dark ? "light" : "dark")}
+        >
+          {/* Shows what a press gives you: a sun in the dark, a moon in the light. */}
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            {dark ? (
+              <>
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" />
+              </>
+            ) : (
+              <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z" />
+            )}
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** A section's title row: a coloured shape and the title, like the head of a poster. */
 function SectionHead({ shape, title }: { shape: "a" | "b" | "c" | "d" | "e"; title: string }) {
   return (
@@ -202,16 +245,13 @@ function SkillGrid({ lang }: { lang: Lang }) {
   );
 }
 
-/**
- * The logo's three shapes (traced from public/logo.png), each in a Bauhaus colour: the tall
- * rounded bar in teal, the quarter disc in orange, the small leaf in yellow.
- */
+/** The logo's three shapes, each in a Bauhaus colour: the bar teal, the quarter orange, the leaf yellow. */
 function BauhausLogo() {
   return (
-    <svg className={s.brandLogo} viewBox="100 40 860 1160" aria-hidden="true" focusable="false">
-      <path className={s.logoBar} d="M119,192 H180 A356,356 0 0 1 536,548 V1178 H476 A357,357 0 0 1 119,821 Z" />
-      <path className={s.logoQuarter} d="M445,59 H942 V556 H913 A468,468 0 0 1 445,88 Z" />
-      <path className={s.logoLeaf} d="M830,610 H893 V658 A248,248 0 0 1 645,906 H584 V857 A247,247 0 0 1 830,610 Z" />
+    <svg className={s.brandLogo} viewBox={LOGO.viewBox} aria-hidden="true" focusable="false">
+      <path className={s.logoBar} d={LOGO.bar} />
+      <path className={s.logoQuarter} d={LOGO.quarter} />
+      <path className={s.logoLeaf} d={LOGO.leaf} />
     </svg>
   );
 }
@@ -297,9 +337,16 @@ export function LiteView() {
         <section id="top" className={s.hero} data-hero data-scene data-build>
           {/* The opening screen: a blank backdrop and a subtitle under the greeting (shown by the motion hook). */}
           <div className={s.introBackdrop} data-intro-bg aria-hidden="true" />
+          <IntroTools />
           <p className={s.introSub} data-intro-sub aria-hidden="true">
             <span data-intro-sub-text>{t("intro_role")}</span>
           </p>
+          <div className={s.scrollCue} data-intro-cue aria-hidden="true">
+            <div className={s.scrollCueInner} data-intro-cue-inner>
+              <span>{t("intro_scroll")}</span>
+              <span className={s.scrollLine} />
+            </div>
+          </div>
           <div className={s.poster} data-stage>
             <div className={s.posterTop}>
               <KineticTitle text={profile.hello[lang]} as="h1" className={s.heroTitle} hero />
